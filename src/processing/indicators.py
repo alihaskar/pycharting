@@ -92,3 +92,44 @@ def calculate_sma(prices: pd.Series, period: int) -> pd.Series:
     
     return sma
 
+
+def calculate_ema(prices: pd.Series, period: int) -> pd.Series:
+    """
+    Calculate Exponential Moving Average (EMA).
+    
+    EMA gives more weight to recent prices using exponential weighting.
+    Formula: EMA = (Price * Alpha) + (Previous EMA * (1 - Alpha))
+    where Alpha = 2 / (Period + 1)
+    
+    The first EMA value is initialized using SMA.
+    
+    Args:
+        prices: Series of price data (typically close prices)
+        period: Period for EMA calculation
+    
+    Returns:
+        Series of EMA values with same index as input
+        First 'period-1' values will be NaN (lookback period)
+    """
+    if len(prices) == 0:
+        return pd.Series([], dtype=float)
+    
+    if len(prices) < period:
+        # Not enough data, return all NaN
+        return pd.Series([np.nan] * len(prices), index=prices.index)
+    
+    # Calculate alpha (smoothing factor)
+    alpha = 2.0 / (period + 1)
+    
+    # Initialize EMA series
+    ema = pd.Series(index=prices.index, dtype=float)
+    
+    # First EMA value is the SMA of the first 'period' prices
+    ema.iloc[period - 1] = prices.iloc[:period].mean()
+    
+    # Calculate subsequent EMA values using the formula
+    for i in range(period, len(prices)):
+        ema.iloc[i] = (prices.iloc[i] * alpha) + (ema.iloc[i-1] * (1 - alpha))
+    
+    return ema
+
