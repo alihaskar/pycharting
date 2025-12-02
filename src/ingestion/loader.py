@@ -243,3 +243,72 @@ def clean_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     
     return df_copy
 
+
+def optimize_dataframe(df: pd.DataFrame, source: str = None) -> pd.DataFrame:
+    """
+    Optimize DataFrame for time-series operations.
+    
+    Optimizations:
+    - Set timestamp as datetime index for efficient time-based operations
+    - Sort by timestamp (chronological order)
+    - Optimize memory usage with appropriate data types
+    - Validate required columns
+    - Add metadata attributes
+    
+    Args:
+        df: DataFrame with timestamp column
+        source: Optional source identifier for metadata
+    
+    Returns:
+        Optimized DataFrame with datetime index
+    
+    Raises:
+        ValueError: If required columns are missing
+    """
+    # Required columns for OHLC data
+    required_columns = ["timestamp", "open", "high", "low", "close", "volume"]
+    
+    # Validate required columns
+    missing_columns = set(required_columns) - set(df.columns)
+    if missing_columns:
+        raise ValueError(
+            f"Missing required columns: {missing_columns}. "
+            f"Found columns: {list(df.columns)}"
+        )
+    
+    df_copy = df.copy()
+    
+    # Set timestamp as index
+    if "timestamp" in df_copy.columns:
+        df_copy = df_copy.set_index("timestamp")
+    
+    # Sort by timestamp (chronological order)
+    df_copy = df_copy.sort_index()
+    
+    # Optimize memory usage
+    # Convert price columns to float32 (sufficient precision for most use cases)
+    price_columns = ["open", "high", "low", "close"]
+    for col in price_columns:
+        if col in df_copy.columns:
+            df_copy[col] = df_copy[col].astype(np.float32)
+    
+    # Convert volume to int32 if all values are integers, otherwise float32
+    if "volume" in df_copy.columns:
+        # Check if all values are integers (within floating point precision)
+        if (df_copy["volume"] % 1 == 0).all():
+            # Convert to int32 for memory efficiency
+            df_copy["volume"] = df_copy["volume"].astype(np.int32)
+        else:
+            # Keep as float32 for fractional volumes
+            df_copy["volume"] = df_copy["volume"].astype(np.float32)
+    
+    # Add metadata attributes
+    from datetime import datetime
+    df_copy.attrs = {
+        "source": source,
+        "processed_at": datetime.now().isoformat(),
+        "optimized": True
+    }
+    
+    return df_copy
+
