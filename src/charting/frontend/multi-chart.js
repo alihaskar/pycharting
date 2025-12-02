@@ -1616,9 +1616,6 @@ export class MultiChartManager {
             
             // Build API URL
             const params = new URLSearchParams({ filename });
-            if (options.timeframe) {
-                params.append('timeframe', options.timeframe);
-            }
             
             // Extract overlays and subplots from options or config
             let overlays = [];

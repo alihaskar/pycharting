@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Financial Charting Tool</title>
+    <title>pyCharting</title>
     
     <!-- uPlot CSS from CDN -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.min.css">
@@ -145,27 +145,13 @@
 </head>
 <body>
     <header>
-        <h1>📈 Financial Chart</h1>
+        <h1>pyCharting</h1>
         
         <div class="controls">
             <!-- File Selection -->
             <div class="control-group">
                 <label for="file-select">CSV File</label>
                 <input type="text" id="file-select" placeholder="sample.csv" style="width: 140px;">
-            </div>
-            
-            <!-- Timeframe Selection -->
-            <div class="control-group">
-                <label for="timeframe-select">Timeframe</label>
-                <select id="timeframe-select" style="width: 100px;">
-                    <option value="">Original</option>
-                    <option value="1min">1min</option>
-                    <option value="5min">5min</option>
-                    <option value="15min">15min</option>
-                    <option value="1h">1h</option>
-                    <option value="4h">4h</option>
-                    <option value="1D">1D</option>
-                </select>
             </div>
             
             <!-- Indicator Selection - Hidden by default, shows calculated indicators from CSV -->
@@ -200,7 +186,7 @@
     </main>
     
     <footer>
-        <p>&copy; 2024 Financial Charting Tool. Built with uPlot and Python.</p>
+        <p>&copy; 2024 pyCharting. Built with uPlot and Python.</p>
     </footer>
     
     <!-- uPlot JavaScript from CDN -->
