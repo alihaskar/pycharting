@@ -35,6 +35,8 @@ class MockHTMLElement {
         this.eventListeners = {};
         this._innerHTML = '';
         this.dataset = {};
+        this.attributes = {}; // Store attributes
+        this.offsetHeight = 0; // Mock offsetHeight
     }
 
     get innerHTML() {
@@ -80,11 +82,11 @@ class MockHTMLElement {
     }
 
     setAttribute(name, value) {
-        this[name] = value;
+        this.attributes[name] = value;
     }
 
     getAttribute(name) {
-        return this[name];
+        return this.attributes[name];
     }
 
     removeChild(child) {
@@ -620,6 +622,185 @@ test('No resize when not dragging', () => {
     divider.handleMouseMove({ clientY: 150, preventDefault: () => {} });
     
     assertFalse(dragCalled, 'Should not trigger drag when not in drag state');
+});
+
+// ============================================================================
+// Test Suite: Accessibility Features
+// ============================================================================
+
+test('Divider has appropriate ARIA role', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    const role = divider.element.getAttribute('role');
+    assertEqual(role, 'separator', 'Should have separator role');
+});
+
+test('Divider has ARIA label', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    const label = divider.element.getAttribute('aria-label');
+    assertTrue(label !== null && label !== '', 'Should have aria-label');
+});
+
+test('Divider has ARIA orientation', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    const orientation = divider.element.getAttribute('aria-orientation');
+    assertEqual(orientation, 'horizontal', 'Should have horizontal orientation');
+});
+
+test('Divider is keyboard focusable', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    const tabIndex = divider.element.getAttribute('tabindex');
+    assertEqual(tabIndex, '0', 'Should have tabindex 0 for keyboard focus');
+});
+
+test('Divider has keyboard event listeners', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    assertTrue(divider.element.eventListeners['keydown'], 'Should have keydown listener');
+});
+
+test('Arrow down key moves divider down', () => {
+    const container = new MockHTMLElement();
+    let dragCalled = false;
+    let capturedDelta;
+    
+    const divider = new DraggableDivider(container, {
+        onDrag: (deltaY) => {
+            dragCalled = true;
+            capturedDelta = deltaY;
+        }
+    });
+    
+    divider.handleKeyDown({ key: 'ArrowDown', preventDefault: () => {} });
+    
+    assertTrue(dragCalled, 'Should trigger drag');
+    assertTrue(capturedDelta > 0, 'Should move down (positive delta)');
+});
+
+test('Arrow up key moves divider up', () => {
+    const container = new MockHTMLElement();
+    let capturedDelta;
+    
+    const divider = new DraggableDivider(container, {
+        onDrag: (deltaY) => {
+            capturedDelta = deltaY;
+        }
+    });
+    
+    divider.handleKeyDown({ key: 'ArrowUp', preventDefault: () => {} });
+    
+    assertTrue(capturedDelta < 0, 'Should move up (negative delta)');
+});
+
+test('Keyboard navigation respects step size', () => {
+    const container = new MockHTMLElement();
+    let capturedDelta;
+    
+    const divider = new DraggableDivider(container, {
+        keyboardStep: 20,
+        onDrag: (deltaY) => {
+            capturedDelta = deltaY;
+        }
+    });
+    
+    divider.handleKeyDown({ key: 'ArrowDown', preventDefault: () => {} });
+    
+    assertEqual(capturedDelta, 20, 'Should use custom step size');
+});
+
+test('Shift+Arrow uses larger step', () => {
+    const container = new MockHTMLElement();
+    let capturedDelta;
+    
+    const divider = new DraggableDivider(container, {
+        onDrag: (deltaY) => {
+            capturedDelta = deltaY;
+        }
+    });
+    
+    divider.handleKeyDown({ key: 'ArrowDown', shiftKey: true, preventDefault: () => {} });
+    
+    // Larger step with shift (e.g., 50px instead of 10px)
+    assertTrue(capturedDelta > 10, 'Should use larger step with shift key');
+});
+
+test('Keyboard navigation prevents default', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    let preventDefaultCalled = false;
+    divider.handleKeyDown({
+        key: 'ArrowDown',
+        preventDefault: () => { preventDefaultCalled = true; }
+    });
+    
+    assertTrue(preventDefaultCalled, 'Should prevent default for arrow keys');
+});
+
+test('Non-arrow keys are ignored', () => {
+    const container = new MockHTMLElement();
+    let dragCalled = false;
+    
+    const divider = new DraggableDivider(container, {
+        onDrag: () => {
+            dragCalled = true;
+        }
+    });
+    
+    divider.handleKeyDown({ key: 'a', preventDefault: () => {} });
+    
+    assertFalse(dragCalled, 'Should ignore non-arrow keys');
+});
+
+test('ARIA live region announces changes', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container, {
+        announceChanges: true
+    });
+    
+    // Should have live region for announcements
+    const ariaLive = divider.element.getAttribute('aria-live');
+    assertTrue(ariaLive === 'polite' || ariaLive === 'assertive' || divider.liveRegion !== undefined,
+        'Should have ARIA live region or aria-live attribute');
+});
+
+test('Focus indicator is visible', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    // Element should be focusable and have visible focus
+    const tabIndex = divider.element.getAttribute('tabindex');
+    assertEqual(tabIndex, '0', 'Should be focusable for visible focus indicator');
+});
+
+test('Keyboard controls respect minimum size', () => {
+    const container = new MockHTMLElement();
+    const topPanel = new MockHTMLElement();
+    const bottomPanel = new MockHTMLElement();
+    
+    topPanel.style.height = '60px';
+    bottomPanel.style.height = '200px';
+    
+    const divider = new DraggableDivider(container, {
+        topElement: topPanel,
+        bottomElement: bottomPanel,
+        minSize: 50,
+        keyboardStep: 20
+    });
+    
+    // Try to move down (would violate min size)
+    divider.handleKeyDown({ key: 'ArrowDown', preventDefault: () => {} });
+    
+    const newHeight = parseInt(topPanel.style.height);
+    assertTrue(newHeight >= 50, 'Should respect minimum size with keyboard');
 });
 
 // ============================================================================

@@ -40,9 +40,18 @@ export class DraggableDivider {
         this.startY = 0;
         this.currentY = 0;
         
+        // Keyboard step size
+        this.keyboardStep = options.keyboardStep || 10;
+        this.keyboardStepLarge = options.keyboardStepLarge || 50;
+        
         // Create and setup divider element
         this.element = this.createDividerElement();
         this.container.appendChild(this.element);
+        
+        // Create ARIA live region if needed
+        if (options.announceChanges) {
+            this.liveRegion = this.createLiveRegion();
+        }
         
         // Bind event handlers
         this.boundHandleMouseDown = this.handleMouseDown.bind(this);
@@ -51,6 +60,7 @@ export class DraggableDivider {
         this.boundHandleTouchStart = this.handleTouchStart.bind(this);
         this.boundHandleTouchMove = this.handleTouchMove.bind(this);
         this.boundHandleTouchEnd = this.handleTouchEnd.bind(this);
+        this.boundHandleKeyDown = this.handleKeyDown.bind(this);
         
         // Setup event listeners
         this.setupEventListeners();
@@ -78,6 +88,17 @@ export class DraggableDivider {
         // GPU acceleration hint
         divider.style.willChange = 'transform';
         
+        // Accessibility attributes
+        divider.setAttribute('role', 'separator');
+        divider.setAttribute('aria-label', 'Resizable chart divider');
+        divider.setAttribute('aria-orientation', 'horizontal');
+        divider.setAttribute('tabindex', '0');
+        
+        // Add aria-live if announcements are enabled
+        if (this.options.announceChanges) {
+            divider.setAttribute('aria-live', 'polite');
+        }
+        
         // Add hover effect
         divider.addEventListener('mouseenter', () => {
             divider.style.background = '#999';
@@ -92,6 +113,25 @@ export class DraggableDivider {
     }
     
     /**
+     * Create ARIA live region for announcements
+     * @private
+     */
+    createLiveRegion() {
+        const liveRegion = document.createElement('div');
+        liveRegion.setAttribute('role', 'status');
+        liveRegion.setAttribute('aria-live', 'polite');
+        liveRegion.setAttribute('aria-atomic', 'true');
+        liveRegion.style.position = 'absolute';
+        liveRegion.style.left = '-10000px';
+        liveRegion.style.width = '1px';
+        liveRegion.style.height = '1px';
+        liveRegion.style.overflow = 'hidden';
+        
+        this.container.appendChild(liveRegion);
+        return liveRegion;
+    }
+    
+    /**
      * Setup all event listeners
      * @private
      */
@@ -101,6 +141,9 @@ export class DraggableDivider {
         
         // Touch events
         this.element.addEventListener('touchstart', this.boundHandleTouchStart, { passive: false });
+        
+        // Keyboard events for accessibility
+        this.element.addEventListener('keydown', this.boundHandleKeyDown);
     }
     
     /**
@@ -321,12 +364,68 @@ export class DraggableDivider {
     }
     
     /**
+     * Handle keyboard navigation
+     * @param {KeyboardEvent} event
+     */
+    handleKeyDown(event) {
+        // Only handle arrow keys
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
+            return;
+        }
+        
+        event.preventDefault();
+        
+        // Determine step size (larger with shift key)
+        const step = event.shiftKey ? this.keyboardStepLarge : this.keyboardStep;
+        
+        // Calculate delta based on arrow key
+        const deltaY = event.key === 'ArrowDown' ? step : -step;
+        
+        // Resize panels if elements are provided
+        if (this.options.topElement && this.options.bottomElement) {
+            this.resizePanels(deltaY);
+        }
+        
+        // Fire onDrag callback
+        if (this.options.onDrag) {
+            this.options.onDrag(deltaY);
+        }
+        
+        // Announce change to screen readers
+        if (this.liveRegion) {
+            this.announceResize(deltaY);
+        }
+    }
+    
+    /**
+     * Announce resize to screen readers
+     * @private
+     * @param {number} deltaY - The resize delta
+     */
+    announceResize(deltaY) {
+        if (!this.liveRegion) return;
+        
+        const direction = deltaY > 0 ? 'increased' : 'decreased';
+        const amount = Math.abs(deltaY);
+        
+        this.liveRegion.textContent = `Panel size ${direction} by ${amount} pixels`;
+        
+        // Clear announcement after a delay
+        setTimeout(() => {
+            if (this.liveRegion) {
+                this.liveRegion.textContent = '';
+            }
+        }, 1000);
+    }
+    
+    /**
      * Cleanup and remove the divider
      */
     destroy() {
         // Remove event listeners
         this.element.removeEventListener('mousedown', this.boundHandleMouseDown);
         this.element.removeEventListener('touchstart', this.boundHandleTouchStart);
+        this.element.removeEventListener('keydown', this.boundHandleKeyDown);
         
         // Remove document-level listeners if dragging
         if (this.isDragging) {
@@ -334,6 +433,11 @@ export class DraggableDivider {
             document.removeEventListener('mouseup', this.boundHandleMouseUp);
             document.removeEventListener('touchmove', this.boundHandleTouchMove);
             document.removeEventListener('touchend', this.boundHandleTouchEnd);
+        }
+        
+        // Remove live region if it exists
+        if (this.liveRegion && this.liveRegion.parentElement) {
+            this.liveRegion.parentElement.removeChild(this.liveRegion);
         }
         
         // Remove element from DOM
@@ -344,6 +448,7 @@ export class DraggableDivider {
         // Clear references
         this.element = null;
         this.container = null;
+        this.liveRegion = null;
         this.options = null;
     }
 }
