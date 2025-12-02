@@ -8,6 +8,8 @@
 
 A high-performance, open-source Python charting library for visualizing OHLC (Open, High, Low, Close) financial data with technical indicators. Built with FastAPI, uPlot, and modern web technologies.
 
+![pyCharting Demo](examples/image.png)
+
 ## Table of Contents
 
 - [Installation](#installation)
@@ -699,6 +701,50 @@ For issues, questions, or suggestions:
 - **Discussions**: https://github.com/alihaskar/pycharting/discussions
 - Check existing issues for solutions
 - Review documentation and examples
+
+---
+
+## Roadmap
+
+Future features and enhancements planned for pyCharting:
+
+### Data Sources
+- [ ] **Live Data Integration** - Real-time market data feeds
+  - WebSocket support for streaming data
+  - Integration with popular data providers (Alpaca, Interactive Brokers, etc.)
+  - Auto-refresh charts with live updates
+
+### Trading Features
+- [ ] **Position Visualization** - Display trading positions on charts
+  - Entry/exit markers
+  - Position sizing and P&L display
+  - Trade annotations and notes
+  
+- [ ] **Backtest Results** - Visualize backtesting performance
+  - Equity curve overlay
+  - Drawdown visualization
+  - Trade statistics panel
+  - Performance metrics display
+
+### Interaction Enhancements
+- [ ] **Time Travel** - Navigate through historical data
+  - Timeline slider for moving forward/backward in time
+  - Replay mode for backtesting analysis
+  - Step-by-step trade execution review
+  - Date range picker with quick filters
+
+### Additional Indicators
+- [ ] Volume profile
+- [ ] Order flow imbalance
+- [ ] Custom indicator builder
+- [ ] More technical indicators (ATR, ADX, Ichimoku, etc.)
+
+### Performance
+- [ ] WebGL rendering for even larger datasets
+- [ ] Data streaming and lazy loading
+- [ ] Enhanced caching mechanisms
+
+Have a feature request? [Open an issue](https://github.com/alihaskar/pycharting/issues) on GitHub!
 
 ---
 
