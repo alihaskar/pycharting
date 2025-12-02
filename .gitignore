@@ -86,6 +86,17 @@ data/
 # Task Master
 .taskmaster/
 /.taskmaster
+/.cursor/
+.cursor/
+.cursor
+/cursor/
+.cursor/
+/.taskmaster
+taskmaster/
+.taskmaster/
+.taskmaster
+!node_modules/.cursor
+!node_modules/.taskmaster
 
 
 # Dependency directories
