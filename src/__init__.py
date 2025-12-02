@@ -1,0 +1,2 @@
+"""Financial charting tool package."""
+
