@@ -104,10 +104,11 @@ async def get_chart_data(
             logger.info(f"Requested subplots: {subplot_list}")
         
         # Load and process data
-        # TODO: Pass overlay_list and subplot_list to processor (Task 17.2)
         uplot_data, metadata = load_and_process_data(
             filename=filename,
             indicators=indicators,
+            overlays=overlay_list,
+            subplots=subplot_list,
             timeframe=timeframe,
             start_date=start_date,
             end_date=end_date
