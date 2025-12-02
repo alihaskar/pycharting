@@ -4,10 +4,10 @@ Single-Command Launcher for Financial Charting
 Task 8: Provides a simple way to generate sample data and launch a chart.
 
 Usage:
-    python -m src.python_api.launcher
+    python -m src.charting.launcher
     
 Or in code:
-    from src.python_api.launcher import main
+    from src.charting.launcher import main
     main()
 """
 import logging

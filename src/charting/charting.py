@@ -7,7 +7,7 @@ interactive charts in the browser with automatic OHLC and indicator detection.
 
 import os
 import logging
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 import pandas as pd
 
 from .detector import (
@@ -104,7 +104,7 @@ class Charting:
     
     def load(
         self,
-        df: pd.DataFrame,
+        df: Union[pd.DataFrame, str],
         overlays: Optional[List[str]] = None,
         subplots: Optional[List[str]] = None,
         # Task 7.1: Explicit column mapping parameters
@@ -123,7 +123,7 @@ class Charting:
         Task 7.1: Enhanced with explicit column mappings and indicator dict
         
         Args:
-            df: Pandas DataFrame with OHLC data and optional indicators
+            df: Pandas DataFrame with OHLC data and optional indicators, OR path to CSV file
             overlays: List of overlay indicator column names (optional)
             subplots: List of subplot indicator column names (optional)
             open: Explicit column name for open prices (optional)
@@ -144,6 +144,9 @@ class Charting:
             # Auto-detection (backward compatible)
             chart.load(df)
             
+            # Load from CSV file
+            chart.load("data.csv")
+            
             # Explicit column mapping
             chart.load(df, open='PriceOpen', high='PriceHigh', ...)
             
@@ -152,6 +155,66 @@ class Charting:
         """
         logger.info("Loading DataFrame...")
         
+        # Handle CSV file path
+        if isinstance(df, str):
+            logger.info(f"Reading CSV file: {df}")
+            if not os.path.exists(df):
+                raise FileNotFoundError(f"File not found: {df}")
+            
+            try:
+                # Try to read with pandas
+                # We assume 'timestamp' or similar is the index, or first column is date
+                # We'll try to parse dates automatically
+                df_obj = pd.read_csv(df, parse_dates=True)
+                
+                # Check if index is datetime, if not try to find a date column
+                if not isinstance(df_obj.index, pd.DatetimeIndex):
+                    # Look for common date column names
+                    date_cols = [c for c in df_obj.columns if 'date' in c.lower() or 'time' in c.lower()]
+                    if date_cols:
+                        col = date_cols[0]
+                        df_obj[col] = pd.to_datetime(df_obj[col])
+                        df_obj.set_index(col, inplace=True)
+                        logger.info(f"Set index to '{col}' column")
+                    else:
+                        # Fallback: try to parse first column as index if it looks like date
+                        try:
+                            df_obj.index = pd.to_datetime(df_obj.iloc[:, 0])
+                            df_obj = df_obj.iloc[:, 1:] # Remove first column if it became index
+                            logger.info("Parsed first column as datetime index")
+                        except:
+                            pass # Will be caught by _validate_dataframe
+                            
+                df = df_obj
+                
+            except Exception as e:
+                raise ValueError(f"Failed to read CSV file '{df}': {e}")
+        
+        # Check if DataFrame has DatetimeIndex. If not, try to set it.
+        if not isinstance(df.index, pd.DatetimeIndex):
+             # Look for common date column names
+            date_cols = [c for c in df.columns if 'date' in c.lower() or 'time' in c.lower()]
+            if date_cols:
+                col = date_cols[0]
+                try:
+                    df[col] = pd.to_datetime(df[col])
+                    df.set_index(col, inplace=True)
+                    logger.info(f"Set index to '{col}' column")
+                except Exception as e:
+                    logger.warning(f"Failed to convert '{col}' to datetime index: {e}")
+            else:
+                # Fallback: try to parse first column as index if it looks like date
+                # But don't force it if it's numeric
+                try:
+                    first_col = df.iloc[:, 0]
+                    # Check if it looks like a date (string) or is actually object type
+                    if pd.api.types.is_object_dtype(first_col) or pd.api.types.is_string_dtype(first_col):
+                        df.index = pd.to_datetime(first_col)
+                        df = df.iloc[:, 1:] # Remove first column if it became index
+                        logger.info("Parsed first column as datetime index")
+                except:
+                    pass 
+
         # Task 28.1: Validate DataFrame
         self._validate_dataframe(df)
         
@@ -355,4 +418,3 @@ class Charting:
         self._cleanup_temp_files()
         
         logger.info("Charting instance closed")
-

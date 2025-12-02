@@ -20,7 +20,7 @@ class TestMapColumnsBasic:
     
     def test_standard_lowercase_names_pass_through(self):
         """Standard lowercase names should pass through unchanged"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -41,7 +41,7 @@ class TestMapColumnsBasic:
     
     def test_custom_uppercase_names_mapped(self):
         """Uppercase column names should be mapped to lowercase"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -61,7 +61,7 @@ class TestMapColumnsBasic:
     
     def test_custom_mixed_case_names_mapped(self):
         """Mixed case column names should be mapped"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -80,7 +80,7 @@ class TestMapColumnsBasic:
     
     def test_volume_is_optional(self):
         """Volume column should be optional"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -103,7 +103,7 @@ class TestMapColumnsValidation:
     
     def test_missing_required_column_raises_error(self):
         """Missing required OHLC column should raise ValueError"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -120,7 +120,7 @@ class TestMapColumnsValidation:
     
     def test_non_numeric_column_raises_error(self):
         """Non-numeric OHLC columns should raise TypeError"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -137,7 +137,7 @@ class TestMapColumnsValidation:
     
     def test_specified_column_not_found_raises_error(self):
         """Specifying non-existent column should raise ValueError"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -154,7 +154,7 @@ class TestMapColumnsValidation:
     
     def test_duplicate_column_mapping_raises_error(self):
         """Mapping two OHLC fields to same column should raise ValueError"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -174,7 +174,7 @@ class TestMapColumnsEdgeCases:
     
     def test_extra_columns_preserved(self):
         """Extra columns (like bid, ask) should be preserved"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -196,7 +196,7 @@ class TestMapColumnsEdgeCases:
     
     def test_single_row_dataframe(self):
         """Should work with single-row DataFrame"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=1, freq='1h')
         df = pd.DataFrame({
@@ -215,7 +215,7 @@ class TestMapColumnsEdgeCases:
     
     def test_nan_values_preserved(self):
         """NaN values should be preserved in output"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -238,7 +238,7 @@ class TestDetectColumnsBasic:
     
     def test_detect_standard_lowercase_names(self):
         """Should detect standard lowercase OHLC names"""
-        from src.python_api.mapper import detect_columns
+        from src.charting.mapper import detect_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -263,7 +263,7 @@ class TestDetectColumnsBasic:
     
     def test_detect_uppercase_names(self):
         """Should detect uppercase OHLC names"""
-        from src.python_api.mapper import detect_columns
+        from src.charting.mapper import detect_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -286,7 +286,7 @@ class TestDetectColumnsBasic:
     
     def test_detect_mixed_case_names(self):
         """Should detect mixed case names (Open, High, etc.)"""
-        from src.python_api.mapper import detect_columns
+        from src.charting.mapper import detect_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -309,7 +309,7 @@ class TestDetectColumnsBasic:
     
     def test_detect_abbreviations(self):
         """Should detect common abbreviations (o, h, l, c)"""
-        from src.python_api.mapper import detect_columns
+        from src.charting.mapper import detect_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -334,7 +334,7 @@ class TestDetectColumnsBasic:
     
     def test_volume_optional_in_detection(self):
         """Volume should be optional in auto-detection"""
-        from src.python_api.mapper import detect_columns
+        from src.charting.mapper import detect_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -357,7 +357,7 @@ class TestDetectColumnsEdgeCases:
     
     def test_detect_vol_abbreviation(self):
         """Should detect 'vol' as volume"""
-        from src.python_api.mapper import detect_columns
+        from src.charting.mapper import detect_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -376,7 +376,7 @@ class TestDetectColumnsEdgeCases:
     
     def test_missing_required_column_raises_error(self):
         """Should raise error when required column missing"""
-        from src.python_api.mapper import detect_columns
+        from src.charting.mapper import detect_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -393,7 +393,7 @@ class TestDetectColumnsEdgeCases:
     
     def test_ambiguous_columns_prefers_exact_match(self):
         """When multiple candidates exist, prefer exact match"""
-        from src.python_api.mapper import detect_columns
+        from src.charting.mapper import detect_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -418,7 +418,7 @@ class TestMapColumnsDataIntegrity:
     
     def test_original_dataframe_not_modified(self):
         """Original DataFrame should not be modified"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -438,7 +438,7 @@ class TestMapColumnsDataIntegrity:
     
     def test_data_values_correctly_mapped(self):
         """Data values should be correctly mapped to new column names"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=3, freq='1h')
         df = pd.DataFrame({

@@ -83,10 +83,9 @@ python run.py
 ```
 
 This will start:
-- **Backend API** on http://localhost:8000
-- **Frontend** on http://localhost:3000
+- **Server** on http://localhost:8000
 
-Then open your browser to **http://localhost:3000** and load one of the sample files:
+Then open your browser to **http://localhost:8000** (it should open automatically) and load one of the sample files:
 - `sample.csv` - Moderate volatility data
 - `crypto.csv` - High volatility crypto-like data
 - `stock.csv` - Low volatility stock-like data

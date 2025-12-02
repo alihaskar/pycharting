@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 # Import mapper/detector for column standardization
 # Note: Import directly from modules to avoid circular dependency through __init__.py
 try:
-    import src.python_api.detector as detector_module
-    import src.python_api.mapper as mapper_module
+    import src.charting.detector as detector_module
+    import src.charting.mapper as mapper_module
     standardize_dataframe = detector_module.standardize_dataframe
     ColumnNotFoundError = mapper_module.ColumnNotFoundError
     ColumnValidationError = mapper_module.ColumnValidationError
