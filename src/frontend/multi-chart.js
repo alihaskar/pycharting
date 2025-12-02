@@ -703,13 +703,125 @@ export class MultiChartManager {
             console.log('Cursor synchronization enabled');
         }
         
-        // Zoom synchronization would be implemented similarly
+        // Task 25: Zoom and pan synchronization
         if (this.config.sync.zoom) {
-            console.log('Zoom synchronization enabled (stub)');
-            // Would implement setupZoomHandlers() here
+            this.setupZoomPanSync();
+            console.log('Zoom synchronization enabled');
         }
         
         console.log('Synchronization setup complete');
+    }
+    
+    // === Zoom and Pan Synchronization (Task 25) ===
+    
+    /**
+     * Check if an axis should be synchronized
+     * 
+     * Task 25.3: Y-axis independence preservation
+     * @param {string} axisKey - Axis key (e.g., 'x', 'y', 'price')
+     * @returns {boolean} True if axis should be synced
+     */
+    shouldSyncAxis(axisKey) {
+        // Only sync x-axis (time)
+        return axisKey === 'x';
+    }
+    
+    /**
+     * Propagate zoom/pan scale to all charts
+     * 
+     * Task 25.2: X-axis synchronization logic
+     * Task 25.4: Infinite loop prevention
+     * @param {Object} sourceChart - Chart that triggered the scale change
+     * @param {string} axisKey - Axis that changed
+     * @param {Object} scaleRange - New scale range {min, max}
+     */
+    propagateZoomScale(sourceChart, axisKey, scaleRange) {
+        if (!this.config.sync.zoom) {
+            return;
+        }
+        
+        // Task 25.3: Only sync x-axis
+        if (!this.shouldSyncAxis(axisKey)) {
+            return;
+        }
+        
+        // Task 25.4: Prevent infinite loops
+        if (this._syncInProgress) {
+            return;
+        }
+        
+        this._syncInProgress = true;
+        
+        try {
+            // Task 25.2: Propagate to other charts
+            this.syncedCharts.forEach(chart => {
+                if (chart !== sourceChart && chart.setScale) {
+                    try {
+                        chart.setScale(axisKey, scaleRange);
+                    } catch (e) {
+                        console.warn('Failed to sync scale on chart:', e);
+                    }
+                }
+            });
+        } finally {
+            // Reset flag after propagation
+            this._syncInProgress = false;
+        }
+    }
+    
+    /**
+     * Register scale event hooks on charts
+     * 
+     * Task 25.1: Scale event hook infrastructure
+     */
+    registerScaleHooks() {
+        this.syncedCharts.forEach(chart => {
+            if (!chart || !chart.hooks) {
+                return;
+            }
+            
+            // Create hooks array if it doesn't exist
+            if (!chart.hooks.setScale) {
+                chart.hooks = chart.hooks || {};
+                chart.hooks.setScale = [];
+            }
+            
+            // Add scale change hook
+            const scaleHook = (u, scaleKey) => {
+                // Get the scale that changed
+                const scale = u.scales?.[scaleKey];
+                if (!scale) return;
+                
+                // Propagate to other charts
+                this.propagateZoomScale(chart, scaleKey, {
+                    min: scale.min,
+                    max: scale.max
+                });
+            };
+            
+            chart.hooks.setScale.push(scaleHook);
+        });
+    }
+    
+    /**
+     * Setup zoom and pan synchronization
+     * 
+     * Task 25: Complete zoom/pan sync implementation
+     * Task 25.5: Gesture handling
+     */
+    setupZoomPanSync() {
+        console.log('Setting up zoom/pan synchronization...');
+        
+        // Initialize sync flag (Task 25.4)
+        this._syncInProgress = false;
+        
+        // Task 25.1: Register scale event hooks
+        this.registerScaleHooks();
+        
+        console.log('Zoom/pan synchronization configured');
+        
+        // Task 25.5: Gesture handling would be handled by uPlot's built-in
+        // mouse wheel and drag handlers, which trigger the setScale hooks
     }
     
     // === Chart Instance Management (Task 20.2) ===
