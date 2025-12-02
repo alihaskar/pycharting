@@ -116,6 +116,11 @@ export class MultiChartManager {
         this.syncedCharts = [];
         this.chartData = null; // Stores data loaded via loadAndRender
         
+        // Task 6.1: Dynamic container management
+        this.subplotContainers = [];
+        this.mainChartWrapper = null;
+        this.subplotsWrapper = null;
+        
         console.log('MultiChartManager initialized');
     }
     
@@ -153,6 +158,89 @@ export class MultiChartManager {
         await this.createMainChart();
         await this.createSubplots();
         this.setupSynchronization();
+    }
+    
+    // =========================================================================
+    // Task 6.1: Dynamic Container Creation for N Subplots
+    // =========================================================================
+    
+    /**
+     * Get the count of subplots from config
+     * @returns {number} Number of subplots configured
+     */
+    getSubplotCount() {
+        return this.config.subplots ? this.config.subplots.length : 0;
+    }
+    
+    /**
+     * Create N subplot containers based on indicator count
+     * 
+     * @param {number} count - Number of subplot containers to create
+     */
+    createSubplotContainers(count) {
+        // Clear existing containers first
+        this.clearSubplotContainers();
+        
+        // Create N new containers
+        for (let i = 0; i < count; i++) {
+            const container = document.createElement('div');
+            container.id = `subplot-container-${i}`;
+            container.style.position = 'relative';
+            container.style.minHeight = '100px';
+            
+            // Add class for styling
+            if (container.classList) {
+                container.classList.add('subplot-container');
+            }
+            
+            // Add dataset for indicator mapping
+            container._dataset = container._dataset || {};
+            if (this.config.subplots && this.config.subplots[i]) {
+                container._dataset.indicator = this.config.subplots[i].name;
+                container._dataset.index = i;
+            }
+            
+            this.subplotContainers.push(container);
+        }
+        
+        console.log(`Created ${count} subplot containers`);
+    }
+    
+    /**
+     * Clear all existing subplot containers
+     */
+    clearSubplotContainers() {
+        // Remove from DOM
+        this.subplotContainers.forEach(container => {
+            if (container.parentElement) {
+                container.parentElement.removeChild(container);
+            }
+        });
+        
+        // Clear array
+        this.subplotContainers = [];
+    }
+    
+    /**
+     * Create the container hierarchy with main chart and subplots wrappers
+     */
+    createContainerHierarchy() {
+        // Clear existing content
+        this.container.innerHTML = '';
+        
+        // Create main chart wrapper
+        this.mainChartWrapper = document.createElement('div');
+        this.mainChartWrapper.id = 'main-chart-wrapper';
+        this.mainChartWrapper.style.position = 'relative';
+        this.container.appendChild(this.mainChartWrapper);
+        
+        // Create subplots wrapper
+        this.subplotsWrapper = document.createElement('div');
+        this.subplotsWrapper.id = 'subplots-wrapper';
+        this.subplotsWrapper.style.position = 'relative';
+        this.container.appendChild(this.subplotsWrapper);
+        
+        console.log('Container hierarchy created');
     }
     
     /**

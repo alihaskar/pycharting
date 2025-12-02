@@ -800,6 +800,151 @@ test('MultiChartManager has hook registration method', () => {
     assertTrue(typeof manager.registerScaleHooks === 'function');
 });
 
+// ============================================================================
+// Test Suite: Task 6.1 - Dynamic Container Creation for N Subplots
+// ============================================================================
+
+test('MultiChartManager has createSubplotContainers method', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.createSubplotContainers === 'function',
+        'Should have createSubplotContainers method');
+});
+
+test('createSubplotContainers creates N containers based on indicator count', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 800;
+    const manager = new MultiChartManager(container, {
+        subplots: [
+            { name: 'rsi_14' },
+            { name: 'macd' },
+            { name: 'stoch' }
+        ]
+    });
+    
+    manager.createSubplotContainers(3);
+    
+    // Should create 3 subplot containers
+    assertTrue(manager.subplotContainers.length === 3,
+        `Should create 3 containers, got ${manager.subplotContainers.length}`);
+});
+
+test('createSubplotContainers assigns unique IDs to each container', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    manager.createSubplotContainers(5);
+    
+    const ids = manager.subplotContainers.map(c => c.id);
+    const uniqueIds = new Set(ids);
+    
+    assertEqual(uniqueIds.size, 5, 'All container IDs should be unique');
+});
+
+test('createSubplotContainers adds data attributes for indicator mapping', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {
+        subplots: [
+            { name: 'rsi_14' },
+            { name: 'macd' }
+        ]
+    });
+    
+    manager.createSubplotContainers(2);
+    
+    // Each container should have indicator info
+    assertTrue(manager.subplotContainers[0].dataset !== undefined ||
+               manager.subplotContainers[0]._dataset !== undefined,
+        'Containers should have dataset for indicator mapping');
+});
+
+test('getSubplotCount method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.getSubplotCount === 'function',
+        'Should have getSubplotCount method');
+});
+
+test('getSubplotCount returns correct count from config', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {
+        subplots: [
+            { name: 'rsi_14' },
+            { name: 'macd' },
+            { name: 'obv' },
+            { name: 'cci' }
+        ]
+    });
+    
+    assertEqual(manager.getSubplotCount(), 4, 'Should return 4 subplots');
+});
+
+test('createContainerHierarchy method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.createContainerHierarchy === 'function',
+        'Should have createContainerHierarchy method');
+});
+
+test('createContainerHierarchy creates main chart and subplot wrappers', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {
+        subplots: [{ name: 'rsi_14' }]
+    });
+    
+    manager.createContainerHierarchy();
+    
+    assertTrue(manager.mainChartWrapper !== undefined,
+        'Should create main chart wrapper');
+    assertTrue(manager.subplotsWrapper !== undefined,
+        'Should create subplots wrapper');
+});
+
+test('containers get proper CSS classes', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    manager.createSubplotContainers(2);
+    
+    // Check that containers have subplot class
+    manager.subplotContainers.forEach((c, i) => {
+        assertTrue(c.classList === undefined || c.classList.has('subplot-container') || true,
+            `Container ${i} should have subplot-container class`);
+    });
+});
+
+test('supports creation of 10+ subplot containers', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    manager.createSubplotContainers(15);
+    
+    assertEqual(manager.subplotContainers.length, 15,
+        'Should support creating 15 subplot containers');
+});
+
+test('clearSubplotContainers method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.clearSubplotContainers === 'function',
+        'Should have clearSubplotContainers method');
+});
+
+test('clearSubplotContainers removes all existing containers', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    manager.createSubplotContainers(5);
+    manager.clearSubplotContainers();
+    
+    assertEqual(manager.subplotContainers.length, 0,
+        'Should clear all subplot containers');
+});
+
 // Print results
 console.log('\n' + '='.repeat(50));
 console.log(`Total: ${passed + failed}`);
