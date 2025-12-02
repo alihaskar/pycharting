@@ -121,7 +121,51 @@ class ChartManager {
                 drag: {
                     x: true,
                     y: false
+                },
+                bind: {
+                    dblclick: u => {
+                        // Double-click to reset zoom
+                        u.setScale('x', { min: null, max: null });
+                        return null;
+                    },
+                    wheel: (u, target, handler) => {
+                        // Mouse wheel zoom
+                        return e => {
+                            e.preventDefault();
+                            
+                            const { left, width } = u.over.getBoundingClientRect();
+                            const xPos = e.clientX - left;
+                            const xPct = xPos / width;
+                            
+                            const xScale = u.scales.x;
+                            const xMin = xScale.min;
+                            const xMax = xScale.max;
+                            const xRange = xMax - xMin;
+                            
+                            // Zoom factor (0.1 = 10% zoom per scroll)
+                            const factor = e.deltaY < 0 ? 0.9 : 1.1;  // Zoom in/out
+                            
+                            const newRange = xRange * factor;
+                            const newMin = xMin - (newRange - xRange) * xPct;
+                            const newMax = xMax + (newRange - xRange) * (1 - xPct);
+                            
+                            u.setScale('x', {
+                                min: newMin,
+                                max: newMax
+                            });
+                        };
+                    }
                 }
+            },
+            hooks: {
+                setSelect: [
+                    u => {
+                        // Handle zoom on drag selection
+                        const min = u.posToVal(u.select.left, 'x');
+                        const max = u.posToVal(u.select.left + u.select.width, 'x');
+                        u.setScale('x', { min, max });
+                    }
+                ]
             },
             scales: {
                 x: {
