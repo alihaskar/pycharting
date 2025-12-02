@@ -7,7 +7,9 @@ Python API's local server functionality.
 
 import socket
 import logging
-from typing import Optional
+import threading
+from typing import Optional, List
+import uvicorn
 
 logger = logging.getLogger(__name__)
 
@@ -56,4 +58,28 @@ def find_available_port(preferred_port: int = 8000, max_attempts: int = 10) -> i
         f"No available ports found in range {preferred_port}-{end_port}. "
         f"All {max_attempts} ports are occupied."
     )
+
+
+class ServerManager:
+    """
+    Manages lifecycle of local FastAPI server for chart rendering.
+    
+    Handles starting the server in a background thread, building URLs
+    with indicator parameters, and graceful shutdown.
+    """
+    
+    def __init__(self, app, port: Optional[int] = None):
+        """
+        Initialize ServerManager.
+        
+        Args:
+            app: FastAPI application instance
+            port: Port number to use, or None to auto-detect
+        """
+        self.app = app
+        self.port = port if port is not None else find_available_port()
+        self.server: Optional[uvicorn.Server] = None
+        self.thread: Optional[threading.Thread] = None
+        
+        logger.info(f"ServerManager initialized on port {self.port}")
 
