@@ -9,10 +9,27 @@ Functions:
     map_columns: Map DataFrame columns to standard OHLC format
     detect_columns: Auto-detect OHLC columns using pattern matching
     validate_column_mapping: Validate a column mapping configuration
+    suggest_columns: Suggest similar column names for missing columns
+
+Exceptions:
+    ColumnNotFoundError: Raised when specified column doesn't exist
+    ColumnValidationError: Raised when column validation fails
 """
 
 import pandas as pd
 from typing import Optional, Dict, List
+from difflib import SequenceMatcher
+
+
+# Custom Exceptions
+class ColumnNotFoundError(ValueError):
+    """Raised when a specified column is not found in the DataFrame"""
+    pass
+
+
+class ColumnValidationError(TypeError):
+    """Raised when a column fails validation (e.g., not numeric)"""
+    pass
 
 
 def map_columns(
@@ -94,24 +111,34 @@ def map_columns(
     required = ['open', 'high', 'low', 'close']
     for field in required:
         if field not in mapping.values():
-            raise ValueError(
-                f"Missing required column: '{field}'. "
-                f"Please specify the column name using the '{field}=' parameter."
-            )
+            # Suggest similar columns
+            available_cols = result.columns.tolist()
+            suggestions = suggest_columns(field, available_cols)
+            
+            error_msg = f"Missing required column: '{field}'.\n"
+            if suggestions:
+                error_msg += f"Did you mean: {', '.join(suggestions)}?\n"
+            error_msg += f"Available columns: {available_cols}\n"
+            error_msg += f"Please specify the column name using the '{field}=' parameter."
+            raise ValueError(error_msg)
     
     # Validate specified columns exist in DataFrame
     for source_col in mapping.keys():
         if source_col not in result.columns:
-            raise ValueError(
-                f"Column '{source_col}' not found in DataFrame. "
-                f"Available columns: {list(result.columns)}"
-            )
+            available_cols = result.columns.tolist()
+            suggestions = suggest_columns(source_col, available_cols)
+            
+            error_msg = f"Column '{source_col}' not found in DataFrame."
+            if suggestions:
+                error_msg += f"\nDid you mean: {', '.join(suggestions)}?"
+            error_msg += f"\nAvailable columns: {available_cols}"
+            raise ColumnNotFoundError(error_msg)
     
     # Validate numeric types for OHLC columns
     for source_col, target_name in mapping.items():
         if target_name != 'volume':  # Volume will be checked separately if present
             if not pd.api.types.is_numeric_dtype(result[source_col]):
-                raise TypeError(
+                raise ColumnValidationError(
                     f"Column '{source_col}' must be numeric (for {target_name}), "
                     f"but got dtype: {result[source_col].dtype}"
                 )
@@ -120,7 +147,7 @@ def map_columns(
     if 'volume' in mapping.values():
         volume_col = [k for k, v in mapping.items() if v == 'volume'][0]
         if not pd.api.types.is_numeric_dtype(result[volume_col]):
-            raise TypeError(
+            raise ColumnValidationError(
                 f"Column '{volume_col}' must be numeric (for volume), "
                 f"but got dtype: {result[volume_col].dtype}"
             )
@@ -197,13 +224,68 @@ def detect_columns(df: pd.DataFrame) -> Dict[str, str]:
     missing = [field for field in required if field not in detected_fields]
     
     if missing:
-        raise ValueError(
-            f"Could not detect required column(s): {', '.join(missing)}. "
-            f"Available columns: {columns}. "
-            f"Please specify column names explicitly using map_columns()."
-        )
+        # Suggest similar columns for each missing field
+        suggestions_text = []
+        for field in missing:
+            suggestions = suggest_columns(field, columns)
+            if suggestions:
+                suggestions_text.append(f"  - {field}: Did you mean {', '.join(suggestions)}?")
+        
+        error_msg = f"Could not detect required column(s): {', '.join(missing)}.\n"
+        if suggestions_text:
+            error_msg += "Suggestions:\n" + "\n".join(suggestions_text) + "\n"
+        error_msg += f"Available columns: {columns}\n"
+        error_msg += "Please specify column names explicitly using map_columns()."
+        
+        raise ValueError(error_msg)
     
     return detected
+
+
+def suggest_columns(missing: str, available: List[str], max_suggestions: int = 3) -> List[str]:
+    """
+    Suggest similar column names using fuzzy string matching.
+    
+    Uses SequenceMatcher to find columns similar to the missing column name.
+    Prioritizes case-insensitive exact matches, then similarity score.
+    
+    Args:
+        missing: The column name that was not found
+        available: List of available column names in the DataFrame
+        max_suggestions: Maximum number of suggestions to return
+    
+    Returns:
+        List of suggested column names, ordered by similarity
+    
+    Examples:
+        >>> suggest_columns('open', ['opening', 'Open', 'opener'])
+        ['Open', 'opening', 'opener']
+    """
+    suggestions = []
+    
+    # First, check for case-insensitive exact match
+    for col in available:
+        if col.lower() == missing.lower():
+            suggestions.append(col)
+    
+    # If exact match found, return it
+    if suggestions:
+        return suggestions[:max_suggestions]
+    
+    # Calculate similarity scores for all columns
+    similarities = []
+    for col in available:
+        # Calculate similarity ratio
+        ratio = SequenceMatcher(None, missing.lower(), col.lower()).ratio()
+        if ratio > 0.5:  # Only suggest if reasonably similar
+            similarities.append((col, ratio))
+    
+    # Sort by similarity (highest first)
+    similarities.sort(key=lambda x: x[1], reverse=True)
+    
+    # Return top N suggestions
+    suggestions = [col for col, _ in similarities[:max_suggestions]]
+    return suggestions
 
 
 def validate_column_mapping(df: pd.DataFrame, mapping: Dict[str, str]) -> tuple[bool, List[str]]:
