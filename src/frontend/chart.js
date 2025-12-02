@@ -119,8 +119,7 @@ class ChartManager {
             height: this.container.clientHeight || window.innerHeight - 150,
             cursor: {
                 drag: {
-                    setScale: true,  // Enable panning instead of zoom-to-selection
-                    x: true,
+                    x: false,  // Disable default drag selection
                     y: false
                 }
             },
@@ -135,6 +134,53 @@ class ChartManager {
             hooks: {
                 ready: [
                     u => {
+                        let isDragging = false;
+                        let dragStartX = null;
+                        let dragStartMin = null;
+                        let dragStartMax = null;
+                        
+                        // Mouse down - start drag
+                        u.over.addEventListener('mousedown', e => {
+                            isDragging = true;
+                            dragStartX = e.clientX;
+                            const xScale = u.scales.x;
+                            dragStartMin = xScale.min;
+                            dragStartMax = xScale.max;
+                            u.over.style.cursor = 'grabbing';
+                        });
+                        
+                        // Mouse move - pan chart
+                        u.over.addEventListener('mousemove', e => {
+                            if (!isDragging) return;
+                            
+                            const deltaX = e.clientX - dragStartX;
+                            const { width } = u.over.getBoundingClientRect();
+                            const xRange = dragStartMax - dragStartMin;
+                            const xDelta = -(deltaX / width) * xRange;
+                            
+                            u.setScale('x', {
+                                min: dragStartMin + xDelta,
+                                max: dragStartMax + xDelta
+                            });
+                        });
+                        
+                        // Mouse up - end drag
+                        const endDrag = () => {
+                            if (isDragging) {
+                                isDragging = false;
+                                dragStartX = null;
+                                dragStartMin = null;
+                                dragStartMax = null;
+                                u.over.style.cursor = 'grab';
+                            }
+                        };
+                        
+                        u.over.addEventListener('mouseup', endDrag);
+                        u.over.addEventListener('mouseleave', endDrag);
+                        
+                        // Set initial cursor
+                        u.over.style.cursor = 'grab';
+                        
                         // Add mouse wheel zoom after chart is ready
                         u.over.addEventListener('wheel', e => {
                             e.preventDefault();
