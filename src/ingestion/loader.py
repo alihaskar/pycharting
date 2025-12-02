@@ -185,3 +185,61 @@ def parse_datetime(df: pd.DataFrame) -> pd.DataFrame:
     
     return df_copy
 
+
+def clean_missing_values(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Handle missing values in OHLC data.
+    
+    Strategy:
+    - Remove rows with missing timestamps (critical data)
+    - Forward-fill missing price data (open, high, low, close)
+    - Interpolate missing volume data
+    - Handle edge cases like consecutive missing values
+    
+    Args:
+        df: DataFrame with potential missing values
+    
+    Returns:
+        DataFrame with missing values handled
+    """
+    df_copy = df.copy()
+    
+    # Remove rows with missing timestamps (critical data)
+    if "timestamp" in df_copy.columns:
+        df_copy = df_copy.dropna(subset=["timestamp"])
+        df_copy = df_copy.reset_index(drop=True)
+    
+    # If DataFrame is empty after removing missing timestamps, return it
+    if df_copy.empty:
+        return df_copy
+    
+    # Price columns to forward-fill
+    price_columns = ["open", "high", "low", "close"]
+    
+    # Forward-fill missing price values (use previous valid value)
+    for col in price_columns:
+        if col in df_copy.columns:
+            # Forward fill (use previous value)
+            df_copy[col] = df_copy[col].ffill()
+            
+            # If there are still NaN values at the beginning (no previous value to fill from),
+            # use backward fill
+            df_copy[col] = df_copy[col].bfill()
+    
+    # Interpolate missing volume values (linear interpolation)
+    if "volume" in df_copy.columns:
+        # First try linear interpolation
+        df_copy["volume"] = df_copy["volume"].interpolate(method="linear")
+        
+        # If there are still NaN values (e.g., all values are NaN or edges),
+        # fill with 0 or forward/backward fill
+        if df_copy["volume"].isna().any():
+            # Try forward fill first
+            df_copy["volume"] = df_copy["volume"].ffill()
+            # Then backward fill
+            df_copy["volume"] = df_copy["volume"].bfill()
+            # If still have NaN (all were NaN), fill with 0
+            df_copy["volume"] = df_copy["volume"].fillna(0)
+    
+    return df_copy
+
