@@ -324,9 +324,9 @@ export class DraggableDivider {
             return; // No panels to resize
         }
         
-        // Get current heights
-        const topHeight = parseInt(topElement.style.height) || topElement.offsetHeight || 0;
-        const bottomHeight = parseInt(bottomElement.style.height) || bottomElement.offsetHeight || 0;
+        // Get current heights - use clientHeight (actual rendered height) if style.height not set
+        const topHeight = topElement.style.height && parseInt(topElement.style.height) || topElement.clientHeight;
+        const bottomHeight = bottomElement.style.height && parseInt(bottomElement.style.height) || bottomElement.clientHeight;
         
         // Calculate new heights
         let newTopHeight = topHeight + deltaY;
