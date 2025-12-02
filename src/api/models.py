@@ -4,6 +4,38 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime
 
 
+class IndicatorMetadata(BaseModel):
+    """Metadata for individual indicators including their type and display information."""
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "name": "rsi_14",
+                "type": "subplot",
+                "display_name": "RSI (14)"
+            }
+        }
+    )
+    
+    name: str = Field(..., description="Column name from DataFrame")
+    type: str = Field(..., description="Indicator type: 'overlay' or 'subplot'")
+    display_name: Optional[str] = Field(None, description="Human-readable name for display")
+    
+    @field_validator('type')
+    @classmethod
+    def validate_type(cls, v):
+        """Validate that type is either 'overlay' or 'subplot' (case-insensitive)."""
+        if v is None:
+            raise ValueError("Type cannot be None")
+        
+        v_lower = v.lower()
+        if v_lower not in ['overlay', 'subplot']:
+            raise ValueError(
+                f"Invalid indicator type: '{v}'. Must be 'overlay' or 'subplot'"
+            )
+        return v_lower
+
+
 class ChartDataRequest(BaseModel):
     """Request model for chart data endpoint."""
     
