@@ -63,7 +63,60 @@
     </header>
     
     <main>
-        <section id="chart-container">
+        <!-- Controls Section -->
+        <section id="controls" style="background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: end;">
+                <!-- File Selection -->
+                <div>
+                    <label for="file-select" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">CSV File:</label>
+                    <input type="text" id="file-select" placeholder="sample.csv" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                
+                <!-- Timeframe Selection -->
+                <div>
+                    <label for="timeframe-select" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Timeframe:</label>
+                    <select id="timeframe-select" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Original</option>
+                        <option value="1min">1 Minute</option>
+                        <option value="5min">5 Minutes</option>
+                        <option value="15min">15 Minutes</option>
+                        <option value="1h">1 Hour</option>
+                        <option value="4h">4 Hours</option>
+                        <option value="1D">1 Day</option>
+                    </select>
+                </div>
+                
+                <!-- Indicator Selection -->
+                <div>
+                    <label for="indicator-select" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Add Indicator:</label>
+                    <select id="indicator-select" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select Indicator...</option>
+                        <option value="RSI:14">RSI (14)</option>
+                        <option value="RSI:20">RSI (20)</option>
+                        <option value="SMA:20">SMA (20)</option>
+                        <option value="SMA:50">SMA (50)</option>
+                        <option value="SMA:200">SMA (200)</option>
+                        <option value="EMA:12">EMA (12)</option>
+                        <option value="EMA:26">EMA (26)</option>
+                    </select>
+                </div>
+                
+                <!-- Load Button -->
+                <div>
+                    <button id="load-btn" style="width: 100%; padding: 0.5rem 1rem; background: #2c3e50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                        Load Chart
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Active Indicators Display -->
+            <div id="active-indicators" style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <!-- Active indicators will appear here as badges -->
+            </div>
+        </section>
+        
+        <!-- Chart Section -->
+        <section id="chart-container" style="min-height: 400px;">
             <!-- uPlot chart will be rendered here -->
         </section>
     </main>
@@ -78,6 +131,7 @@
     <!-- Custom JavaScript Modules -->
     <script src="./data-client.js"></script>
     <script src="./chart.js"></script>
+    <script src="./app.js"></script>
 </body>
 </html>
 
