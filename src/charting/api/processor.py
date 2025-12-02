@@ -343,7 +343,7 @@ def load_and_process_data(
             except (ColumnNotFoundError, ColumnValidationError) as e:
                 logger.debug(f"Auto-detection failed, continuing with original columns: {e}")
                 # If auto-detection fails, validate that required columns exist
-                required_columns = {"timestamp", "open", "high", "low", "close", "volume"}
+                required_columns = {"timestamp", "open", "high", "low", "close"}
                 missing_columns = required_columns - set(df.columns)
                 if missing_columns:
                     raise ValueError(f"Missing required columns: {missing_columns}. Found columns: {list(df.columns)}")

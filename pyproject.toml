@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pycharting"
-version = "0.1.0"
+version = "0.1.1"
 description = "High-performance financial charting library for OHLC data visualization with technical indicators"
 authors = ["ali askar <26202651+alihaskar@users.noreply.github.com>"]
 readme = "README.md"

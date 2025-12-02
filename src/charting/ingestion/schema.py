@@ -1,6 +1,6 @@
 """Pydantic models for OHLC data validation."""
 from datetime import datetime
-from typing import Union
+from typing import Union, Optional
 from pydantic import BaseModel, field_validator, model_validator
 
 
@@ -13,20 +13,20 @@ class OHLCRecord(BaseModel):
     - Prices are numeric
     - High >= max(open, close)
     - Low <= min(open, close)
-    - Volume >= 0
+    - Volume >= 0 (if provided)
     """
     timestamp: datetime
     open: float
     high: float
     low: float
     close: float
-    volume: Union[int, float]
+    volume: Optional[Union[int, float]] = None
     
     @field_validator("volume")
     @classmethod
-    def validate_volume_non_negative(cls, v: Union[int, float]) -> Union[int, float]:
-        """Validate that volume is non-negative."""
-        if v < 0:
+    def validate_volume_non_negative(cls, v: Optional[Union[int, float]]) -> Optional[Union[int, float]]:
+        """Validate that volume is non-negative if provided."""
+        if v is not None and v < 0:
             raise ValueError(f"Volume must be non-negative, got {v}")
         return v
     
