@@ -14,7 +14,9 @@ from src.python_api.detector import (
     check_ohlc_relationships,
     OHLCColumnsNotFoundError,
     AmbiguousColumnError,
-    require_ohlc_columns
+    require_ohlc_columns,
+    detect_indicator_columns,
+    classify_indicators
 )
 
 
@@ -504,4 +506,107 @@ class TestErrorHandling:
         
         with pytest.raises(OHLCColumnsNotFoundError):
             require_ohlc_columns(ohlc_cols)
+
+
+class TestIndicatorDetection:
+    """Test detection and classification of indicator columns."""
+    
+    def test_detect_indicator_columns_with_standard_indicators(self):
+        """Test detection of indicator columns alongside OHLC."""
+        df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=3, freq='1min'),
+            'open': [100.0, 101.0, 102.0],
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5],
+            'volume': [1000, 1100, 1200],
+            'rsi_14': [45.0, 46.0, 47.0],
+            'sma_20': [100.2, 100.8, 101.2],
+            'ema_12': [100.3, 100.9, 101.3]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        
+        assert 'rsi_14' in indicators
+        assert 'sma_20' in indicators
+        assert 'ema_12' in indicators
+        assert len(indicators) == 3
+    
+    def test_detect_indicator_columns_excludes_ohlc(self):
+        """Test that OHLC columns are excluded from indicators."""
+        df = pd.DataFrame({
+            'open': [100.0], 'high': [101.0], 'low': [99.0], 'close': [100.5],
+            'volume': [1000],
+            'rsi_14': [45.0], 'sma_20': [100.2]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        
+        # OHLC columns should not be in indicators
+        assert 'open' not in indicators
+        assert 'high' not in indicators
+        assert 'low' not in indicators
+        assert 'close' not in indicators
+        assert 'volume' not in indicators
+    
+    def test_detect_indicator_columns_excludes_timestamp(self):
+        """Test that timestamp column is excluded from indicators."""
+        df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=3, freq='1min'),
+            'open': [100.0, 101.0, 102.0],
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5],
+            'rsi_14': [45.0, 46.0, 47.0]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        
+        assert 'timestamp' not in indicators
+        assert 'rsi_14' in indicators
+    
+    def test_detect_indicator_columns_no_indicators(self):
+        """Test with DataFrame containing only OHLC columns."""
+        df = pd.DataFrame({
+            'open': [100.0], 'high': [101.0], 'low': [99.0], 'close': [100.5]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        
+        assert len(indicators) == 0
+        assert isinstance(indicators, list)
+    
+    def test_detect_indicator_columns_mixed_case(self):
+        """Test with mixed case OHLC column names."""
+        df = pd.DataFrame({
+            'Open': [100.0], 'High': [101.0], 'Low': [99.0], 'Close': [100.5],
+            'RSI': [45.0], 'SMA': [100.2]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        
+        # Should detect indicators regardless of case
+        assert 'RSI' in indicators
+        assert 'SMA' in indicators
+        assert 'Open' not in indicators
+    
+    def test_detect_indicator_columns_with_custom_names(self):
+        """Test with custom indicator names."""
+        df = pd.DataFrame({
+            'open': [100.0], 'high': [101.0], 'low': [99.0], 'close': [100.5],
+            'my_custom_indicator': [45.0],
+            'another_signal': [100.2]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        
+        assert 'my_custom_indicator' in indicators
+        assert 'another_signal' in indicators
+        assert len(indicators) == 2
 

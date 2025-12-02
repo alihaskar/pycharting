@@ -122,9 +122,37 @@ def detect_indicator_columns(df: pd.DataFrame, ohlc_columns: Dict[str, str]) -> 
         
     Returns:
         List of column names that are indicators (not OHLC or timestamp)
+        
+    Examples:
+        >>> df = pd.DataFrame({'open': [100], 'high': [101], 'low': [99], 'close': [100.5],
+        ...                    'rsi_14': [45], 'sma_20': [100.2]})
+        >>> ohlc_cols = detect_ohlc_columns(df)
+        >>> detect_indicator_columns(df, ohlc_cols)
+        ['rsi_14', 'sma_20']
     """
-    # For now, just a stub - will be implemented in Task 12
-    pass
+    # Get set of OHLC column names
+    ohlc_column_names = set(ohlc_columns.values())
+    
+    # List of potential timestamp column names
+    timestamp_names = {'timestamp', 'time', 'date', 'datetime', 'index'}
+    
+    # Filter columns: exclude OHLC and timestamp columns
+    indicator_columns = []
+    for col in df.columns:
+        col_lower = str(col).lower()
+        
+        # Skip if it's an OHLC column
+        if col in ohlc_column_names:
+            continue
+        
+        # Skip if it's a timestamp column
+        if col_lower in timestamp_names:
+            continue
+        
+        # It's an indicator column
+        indicator_columns.append(col)
+    
+    return indicator_columns
 
 
 def classify_indicators(indicator_columns: List[str]) -> Tuple[List[str], List[str]]:
