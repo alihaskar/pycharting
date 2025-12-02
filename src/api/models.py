@@ -4,6 +4,38 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime
 
 
+class IndicatorMetadata(BaseModel):
+    """Metadata for individual indicators including their type and display information."""
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "name": "rsi_14",
+                "type": "subplot",
+                "display_name": "RSI (14)"
+            }
+        }
+    )
+    
+    name: str = Field(..., description="Column name from DataFrame")
+    type: str = Field(..., description="Indicator type: 'overlay' or 'subplot'")
+    display_name: Optional[str] = Field(None, description="Human-readable name for display")
+    
+    @field_validator('type')
+    @classmethod
+    def validate_type(cls, v):
+        """Validate that type is either 'overlay' or 'subplot' (case-insensitive)."""
+        if v is None:
+            raise ValueError("Type cannot be None")
+        
+        v_lower = v.lower()
+        if v_lower not in ['overlay', 'subplot']:
+            raise ValueError(
+                f"Invalid indicator type: '{v}'. Must be 'overlay' or 'subplot'"
+            )
+        return v_lower
+
+
 class ChartDataRequest(BaseModel):
     """Request model for chart data endpoint."""
     
@@ -55,21 +87,29 @@ class ChartDataResponse(BaseModel):
                     [105.0, 106.0],  # high
                     [95.0, 96.0],    # low
                     [102.0, 103.0],  # close
-                    [1000, 1100]     # volume
+                    [1000, 1100],    # volume
+                    [45.0, 46.0],    # rsi_14
+                    [100.5, 101.5]   # sma_20
                 ],
                 "metadata": {
                     "filename": "sample.csv",
                     "rows": 2,
-                    "columns": 6,
+                    "columns": 8,
                     "timeframe": "1h",
-                    "indicators": []
+                    "indicators": [],
+                    "available_indicators": ["rsi_14", "sma_20"],
+                    "overlays": ["sma_20"],
+                    "subplots": ["rsi_14"]
                 }
             }
         }
     )
     
     data: List[List] = Field(..., description="Columnar array data for uPlot")
-    metadata: dict = Field(..., description="Metadata about the data")
+    metadata: dict = Field(
+        ...,
+        description="Metadata about the data including indicator classifications"
+    )
 
 
 class ErrorResponse(BaseModel):

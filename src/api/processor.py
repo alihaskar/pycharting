@@ -102,6 +102,87 @@ def get_data_directory() -> Path:
     return Path("data")
 
 
+def detect_indicator_columns(df: pd.DataFrame) -> List[str]:
+    """
+    Detect indicator columns in DataFrame by excluding standard OHLCV columns.
+    
+    Identifies columns that are not part of the standard OHLCV dataset
+    (timestamp, open, high, low, close, volume). These are assumed to be
+    pre-calculated indicators or other data columns.
+    
+    Args:
+        df: pandas DataFrame to analyze
+        
+    Returns:
+        List of indicator column names in original order
+        
+    Examples:
+        >>> df = pd.DataFrame({'timestamp': [...], 'open': [...], 'rsi_14': [...]})
+        >>> detect_indicator_columns(df)
+        ['rsi_14']
+    """
+    # Standard OHLCV columns (case-insensitive matching)
+    standard_columns = {'timestamp', 'open', 'high', 'low', 'close', 'volume'}
+    
+    # Get all column names
+    all_columns = df.columns.tolist()
+    
+    # Filter out standard OHLCV columns (case-insensitive)
+    indicator_columns = [
+        col for col in all_columns
+        if col.lower() not in standard_columns
+    ]
+    
+    return indicator_columns
+
+
+def filter_indicator_data(
+    df: pd.DataFrame,
+    overlays: Optional[List[str]] = None,
+    subplots: Optional[List[str]] = None
+) -> tuple[List[str], List[str]]:
+    """
+    Filter and extract indicator data based on overlay and subplot parameters.
+    
+    Validates that requested indicator columns exist in the DataFrame and
+    returns filtered lists of valid overlay and subplot column names.
+    
+    Args:
+        df: pandas DataFrame containing indicator columns
+        overlays: Optional list of overlay indicator column names
+        subplots: Optional list of subplot indicator column names
+        
+    Returns:
+        Tuple of (filtered_overlays, filtered_subplots) containing only
+        columns that exist in the DataFrame
+        
+    Examples:
+        >>> df = pd.DataFrame({'rsi_14': [...], 'sma_20': [...]})
+        >>> filter_indicator_data(df, overlays=['sma_20'], subplots=['rsi_14'])
+        (['sma_20'], ['rsi_14'])
+    """
+    # Get available columns
+    available_columns = set(df.columns)
+    
+    # Filter overlays to only include existing columns
+    filtered_overlays = []
+    if overlays:
+        filtered_overlays = [
+            col for col in overlays
+            if col in available_columns
+        ]
+    
+    # Filter subplots to only include existing columns
+    filtered_subplots = []
+    if subplots:
+        filtered_subplots = [
+            col for col in subplots
+            if col in available_columns
+        ]
+    
+    return filtered_overlays, filtered_subplots
+
+
 def parse_indicator_string(indicator_str: str) -> tuple[str, Dict[str, Any]]:
     """
     Parse indicator string into type and parameters.
@@ -180,6 +261,9 @@ def load_and_process_data(
     # Optimize DataFrame
     df = optimize_dataframe(df)
     
+    # Detect pre-existing indicator columns in CSV
+    available_indicators = detect_indicator_columns(df)
+    
     # Apply time filtering if specified
     if start_date:
         df = df[df.index >= pd.to_datetime(start_date)]
@@ -221,7 +305,8 @@ def load_and_process_data(
         "rows": len(df),
         "columns": len(uplot_data),
         "timeframe": timeframe,
-        "indicators": indicator_names
+        "indicators": indicator_names,  # Calculated indicators
+        "available_indicators": available_indicators  # Pre-existing indicators from CSV
     }
     
     return uplot_data, metadata
