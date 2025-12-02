@@ -1,0 +1,83 @@
+/**
+ * DraggableDivider Styles
+ * 
+ * Provides visual styling for the draggable chart divider component.
+ * Includes normal, hover, and dragging states with GPU-accelerated transitions.
+ */
+
+.chart-divider {
+    height: 3px;
+    background: #ccc;
+    cursor: ns-resize;
+    position: relative;
+    z-index: 10;
+    
+    /* Prevent text selection during drag */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    
+    /* GPU acceleration for smooth interactions */
+    will-change: transform;
+    transform: translateZ(0);
+    
+    /* Smooth transitions */
+    transition: background-color 0.2s ease;
+}
+
+.chart-divider:hover {
+    background: #999;
+}
+
+.chart-divider.dragging {
+    background: #666;
+    transition: none; /* Disable transition during drag for immediate feedback */
+}
+
+/* Ensure divider is visible and accessible */
+.chart-divider:focus {
+    outline: 2px solid #4a90e2;
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .chart-divider {
+        background: #000;
+        border: 1px solid #fff;
+        height: 5px;
+    }
+    
+    .chart-divider:hover {
+        background: #333;
+    }
+    
+    .chart-divider.dragging {
+        background: #000;
+        border-color: #fff;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .chart-divider {
+        transition: none;
+    }
+}
+
+/* Touch device optimization */
+@media (pointer: coarse) {
+    .chart-divider {
+        height: 8px; /* Larger touch target */
+        padding: 4px 0; /* Increase touch area */
+    }
+}
+
+/* Print styles */
+@media print {
+    .chart-divider {
+        display: none;
+    }
+}
+

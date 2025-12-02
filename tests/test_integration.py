@@ -83,9 +83,9 @@ def test_has_chart_application_class(app_js_content):
 
 
 def test_initializes_chart_manager(app_js_content):
-    """Test that ChartManager is initialized."""
-    assert 'new ChartManager' in app_js_content, \
-        "Should initialize ChartManager"
+    """Test that MultiChartManager is initialized (Task 26)."""
+    assert 'new MultiChartManager' in app_js_content, \
+        "Should initialize MultiChartManager"
 
 
 def test_has_event_listeners(app_js_content):
