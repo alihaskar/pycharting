@@ -3,11 +3,26 @@ DataFrame column detection and classification utilities.
 
 This module provides functions to automatically detect OHLC columns
 and classify technical indicators in pandas DataFrames.
+
+Integrates with mapper.py for enhanced column standardization and detection.
 """
 
 import re
-from typing import Dict, List, Tuple
+import logging
+from typing import Dict, List, Tuple, Optional
 import pandas as pd
+
+# Configure module logger
+logger = logging.getLogger(__name__)
+
+# Import mapper functions for integration
+try:
+    from .mapper import detect_columns as mapper_detect_columns, map_columns, ColumnNotFoundError
+except ImportError:
+    # Fallback if mapper not available
+    mapper_detect_columns = None
+    map_columns = None
+    ColumnNotFoundError = ValueError
 
 
 class OHLCColumnsNotFoundError(Exception):
@@ -376,4 +391,186 @@ def require_ohlc_columns(ohlc_columns: Dict[str, str], required: List[str] = Non
     
     if missing:
         raise OHLCColumnsNotFoundError(missing)
+
+
+# =============================================================================
+# Mapper Integration Functions (New in v2)
+# =============================================================================
+
+def detect_ohlc_columns_via_mapper(df: pd.DataFrame) -> Dict[str, str]:
+    """
+    Detect OHLC columns using mapper.py's enhanced detection.
+    
+    This is the recommended way to detect columns as it leverages
+    the improved fuzzy matching and error handling from mapper.py.
+    
+    Args:
+        df: pandas DataFrame containing OHLC data
+        
+    Returns:
+        Dictionary mapping actual column names to standard names
+        Example: {'Open': 'open', 'High': 'high', ...}
+        
+    Raises:
+        ValueError: If mapper.py is not available or OHLC columns cannot be detected
+    """
+    logger.debug(f"Detecting OHLC columns via mapper for DataFrame with columns: {list(df.columns)}")
+    
+    if mapper_detect_columns is None:
+        logger.error("mapper.py is not available")
+        raise ValueError(
+            "mapper.py is not available. Please use detect_ohlc_columns() instead."
+        )
+    
+    result = mapper_detect_columns(df)
+    logger.info(f"Successfully detected OHLC columns: {result}")
+    
+    return result
+
+
+def classify_indicators_enhanced(
+    indicator_columns: List[str],
+    user_mapping: Optional[Dict[str, bool]] = None
+) -> Tuple[List[str], List[str]]:
+    """
+    Classify indicators with user-provided overrides and pattern matching fallback.
+    
+    Accepts a dictionary mapping indicator names to boolean flags where:
+    - True = overlay indicator (displayed on main chart)
+    - False = subplot indicator (displayed on separate panel)
+    
+    Indicators not in user_mapping are auto-classified using pattern matching.
+    Unknown indicators default to subplot for safety.
+    
+    Args:
+        indicator_columns: List of indicator column names
+        user_mapping: Optional dict mapping indicator names to overlay boolean
+                     Example: {'rsi_14': False, 'custom_ma': True}
+        
+    Returns:
+        Tuple of (overlay_indicators, subplot_indicators)
+        
+    Examples:
+        >>> # Auto-classification only
+        >>> classify_indicators_enhanced(['sma_20', 'rsi_14'], None)
+        (['sma_20'], ['rsi_14'])
+        
+        >>> # With user overrides
+        >>> classify_indicators_enhanced(['sma_20', 'rsi_14', 'custom'], {'custom': True})
+        (['sma_20', 'custom'], ['rsi_14'])
+    """
+    logger.debug(f"Classifying {len(indicator_columns)} indicators: {indicator_columns}")
+    logger.debug(f"User mapping provided: {user_mapping}")
+    
+    overlays = []
+    subplots = []
+    
+    # Handle None or empty mapping
+    if user_mapping is None:
+        user_mapping = {}
+    
+    # Warn about indicators in user_mapping not in indicator_columns
+    unmapped_indicators = set(user_mapping.keys()) - set(indicator_columns)
+    if unmapped_indicators:
+        logger.warning(f"User mapping contains indicators not in indicator list: {unmapped_indicators}")
+    
+    # Process each indicator
+    for indicator in indicator_columns:
+        # Check if user explicitly provided a classification
+        if indicator in user_mapping:
+            is_overlay = user_mapping[indicator]
+            if is_overlay:
+                overlays.append(indicator)
+                logger.info(f"User override: '{indicator}' → overlay")
+            else:
+                subplots.append(indicator)
+                logger.info(f"User override: '{indicator}' → subplot")
+        else:
+            # Fallback to pattern matching (existing classify_indicators logic)
+            logger.debug(f"Using pattern matching for '{indicator}'")
+            ind_overlays, ind_subplots = classify_indicators([indicator])
+            
+            if ind_overlays:
+                overlays.append(indicator)
+                logger.debug(f"Pattern match: '{indicator}' → overlay")
+            else:
+                subplots.append(indicator)
+                logger.debug(f"Pattern match: '{indicator}' → subplot")
+    
+    logger.info(f"Classification complete: {len(overlays)} overlays, {len(subplots)} subplots")
+    
+    return overlays, subplots
+
+
+def standardize_dataframe(
+    df: pd.DataFrame,
+    open: Optional[str] = None,
+    high: Optional[str] = None,
+    low: Optional[str] = None,
+    close: Optional[str] = None,
+    volume: Optional[str] = None
+) -> pd.DataFrame:
+    """
+    Standardize DataFrame column names using mapper.py.
+    
+    This function integrates detector with mapper for consistent column naming.
+    Columns are renamed to lowercase standard names: 'open', 'high', 'low', 'close', 'volume'.
+    Indicator columns are preserved with their original names.
+    
+    Args:
+        df: Input DataFrame with OHLC data
+        open: Name of open price column (optional, auto-detected if not provided)
+        high: Name of high price column (optional, auto-detected if not provided)
+        low: Name of low price column (optional, auto-detected if not provided)
+        close: Name of close price column (optional, auto-detected if not provided)
+        volume: Name of volume column (optional, auto-detected if not provided)
+        
+    Returns:
+        DataFrame with standardized column names
+        
+    Raises:
+        ValueError: If mapper.py is not available
+        ColumnNotFoundError: If required columns cannot be found
+        
+    Examples:
+        >>> df = pd.DataFrame({'Open': [100], 'High': [105], 'Low': [99], 'Close': [103]})
+        >>> standardized = standardize_dataframe(df)
+        >>> list(standardized.columns)
+        ['open', 'high', 'low', 'close']
+    """
+    logger.debug(f"Standardizing DataFrame with {len(df.columns)} columns")
+    
+    if map_columns is None or mapper_detect_columns is None:
+        logger.error("mapper.py is not available for standardization")
+        raise ValueError(
+            "mapper.py is not available. Cannot standardize DataFrame."
+        )
+    
+    # If no columns specified, auto-detect them using mapper's detect_columns
+    if all(col is None for col in [open, high, low, close, volume]):
+        logger.debug("No explicit columns provided, using auto-detection")
+        # Use mapper's smart detection
+        try:
+            detected = mapper_detect_columns(df)
+            logger.info(f"Auto-detected columns: {detected}")
+        except Exception as e:
+            logger.error(f"Failed to auto-detect columns: {e}")
+            raise
+        
+        # Convert detected mapping to parameters for map_columns
+        # detected is {'col_name': 'standard_name'}, we need actual col names
+        col_mapping = {v: k for k, v in detected.items()}
+        
+        return map_columns(
+            df,
+            open=col_mapping.get('open'),
+            high=col_mapping.get('high'),
+            low=col_mapping.get('low'),
+            close=col_mapping.get('close'),
+            volume=col_mapping.get('volume')
+        )
+    
+    # Use provided column names
+    logger.info(f"Using explicit column mapping: open={open}, high={high}, low={low}, close={close}, volume={volume}")
+    return map_columns(df, open=open, high=high, low=low, close=close, volume=volume)
 

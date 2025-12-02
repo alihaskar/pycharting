@@ -32,15 +32,13 @@ def main():
         print("🚀 Starting Backend API on http://localhost:8000...")
         backend = subprocess.Popen(
             ["poetry", "run", "uvicorn", "src.api.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            bufsize=1
+            # Don't capture output - let it display in terminal
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0
         )
         processes.append(backend)
         
         # Wait a bit for backend to start
-        time.sleep(2)
+        time.sleep(3)
         
         # Start frontend server
         print("🌐 Starting Frontend Server on http://localhost:3000...")
@@ -48,10 +46,8 @@ def main():
         frontend = subprocess.Popen(
             [sys.executable, "-m", "http.server", "3000"],
             cwd=frontend_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            bufsize=1
+            # Don't capture output - let it display in terminal
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0
         )
         processes.append(frontend)
         
@@ -63,19 +59,21 @@ def main():
         print(f"📚 API Docs:  http://localhost:8000/docs")
         print("="*60)
         print("\n💡 Press Ctrl+C to stop both servers\n")
+        print("Server output will appear below:\n")
         
-        # Keep script running and show output
+        # Keep script running
         while True:
             # Check if processes are still running
             backend_status = backend.poll()
             frontend_status = frontend.poll()
             
             if backend_status is not None:
-                print(f"❌ Backend exited with code {backend_status}")
+                print(f"\n❌ Backend exited with code {backend_status}")
+                # Try to get error output if available
                 break
             
             if frontend_status is not None:
-                print(f"❌ Frontend exited with code {frontend_status}")
+                print(f"\n❌ Frontend exited with code {frontend_status}")
                 break
             
             time.sleep(1)

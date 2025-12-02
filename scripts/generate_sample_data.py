@@ -80,7 +80,38 @@ def generate_ohlc_data(
             'volume': volume
         })
     
-    return pd.DataFrame(data)
+    df = pd.DataFrame(data)
+    
+    # Add indicators
+    df = add_indicators(df)
+    
+    return df
+
+
+def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add technical indicators to the OHLC data.
+    
+    Args:
+        df: DataFrame with OHLC data
+        
+    Returns:
+        DataFrame with added indicator columns
+    """
+    # RSI (Relative Strength Index) - 14 period
+    delta = df['close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df['rsi_14'] = 100 - (100 / (1 + rs))
+    
+    # SMA (Simple Moving Average) - 20 period
+    df['sma_20'] = df['close'].rolling(window=20).mean()
+    
+    # EMA (Exponential Moving Average) - 12 period
+    df['ema_12'] = df['close'].ewm(span=12, adjust=False).mean()
+    
+    return df
 
 
 def main():

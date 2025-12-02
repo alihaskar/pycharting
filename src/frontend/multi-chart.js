@@ -7,6 +7,64 @@
  */
 
 /**
+ * Draw candlestick paths for uPlot OHLC rendering
+ * @param {Object} u - uPlot instance
+ * @param {number} seriesIdx - Series index
+ * @param {number} idx0 - Start index
+ * @param {number} idx1 - End index
+ * @returns {Object} SVG path object with stroke and fill paths
+ */
+function candlestickPaths(u, seriesIdx, idx0, idx1) {
+    const data = u.data;
+    const timestamps = data[0];
+    const opens = data[1];
+    const highs = data[2];
+    const lows = data[3];
+    const closes = data[4];
+    
+    let pathUp = '';
+    let pathDown = '';
+    
+    const candleWidth = Math.max(2, (u.bbox.width / (idx1 - idx0)) * 0.6);
+    
+    for (let i = idx0; i <= idx1; i++) {
+        if (opens[i] == null || closes[i] == null) continue;
+        
+        const x = Math.round(u.valToPos(timestamps[i], 'x', true));
+        const open = u.valToPos(opens[i], 'price', true);
+        const high = u.valToPos(highs[i], 'price', true);
+        const low = u.valToPos(lows[i], 'price', true);
+        const close = u.valToPos(closes[i], 'price', true);
+        
+        const isUp = closes[i] >= opens[i];
+        const halfWidth = candleWidth / 2;
+        
+        // Draw wick (high-low line)
+        const wick = `M ${x} ${high} L ${x} ${low}`;
+        
+        // Draw body (open-close rectangle)
+        const bodyTop = Math.min(open, close);
+        const bodyBottom = Math.max(open, close);
+        const bodyHeight = Math.abs(bodyBottom - bodyTop);
+        
+        const body = bodyHeight > 0
+            ? `M ${x - halfWidth} ${bodyTop} L ${x + halfWidth} ${bodyTop} L ${x + halfWidth} ${bodyBottom} L ${x - halfWidth} ${bodyBottom} Z`
+            : `M ${x - halfWidth} ${bodyTop} L ${x + halfWidth} ${bodyTop}`;
+        
+        if (isUp) {
+            pathUp += wick + ' ' + body + ' ';
+        } else {
+            pathDown += wick + ' ' + body + ' ';
+        }
+    }
+    
+    return {
+        stroke: new Path2D(pathDown),
+        fill: new Path2D(pathUp)
+    };
+}
+
+/**
  * Default configuration for MultiChartManager
  */
 const DEFAULT_CONFIG = {
@@ -56,6 +114,7 @@ export class MultiChartManager {
         this.mainChart = null;
         this.subplots = [];
         this.syncedCharts = [];
+        this.chartData = null; // Stores data loaded via loadAndRender
         
         console.log('MultiChartManager initialized');
     }
@@ -165,8 +224,14 @@ export class MultiChartManager {
      * @returns {Promise<Array>} uPlot-compatible data array
      */
     async fetchChartData() {
-        // Stub implementation - returns mock data for testing
-        // In production, this would fetch from DataClient
+        // Return real data if loaded via loadAndRender
+        if (this.chartData && Array.isArray(this.chartData)) {
+            console.log('Using loaded chart data, points:', this.chartData[0]?.length || 0);
+            return this.chartData;
+        }
+        
+        console.warn('No chart data loaded, using mock data');
+        // Fallback to mock data for testing
         const mockData = [
             // Timestamps
             [1609459200000, 1609545600000, 1609632000000],
@@ -253,12 +318,12 @@ export class MultiChartManager {
             // OHLC Candlesticks (Task 22.1)
             {
                 label: 'OHLC',
-                // Note: In real implementation with uPlot, would use:
-                // paths: uPlot.paths.bars,
-                // For testing, we use a simple object
-                paths: 'bars',
-                stroke: 'transparent',
-                fill: this.getCandlestickFill.bind(this)
+                paths: candlestickPaths,
+                points: { show: false },
+                stroke: "#ef5350",  // Red for bearish candles  
+                fill: "#26a69a",    // Green for bullish candles
+                width: 1.5,
+                scale: 'price'
             }
         ];
         
@@ -341,21 +406,126 @@ export class MultiChartManager {
             scales: {
                 x: { time: true },
                 price: { auto: true } // Auto-scale based on data
+            },
+            cursor: {
+                drag: {
+                    x: false,  // Disable select-box zoom
+                    y: false
+                }
+            },
+            hooks: {
+                ready: [
+                    (u) => {
+                        // Add mouse wheel zoom
+                        u.over.addEventListener('wheel', (e) => {
+                            e.preventDefault();
+                            const { left } = u.cursor;
+                            const xVal = u.posToVal(left, 'x');
+                            const xScale = u.scales.x;
+                            const min = xScale.min;
+                            const max = xScale.max;
+                            const range = max - min;
+                            
+                            const zoomFactor = e.deltaY < 0 ? 0.9 : 1.1;
+                            const newRange = range * zoomFactor;
+                            const leftRatio = (xVal - min) / range;
+                            
+                            u.setScale('x', {
+                                min: xVal - newRange * leftRatio,
+                                max: xVal + newRange * (1 - leftRatio)
+                            });
+                        });
+                        
+                        // Add drag-to-pan functionality
+                        let isDragging = false;
+                        let startX = 0;
+                        let startScale = { min: 0, max: 0 };
+                        
+                        u.over.addEventListener('mousedown', (e) => {
+                            isDragging = true;
+                            startX = e.clientX;
+                            const xScale = u.scales.x;
+                            startScale = { min: xScale.min, max: xScale.max };
+                            u.over.style.cursor = 'grabbing';
+                        });
+                        
+                        u.over.addEventListener('mousemove', (e) => {
+                            if (!isDragging) return;
+                            
+                            const dx = e.clientX - startX;
+                            const range = startScale.max - startScale.min;
+                            const pxToVal = range / u.bbox.width;
+                            const shift = -dx * pxToVal;
+                            
+                            u.setScale('x', {
+                                min: startScale.min + shift,
+                                max: startScale.max + shift
+                            });
+                        });
+                        
+                        u.over.addEventListener('mouseup', () => {
+                            isDragging = false;
+                            u.over.style.cursor = 'grab';
+                        });
+                        
+                        u.over.addEventListener('mouseleave', () => {
+                            isDragging = false;
+                            u.over.style.cursor = 'grab';
+                        });
+                        
+                        u.over.style.cursor = 'grab';
+                    }
+                ],
+                setCursor: [
+                    (u) => {
+                        // Display OHLC values on hover
+                        const idx = u.cursor.idx;
+                        if (idx === null) return;
+                        
+                        const timestamp = data[0][idx];
+                        const open = data[1][idx];
+                        const high = data[2][idx];
+                        const low = data[3][idx];
+                        const close = data[4][idx];
+                        
+                        // Create or update OHLC display element
+                        let ohlcDisplay = document.getElementById('ohlc-display');
+                        if (!ohlcDisplay) {
+                            ohlcDisplay = document.createElement('div');
+                            ohlcDisplay.id = 'ohlc-display';
+                            ohlcDisplay.style.position = 'absolute';
+                            ohlcDisplay.style.top = '10px';
+                            ohlcDisplay.style.left = '10px';
+                            ohlcDisplay.style.background = 'rgba(0,0,0,0.75)';
+                            ohlcDisplay.style.color = 'white';
+                            ohlcDisplay.style.padding = '8px 12px';
+                            ohlcDisplay.style.borderRadius = '4px';
+                            ohlcDisplay.style.fontSize = '12px';
+                            ohlcDisplay.style.fontFamily = 'monospace';
+                            ohlcDisplay.style.pointerEvents = 'none';
+                            ohlcDisplay.style.zIndex = '1000';
+                            mainContainer.appendChild(ohlcDisplay);
+                        }
+                        
+                        const date = new Date(timestamp).toLocaleString();
+                        const color = close >= open ? '#26a69a' : '#ef5350';
+                        
+                        ohlcDisplay.innerHTML = `
+                            <div style="font-weight: bold; margin-bottom: 4px;">${date}</div>
+                            <div>O: <span style="color: ${color}">${open?.toFixed(2)}</span></div>
+                            <div>H: <span style="color: ${color}">${high?.toFixed(2)}</span></div>
+                            <div>L: <span style="color: ${color}">${low?.toFixed(2)}</span></div>
+                            <div>C: <span style="color: ${color}">${close?.toFixed(2)}</span></div>
+                        `;
+                    }
+                ]
             }
         };
         
-        // Store configuration for testing
-        this.mainChartConfig = {
-            data,
-            opts,
-            series,
-            axes
-        };
+        // Create the actual uPlot chart instance
+        this.mainChart = new uPlot(opts, data, mainContainer);
         
-        console.log(`Main chart configured with ${overlays.length} overlays`);
-        
-        // In production, would create actual uPlot instance:
-        // this.mainChart = new uPlot(opts, data, mainContainer);
+        console.log(`Main chart created with ${overlays.length} overlays`);
     }
     
     /**
@@ -547,26 +717,11 @@ export class MultiChartManager {
                 scales: scales
             };
             
-            // Store configuration for testing
-            const subplotConfig = {
-                id: `subplot-${index}`,
-                name: indicatorName,
-                type: chartType,
-                data: subplotData,
-                opts: opts,
-                series: series,
-                axes: axes,
-                scales: scales
-            };
-            
-            // Add to subplots tracking
-            this.subplots.push(subplotConfig);
+            // Create the actual uPlot chart instance
+            const chart = new uPlot(opts, subplotData, subplotContainer);
+            this.subplots.push(chart);
             
             console.log(`Created subplot ${index}: ${indicatorName} (${chartType})`);
-            
-            // In production, would create actual uPlot instance:
-            // const chart = new uPlot(opts, subplotData, subplotContainer);
-            // this.subplots.push(chart);
         });
         
         console.log(`Total subplots created: ${this.subplots.length}`);
@@ -988,6 +1143,106 @@ export class MultiChartManager {
         
         // Stub - will be implemented in later tasks
         console.log('Syncing zoom...', zoomData);
+    }
+    
+    /**
+     * Load data and render charts (compatibility method for app.js)
+     * 
+     * @param {string} filename - CSV filename to load
+     * @param {Object} options - Loading options
+     * @returns {Promise<void>}
+     */
+    async loadAndRender(filename, options = {}) {
+        try {
+            // Show loading state
+            this.container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #999;">Loading chart data...</div>';
+            
+            // Build API URL
+            const params = new URLSearchParams({ filename });
+            if (options.timeframe) {
+                params.append('timeframe', options.timeframe);
+            }
+            
+            // Extract overlays and subplots from indicators
+            let overlays = [];
+            let subplots = [];
+            
+            // Helper function to convert UI format (RSI:14) to CSV format (rsi_14)
+            const convertIndicatorName = (uiName) => {
+                // RSI:14 -> rsi_14, SMA:20 -> sma_20, EMA:12 -> ema_12
+                return uiName.toLowerCase().replace(':', '_');
+            };
+            
+            // AUTO-DETECT: If no indicators specified, load common ones from sample data
+            if (!options.indicators || options.indicators.length === 0) {
+                // Auto-detect common indicator patterns
+                overlays = ['sma_20', 'ema_12'];
+                subplots = ['rsi_14'];
+                console.log('Auto-detecting indicators:', { overlays, subplots });
+            } else if (Array.isArray(options.indicators)) {
+                // Classify based on common patterns
+                // SMA/EMA are overlays, RSI/MACD are subplots
+                options.indicators.forEach(ind => {
+                    const csvName = convertIndicatorName(ind);
+                    const indLower = ind.toLowerCase();
+                    
+                    if (indLower.startsWith('sma') || indLower.startsWith('ema')) {
+                        overlays.push(csvName);
+                    } else if (indLower.startsWith('rsi') || indLower.startsWith('macd')) {
+                        subplots.push(csvName);
+                    }
+                });
+                console.log('Converted indicators:', { 
+                    from: options.indicators, 
+                    overlays, 
+                    subplots 
+                });
+            }
+            
+            if (overlays.length > 0) {
+                params.append('overlays', overlays.join(','));
+            }
+            if (subplots.length > 0) {
+                params.append('subplots', subplots.join(','));
+            }
+            
+            // Fetch data
+            const apiUrl = `${this.config.apiBaseUrl || 'http://127.0.0.1:8000'}/chart-data?${params}`;
+            console.log('Fetching from:', apiUrl);
+            const response = await fetch(apiUrl);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('API Error:', response.status, errorText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            console.log('API Response:', result);
+            
+            // Update config with detected indicators
+            this.config.overlays = result.metadata?.overlays || [];
+            this.config.subplots = result.metadata?.subplots?.map(s => ({
+                name: s.name,
+                type: 'subplot',
+                display_name: s.display_name
+            })) || [];
+            
+            // Store data
+            this.chartData = result.data;
+            
+            // Initialize charts with the new data
+            await this.initialize();
+            
+            console.log('Charts loaded successfully');
+        } catch (error) {
+            console.error('Failed to load chart:', error);
+            this.container.innerHTML = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #e74c3c;">
+                <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">Failed to load chart</p>
+                <p style="font-size: 0.9rem; color: #999;">${error.message}</p>
+            </div>`;
+            throw error;
+        }
     }
 }
 

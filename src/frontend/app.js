@@ -3,6 +3,8 @@
  * Integrates all components and handles user interactions
  */
 
+import { MultiChartManager } from './multi-chart.js';
+
 class ChartApplication {
     constructor() {
         // Initialize components
