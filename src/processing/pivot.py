@@ -1,10 +1,59 @@
 """Data pivoting module for converting DataFrames to uPlot format."""
 import pandas as pd
 import numpy as np
-from typing import List, Any
+from typing import List, Any, Literal
 
 
-def to_uplot_format(df: pd.DataFrame) -> List[List[Any]]:
+def datetime_to_unix_ms(dt: pd.Timestamp) -> int:
+    """
+    Convert a pandas Timestamp to Unix milliseconds.
+    
+    Args:
+        dt: Pandas Timestamp (timezone-aware or naive)
+        
+    Returns:
+        Unix timestamp in milliseconds (integer)
+        
+    Example:
+        >>> dt = pd.Timestamp("2024-01-01", tz="UTC")
+        >>> datetime_to_unix_ms(dt)
+        1704067200000
+    """
+    # If naive, assume UTC
+    if dt.tz is None:
+        dt = dt.tz_localize("UTC")
+    
+    # Convert to Unix timestamp in seconds, then to milliseconds
+    return int(dt.timestamp() * 1000)
+
+
+def datetime_to_unix_seconds(dt: pd.Timestamp) -> int:
+    """
+    Convert a pandas Timestamp to Unix seconds.
+    
+    Args:
+        dt: Pandas Timestamp (timezone-aware or naive)
+        
+    Returns:
+        Unix timestamp in seconds (integer)
+        
+    Example:
+        >>> dt = pd.Timestamp("2024-01-01", tz="UTC")
+        >>> datetime_to_unix_seconds(dt)
+        1704067200
+    """
+    # If naive, assume UTC
+    if dt.tz is None:
+        dt = dt.tz_localize("UTC")
+    
+    # Convert to Unix timestamp in seconds
+    return int(dt.timestamp())
+
+
+def to_uplot_format(
+    df: pd.DataFrame,
+    timestamp_unit: Literal["ms", "s"] = "ms"
+) -> List[List[Any]]:
     """
     Convert a Pandas DataFrame to uPlot's columnar array format.
     
@@ -24,6 +73,8 @@ def to_uplot_format(df: pd.DataFrame) -> List[List[Any]]:
         df: DataFrame with DatetimeIndex and OHLCV columns
             Required columns: 'open', 'high', 'low', 'close', 'volume'
             Optional: any additional indicator columns
+        timestamp_unit: Unit for Unix timestamps ('ms' for milliseconds, 's' for seconds)
+                       Default: 'ms'
     
     Returns:
         List of lists in columnar format for uPlot
@@ -62,9 +113,11 @@ def to_uplot_format(df: pd.DataFrame) -> List[List[Any]]:
     # Initialize result list
     result = []
     
-    # First column: timestamps (will be implemented in datetime conversion subtask)
-    # For now, use placeholder that will be replaced
-    timestamps = [int(ts.timestamp() * 1000) for ts in df.index]
+    # First column: timestamps converted to Unix time
+    if timestamp_unit == "ms":
+        timestamps = [datetime_to_unix_ms(ts) for ts in df.index]
+    else:  # timestamp_unit == "s"
+        timestamps = [datetime_to_unix_seconds(ts) for ts in df.index]
     result.append(timestamps)
     
     # Add OHLCV columns in order
