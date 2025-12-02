@@ -11,6 +11,11 @@ class TimeframeValidationError(Exception):
     pass
 
 
+class DataIntegrityError(ValueError):
+    """Custom exception for data integrity validation errors."""
+    pass
+
+
 def validate_timeframe(timeframe: str) -> None:
     """
     Validate that a timeframe string is in a supported format.
@@ -252,4 +257,166 @@ def resample_ohlc_with_timezone(
     resampled = resample_ohlc(df_copy, timeframe)
     
     return resampled
+
+
+def verify_volume_conservation(
+    original_df: pd.DataFrame,
+    resampled_df: pd.DataFrame,
+    tolerance: float = 0.001
+) -> None:
+    """
+    Verify that total volume is conserved during resampling.
+    
+    Args:
+        original_df: Original DataFrame with 'volume' column
+        resampled_df: Resampled DataFrame with 'volume' column
+        tolerance: Acceptable relative difference (default: 0.001 = 0.1%)
+        
+    Raises:
+        DataIntegrityError: If volumes don't match within tolerance
+    """
+    # Calculate totals, excluding NaN
+    original_volume = original_df["volume"].sum()
+    resampled_volume = resampled_df["volume"].sum()
+    
+    # Check if volumes match within tolerance
+    if original_volume > 0:
+        relative_diff = abs(original_volume - resampled_volume) / original_volume
+        if relative_diff > tolerance:
+            raise DataIntegrityError(
+                f"Volume conservation failed: original={original_volume:.2f}, "
+                f"resampled={resampled_volume:.2f}, "
+                f"relative_diff={relative_diff:.4%}"
+            )
+
+
+def verify_ohlc_relationships(df: pd.DataFrame) -> None:
+    """
+    Verify that OHLC price relationships are valid.
+    
+    Checks:
+    - High >= Open
+    - High >= Close
+    - Low <= Open
+    - Low <= Close
+    - Volume >= 0
+    
+    Args:
+        df: DataFrame with OHLC columns
+        
+    Raises:
+        DataIntegrityError: If any relationships are violated
+    """
+    # Check for negative volume
+    if (df["volume"] < 0).any():
+        invalid_rows = df[df["volume"] < 0]
+        raise DataIntegrityError(
+            f"Found negative volume in {len(invalid_rows)} row(s): "
+            f"indices {invalid_rows.index.tolist()}"
+        )
+    
+    # Check high >= open
+    high_below_open = df["high"] < df["open"]
+    if high_below_open.any():
+        invalid_rows = df[high_below_open]
+        raise DataIntegrityError(
+            f"High price below open in {len(invalid_rows)} row(s): "
+            f"indices {invalid_rows.index.tolist()}"
+        )
+    
+    # Check high >= close
+    high_below_close = df["high"] < df["close"]
+    if high_below_close.any():
+        invalid_rows = df[high_below_close]
+        raise DataIntegrityError(
+            f"High price below close in {len(invalid_rows)} row(s): "
+            f"indices {invalid_rows.index.tolist()}"
+        )
+    
+    # Check low <= open
+    low_above_open = df["low"] > df["open"]
+    if low_above_open.any():
+        invalid_rows = df[low_above_open]
+        raise DataIntegrityError(
+            f"Low price above open in {len(invalid_rows)} row(s): "
+            f"indices {invalid_rows.index.tolist()}"
+        )
+    
+    # Check low <= close
+    low_above_close = df["low"] > df["close"]
+    if low_above_close.any():
+        invalid_rows = df[low_above_close]
+        raise DataIntegrityError(
+            f"Low price above close in {len(invalid_rows)} row(s): "
+            f"indices {invalid_rows.index.tolist()}"
+        )
+
+
+def verify_timestamp_continuity(
+    df: pd.DataFrame,
+    expected_freq: str,
+    tolerance_seconds: int = 60
+) -> None:
+    """
+    Verify that timestamps are continuous with the expected frequency.
+    
+    Args:
+        df: DataFrame with DatetimeIndex
+        expected_freq: Expected frequency string (e.g., '1h', '5min')
+        tolerance_seconds: Acceptable deviation in seconds (default: 60)
+        
+    Raises:
+        DataIntegrityError: If gaps are detected beyond tolerance
+    """
+    if len(df) < 2:
+        return  # Can't check continuity with less than 2 points
+    
+    # Parse expected frequency to timedelta
+    pandas_freq = parse_timeframe(expected_freq)
+    expected_delta = pd.Timedelta(pd.tseries.frequencies.to_offset(pandas_freq))
+    tolerance_delta = pd.Timedelta(seconds=tolerance_seconds)
+    
+    # Check differences between consecutive timestamps
+    time_diffs = df.index.to_series().diff()[1:]  # Skip first NaT
+    
+    # Find gaps that exceed expected + tolerance
+    gaps = time_diffs > (expected_delta + tolerance_delta)
+    
+    if gaps.any():
+        gap_indices = df.index[1:][gaps]
+        raise DataIntegrityError(
+            f"Found {len(gap_indices)} timestamp gap(s) exceeding tolerance: "
+            f"indices {gap_indices.tolist()}"
+        )
+
+
+def validate_resampled_data(
+    original_df: pd.DataFrame,
+    resampled_df: pd.DataFrame,
+    volume_tolerance: float = 0.001
+) -> None:
+    """
+    Perform comprehensive validation of resampled data.
+    
+    Combines all verification checks:
+    - Volume conservation
+    - OHLC relationships
+    
+    Args:
+        original_df: Original DataFrame before resampling
+        resampled_df: DataFrame after resampling
+        volume_tolerance: Tolerance for volume conservation (default: 0.001)
+        
+    Raises:
+        DataIntegrityError: If any validation fails
+    """
+    # Skip validation for empty DataFrames
+    if len(original_df) == 0 or len(resampled_df) == 0:
+        return
+    
+    # Verify volume conservation
+    verify_volume_conservation(original_df, resampled_df, tolerance=volume_tolerance)
+    
+    # Verify OHLC relationships in resampled data
+    verify_ohlc_relationships(resampled_df)
 
