@@ -418,6 +418,65 @@ def detect_ohlc_columns_via_mapper(df: pd.DataFrame) -> Dict[str, str]:
     return mapper_detect_columns(df)
 
 
+def classify_indicators_enhanced(
+    indicator_columns: List[str],
+    user_mapping: Optional[Dict[str, bool]] = None
+) -> Tuple[List[str], List[str]]:
+    """
+    Classify indicators with user-provided overrides and pattern matching fallback.
+    
+    Accepts a dictionary mapping indicator names to boolean flags where:
+    - True = overlay indicator (displayed on main chart)
+    - False = subplot indicator (displayed on separate panel)
+    
+    Indicators not in user_mapping are auto-classified using pattern matching.
+    Unknown indicators default to subplot for safety.
+    
+    Args:
+        indicator_columns: List of indicator column names
+        user_mapping: Optional dict mapping indicator names to overlay boolean
+                     Example: {'rsi_14': False, 'custom_ma': True}
+        
+    Returns:
+        Tuple of (overlay_indicators, subplot_indicators)
+        
+    Examples:
+        >>> # Auto-classification only
+        >>> classify_indicators_enhanced(['sma_20', 'rsi_14'], None)
+        (['sma_20'], ['rsi_14'])
+        
+        >>> # With user overrides
+        >>> classify_indicators_enhanced(['sma_20', 'rsi_14', 'custom'], {'custom': True})
+        (['sma_20', 'custom'], ['rsi_14'])
+    """
+    overlays = []
+    subplots = []
+    
+    # Handle None or empty mapping
+    if user_mapping is None:
+        user_mapping = {}
+    
+    # Process each indicator
+    for indicator in indicator_columns:
+        # Check if user explicitly provided a classification
+        if indicator in user_mapping:
+            is_overlay = user_mapping[indicator]
+            if is_overlay:
+                overlays.append(indicator)
+            else:
+                subplots.append(indicator)
+        else:
+            # Fallback to pattern matching (existing classify_indicators logic)
+            ind_overlays, ind_subplots = classify_indicators([indicator])
+            
+            if ind_overlays:
+                overlays.append(indicator)
+            else:
+                subplots.append(indicator)
+    
+    return overlays, subplots
+
+
 def standardize_dataframe(
     df: pd.DataFrame,
     open: Optional[str] = None,
