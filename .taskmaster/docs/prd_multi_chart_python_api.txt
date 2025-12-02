@@ -1,0 +1,887 @@
+<overview>
+## Problem Statement
+
+Financial data analysts and traders working with Python DataFrames need to visualize OHLC price data alongside technical indicators efficiently. Currently, the charting tool requires:
+1. Manual CSV file uploads through a web interface
+2. No support for indicators already calculated in DataFrames
+3. No way to distinguish between overlay indicators (SMA, EMA) and subplot indicators (RSI, MACD)
+4. Requires running multiple terminals and manual file management
+
+This creates friction in the analysis workflow, especially for Jupyter notebook users who want quick, interactive chart visualization of their processed data.
+
+## Target Users
+
+**Primary Persona**: Python-based financial data analyst
+- Works in Jupyter notebooks, Python scripts, or REPL
+- Pre-calculates indicators using pandas/TA-Lib/custom code
+- Needs quick visual feedback on indicator performance
+- Wants to iterate rapidly on indicator parameters
+- Doesn't want to save/reload CSV files constantly
+
+**Workflow**: 
+1. Load/generate OHLC data in DataFrame
+2. Calculate indicators (RSI, SMA, MACD, etc.)
+3. Want to see price + indicators on chart immediately
+4. Iterate on indicator parameters and re-visualize
+
+## Success Metrics
+
+- **API Simplicity**: Chart visualization in 2 lines of code: `chart = Charting()` + `chart.load(df)`
+- **Auto-Detection**: 95%+ accuracy in detecting OHLC columns and classifying indicators as overlay/subplot
+- **Performance**: Handle DataFrames up to 100k rows without lag
+- **Flexibility**: Support both automatic and manual indicator classification
+- **Integration**: Seamless use from Python scripts, no external dependencies beyond browser
+
+</overview>
+
+---
+
+<functional-decomposition>
+## Capability Tree
+
+### Capability: DataFrame Analysis
+[Automatically analyze DataFrame structure to extract OHLC data and detect indicators]
+
+#### Feature: OHLC Column Detection
+- **Description**: Identify which DataFrame columns contain Open, High, Low, Close, Volume data
+- **Inputs**: pandas DataFrame with any column names
+- **Outputs**: Dictionary mapping standard names (open, high, low, close, volume) to actual column names
+- **Behavior**: Case-insensitive pattern matching against common naming conventions (open/Open/OPEN/o, high/High/h, etc.)
+
+#### Feature: Indicator Column Detection
+- **Description**: Identify which columns are technical indicators (not OHLC/timestamp)
+- **Inputs**: DataFrame columns, identified OHLC columns
+- **Outputs**: List of indicator column names
+- **Behavior**: Filter out timestamp and OHLC columns, remaining columns are indicators
+
+#### Feature: Indicator Classification
+- **Description**: Automatically classify indicators as "overlay" (price-based) or "subplot" (oscillator)
+- **Inputs**: Indicator column names
+- **Outputs**: Two lists - overlay indicators and subplot indicators
+- **Behavior**: Pattern matching on column names (sma/ema/ma/vwap/bb → overlay, rsi/macd/stoch/obv → subplot)
+
+### Capability: Data Transformation
+[Convert DataFrame format to backend-compatible format for chart rendering]
+
+#### Feature: DataFrame to CSV Conversion
+- **Description**: Serialize DataFrame to temporary CSV file for backend processing
+- **Inputs**: DataFrame with OHLC + indicators, column mappings
+- **Outputs**: Path to temporary CSV file
+- **Behavior**: Standardize column names (map detected columns to open/high/low/close), write to temp file with timestamp index
+
+#### Feature: Indicator Metadata Packaging
+- **Description**: Package indicator configuration for frontend rendering
+- **Inputs**: Overlay list, subplot list, column metadata
+- **Outputs**: JSON metadata object with indicator configuration
+- **Behavior**: Create structured metadata indicating which indicators to render and how (overlay vs subplot)
+
+### Capability: Local Server Management
+[Start, manage, and stop lightweight HTTP server for chart display]
+
+#### Feature: Server Lifecycle Control
+- **Description**: Start FastAPI server in background thread for chart hosting
+- **Inputs**: Port number, data file path, indicator configuration
+- **Outputs**: Running server instance, server URL
+- **Behavior**: Spawn uvicorn in background thread, wait for startup, return control to user
+
+#### Feature: Port Management
+- **Description**: Find available port for server to avoid conflicts
+- **Inputs**: Preferred port (default 8000)
+- **Outputs**: Available port number
+- **Behavior**: Attempt to bind to port, if taken, try next port up to max attempts
+
+#### Feature: Browser Launch
+- **Description**: Automatically open default browser to chart URL
+- **Inputs**: Server URL with query parameters for data file and indicator config
+- **Outputs**: Opened browser window
+- **Behavior**: Use webbrowser module to open URL with pre-configured indicator settings
+
+#### Feature: Graceful Shutdown
+- **Description**: Clean up server resources and temporary files
+- **Inputs**: Server instance, temp file paths
+- **Outputs**: None (cleanup complete)
+- **Behavior**: Signal server shutdown, wait for thread termination, delete temp files
+
+### Capability: Multi-Chart Rendering
+[Render synchronized charts with main price chart and indicator subplots]
+
+#### Feature: Chart Layout Management
+- **Description**: Dynamically create chart containers based on number of subplots
+- **Inputs**: Number of overlay indicators, number of subplot indicators
+- **Outputs**: HTML structure with main chart + N subplot containers
+- **Behavior**: Calculate heights (main: 60%, subplots: split remaining 40%), create div containers with IDs
+
+#### Feature: Main Chart with Overlays
+- **Description**: Render OHLC candlesticks with overlay indicators on same price axis
+- **Inputs**: OHLC data, overlay indicator data
+- **Outputs**: uPlot instance for main chart
+- **Behavior**: Configure series for candlesticks + line series for each overlay, use same y-axis scale
+
+#### Feature: Subplot Chart Creation
+- **Description**: Create independent chart for each subplot indicator with own y-axis
+- **Inputs**: Indicator name, indicator data, shared x-axis data
+- **Outputs**: uPlot instance for subplot
+- **Behavior**: Configure line/area series, independent y-axis scaling, linked x-axis to main chart
+
+#### Feature: Chart Synchronization
+- **Description**: Keep cursor position and zoom/pan synchronized across all charts
+- **Inputs**: Array of uPlot instances (main + subplots)
+- **Outputs**: Synchronized chart behavior
+- **Behavior**: Use uPlot.sync() API to link cursor, hook into setScale events to propagate zoom/pan
+
+### Capability: Python API Interface
+[Provide simple, intuitive Python class for end users]
+
+#### Feature: Charting Class Initialization
+- **Description**: Create Charting instance with configurable options
+- **Inputs**: Chart height, default port, rendering mode
+- **Outputs**: Charting instance
+- **Behavior**: Initialize internal state, validate options, prepare for data loading
+
+#### Feature: DataFrame Loading
+- **Description**: Accept DataFrame and render chart with single method call
+- **Inputs**: DataFrame, optional overlay list, optional subplot list
+- **Outputs**: Running chart in browser
+- **Behavior**: Orchestrate detection → transformation → server start → browser launch
+
+#### Feature: Manual Override Support
+- **Description**: Allow users to explicitly specify indicator classifications
+- **Inputs**: DataFrame, explicit overlay list, explicit subplot list
+- **Outputs**: Chart with user-specified configuration
+- **Behavior**: Skip auto-classification, use provided lists directly
+
+</functional-decomposition>
+
+---
+
+<structural-decomposition>
+## Repository Structure
+
+```
+charting/
+├── src/
+│   ├── python_api/              # NEW: Python API for DataFrame loading
+│   │   ├── __init__.py
+│   │   ├── charting.py          # Main Charting class
+│   │   ├── detector.py          # DataFrame column detection
+│   │   ├── transformer.py       # DataFrame to CSV conversion
+│   │   ├── server.py            # Server lifecycle management
+│   │   └── browser.py           # Browser launch utilities
+│   ├── api/                     # EXISTING: FastAPI backend
+│   │   ├── main.py              # Enhanced with indicator metadata
+│   │   ├── routes.py            # Enhanced chart-data endpoint
+│   │   ├── models.py            # Enhanced with indicator models
+│   │   └── processor.py         # Enhanced to pass through indicators
+│   ├── frontend/                # ENHANCED: Multi-chart support
+│   │   ├── index.html           # Enhanced with subplot containers
+│   │   ├── chart.js             # Renamed to multi-chart.js
+│   │   ├── multi-chart.js       # NEW: Multi-chart manager
+│   │   ├── data-client.js       # Enhanced with indicator params
+│   │   └── app.js               # Enhanced for multi-chart init
+│   ├── ingestion/               # EXISTING: No changes
+│   ├── processing/              # EXISTING: No changes (pass-through)
+│   └── __init__.py
+├── tests/
+│   ├── test_python_api/         # NEW: Python API tests
+│   ├── test_detector.py         # NEW: Column detection tests
+│   ├── test_transformer.py      # NEW: Transformation tests
+│   ├── test_server.py           # NEW: Server management tests
+│   ├── test_multi_chart.py      # NEW: Frontend multi-chart tests
+│   └── [existing test files]
+└── pyproject.toml               # Add new dependencies
+```
+
+## Module Definitions
+
+### Module: python_api
+- **Maps to capability**: Python API Interface, DataFrame Analysis, Data Transformation, Local Server Management
+- **Responsibility**: Provide high-level Python interface for DataFrame visualization
+- **File structure**:
+  ```
+  python_api/
+  ├── __init__.py          # Export Charting class
+  ├── charting.py          # Main API class
+  ├── detector.py          # OHLC and indicator detection
+  ├── transformer.py       # DataFrame to CSV conversion
+  ├── server.py            # Server lifecycle
+  └── browser.py           # Browser utilities
+  ```
+- **Exports**:
+  - `Charting` - Main user-facing class
+  - `detect_columns()` - Standalone detection utility
+  - `classify_indicators()` - Standalone classification utility
+
+### Module: api (Enhanced)
+- **Maps to capability**: Data Transformation (receive indicator metadata)
+- **Responsibility**: Serve chart data including indicator columns
+- **Changes**:
+  - `models.py`: Add `IndicatorMetadata` model (name, type: overlay/subplot)
+  - `routes.py`: Accept `?overlays=sma_20,ema_12&subplots=rsi_14` query params
+  - `processor.py`: Pass through indicator columns unchanged, include in metadata
+- **New Exports**:
+  - `IndicatorMetadata` - Pydantic model for indicator config
+
+### Module: frontend (Enhanced)
+- **Maps to capability**: Multi-Chart Rendering
+- **Responsibility**: Render synchronized main chart + subplots
+- **File structure**:
+  ```
+  frontend/
+  ├── index.html           # Enhanced with subplot containers
+  ├── multi-chart.js       # NEW: MultiChartManager class
+  ├── data-client.js       # Enhanced with indicator params
+  ├── app.js               # Enhanced to use MultiChartManager
+  └── styles.css           # Enhanced for subplot layout
+  ```
+- **Exports**:
+  - `MultiChartManager` - Class managing multiple synchronized charts
+  - `createSubplot()` - Helper to create subplot instance
+  - `syncCharts()` - Chart synchronization utility
+
+</structural-decomposition>
+
+---
+
+<dependency-graph>
+## Dependency Chain
+
+### Foundation Layer (Phase 0)
+No dependencies - these are built first.
+
+- **detector.py**: Provides column detection and indicator classification logic
+- **transformer.py**: Provides DataFrame to CSV serialization
+- **browser.py**: Provides browser launch utilities
+
+### Data Layer (Phase 1)
+- **api/models.py (enhanced)**: Depends on [detector.py - needs IndicatorMetadata structure]
+- **api/processor.py (enhanced)**: Depends on [existing ingestion/processing, api/models.py - needs to return indicators]
+
+### API Layer (Phase 2)
+- **api/routes.py (enhanced)**: Depends on [api/processor.py, api/models.py - needs enhanced processor]
+- **server.py**: Depends on [api/routes.py, transformer.py - needs backend endpoint to exist]
+
+### Frontend Layer (Phase 3)
+- **data-client.js (enhanced)**: Depends on [api/routes.py - needs indicator query params]
+- **multi-chart.js**: Depends on [data-client.js - needs indicator data from API]
+- **index.html (enhanced)**: Depends on [multi-chart.js - needs MultiChartManager]
+
+### Integration Layer (Phase 4)
+- **charting.py**: Depends on [detector.py, transformer.py, server.py, browser.py, frontend layer - orchestrates all components]
+- **python_api/__init__.py**: Depends on [charting.py - exposes public API]
+
+</dependency-graph>
+
+---
+
+<implementation-roadmap>
+## Development Phases
+
+### Phase 0: Foundation - Detection & Transformation
+**Goal**: Build core utilities for DataFrame analysis and conversion
+
+**Entry Criteria**: Clean repository with existing backend/frontend functional
+
+**Tasks**:
+- [ ] Implement OHLC column detection (depends on: none)
+  - Acceptance criteria: Detects open/high/low/close/volume columns with 95% accuracy on test cases
+  - Test strategy: Unit tests with various column naming conventions (lowercase, uppercase, abbreviated)
+
+- [ ] Implement indicator column detection (depends on: none)
+  - Acceptance criteria: Correctly filters out OHLC/timestamp columns, returns remaining as indicators
+  - Test strategy: Unit tests with DataFrames containing mixed column types
+
+- [ ] Implement indicator classification (depends on: none)
+  - Acceptance criteria: Classifies common indicators (sma, ema, rsi, macd) correctly
+  - Test strategy: Unit tests with known indicator names, edge cases (custom names)
+
+- [ ] Implement DataFrame to CSV transformer (depends on: none)
+  - Acceptance criteria: Converts DataFrame to CSV with standardized column names
+  - Test strategy: Unit tests verifying CSV output format, timestamp handling, temp file cleanup
+
+- [ ] Implement browser launch utility (depends on: none)
+  - Acceptance criteria: Opens default browser to specified URL
+  - Test strategy: Integration test (manual verification on different OS)
+
+**Exit Criteria**: 
+- All detection functions return correct results on test dataset
+- Transformer produces valid CSV files readable by existing backend
+- Browser utility successfully opens URLs
+
+**Delivers**: Core utilities that can analyze DataFrames and prepare data for backend
+
+---
+
+### Phase 1: Backend Enhancement - Indicator Metadata
+**Goal**: Extend backend API to accept and return indicator configuration
+
+**Entry Criteria**: Phase 0 complete, detector.py functions validated
+
+**Tasks**:
+- [ ] Add IndicatorMetadata Pydantic model (depends on: [Phase 0: detector.py])
+  - Acceptance criteria: Model validates indicator name and type (overlay/subplot)
+  - Test strategy: Unit tests for model validation, serialization
+
+- [ ] Enhance ChartMetadata to include indicators list (depends on: [IndicatorMetadata model])
+  - Acceptance criteria: Metadata response includes available_indicators array
+  - Test strategy: API integration test verifying metadata structure
+
+- [ ] Update processor.py to detect and pass through indicator columns (depends on: [ChartMetadata enhancement])
+  - Acceptance criteria: Processor includes indicator data in response, doesn't calculate anything
+  - Test strategy: Integration test with CSV containing indicators, verify data preservation
+
+- [ ] Add query params to /chart-data: ?overlays=X&subplots=Y (depends on: [processor.py update])
+  - Acceptance criteria: Endpoint accepts comma-separated indicator lists
+  - Test strategy: API tests with various query param combinations
+
+- [ ] Update pivot.py to include indicator columns in uPlot format (depends on: [processor.py update])
+  - Acceptance criteria: Response data array includes indicator columns after OHLCV
+  - Test strategy: Integration test verifying indicator data in response
+
+**Exit Criteria**: 
+- API endpoint returns indicator data and metadata
+- Query params control which indicators are included
+- All existing tests still pass (backward compatibility)
+
+**Delivers**: Backend API that can serve pre-calculated indicators from CSV
+
+---
+
+### Phase 2: Server Management
+**Goal**: Build local server lifecycle management for Python API
+
+**Entry Criteria**: Phase 1 complete, backend can serve indicators
+
+**Tasks**:
+- [ ] Implement port finder utility (depends on: none)
+  - Acceptance criteria: Finds available port, handles conflicts gracefully
+  - Test strategy: Unit test simulating port conflicts
+
+- [ ] Implement server lifecycle manager (depends on: [Phase 1: api/routes.py])
+  - Acceptance criteria: Starts uvicorn in background thread, server responds to requests
+  - Test strategy: Integration test starting/stopping server, verifying HTTP response
+
+- [ ] Implement graceful shutdown (depends on: [server lifecycle manager])
+  - Acceptance criteria: Server stops cleanly, temp files deleted
+  - Test strategy: Integration test with cleanup verification
+
+- [ ] Add URL builder with query params (depends on: [server lifecycle manager])
+  - Acceptance criteria: Constructs correct URL with filename and indicator params
+  - Test strategy: Unit test verifying URL format
+
+**Exit Criteria**: 
+- Server starts in <2 seconds
+- Server responds to HTTP requests
+- Server stops cleanly without errors
+- Temp files cleaned up after shutdown
+
+**Delivers**: Reliable server management for Python API
+
+---
+
+### Phase 3: Frontend Multi-Chart Rendering
+**Goal**: Create synchronized multi-chart display for main price + indicator subplots
+
+**Entry Criteria**: Phase 1 complete, backend serves indicator data
+
+**Tasks**:
+- [ ] Create MultiChartManager class skeleton (depends on: [Phase 1: data-client.js])
+  - Acceptance criteria: Class instantiates, tracks main chart and subplots array
+  - Test strategy: Unit test for class structure
+
+- [ ] Implement dynamic container creation (depends on: [MultiChartManager skeleton])
+  - Acceptance criteria: Creates main chart container + N subplot containers based on config
+  - Test strategy: Unit test with 0, 1, 3 subplots, verify DOM structure
+
+- [ ] Implement main chart with overlay rendering (depends on: [container creation])
+  - Acceptance criteria: Renders OHLC candlesticks + overlay indicators as lines on same axis
+  - Test strategy: Integration test with sample data, verify series count and types
+
+- [ ] Implement subplot creation (depends on: [main chart rendering])
+  - Acceptance criteria: Creates independent uPlot instance for each subplot indicator
+  - Test strategy: Integration test with RSI subplot, verify independent y-axis
+
+- [ ] Implement cursor synchronization (depends on: [main chart + subplots exist])
+  - Acceptance criteria: Hovering over any chart updates cursor on all charts
+  - Test strategy: Manual test with developer tools monitoring setCursor events
+
+- [ ] Implement zoom/pan synchronization (depends on: [cursor sync])
+  - Acceptance criteria: Zooming/panning main chart updates all subplots
+  - Test strategy: Integration test simulating zoom, verifying scale changes propagate
+
+- [ ] Update index.html with subplot containers (depends on: [MultiChartManager complete])
+  - Acceptance criteria: HTML has main container + subplot-container div
+  - Test strategy: HTML validation test
+
+- [ ] Update app.js to use MultiChartManager (depends on: [index.html update])
+  - Acceptance criteria: App initializes MultiChartManager instead of ChartManager
+  - Test strategy: End-to-end test loading chart with indicators
+
+**Exit Criteria**: 
+- Chart displays OHLC + overlays in main chart
+- Each subplot indicator has independent chart
+- All charts synchronized (cursor, zoom, pan)
+- Responsive layout (subplots adjust height dynamically)
+
+**Delivers**: Fully functional multi-chart display in frontend
+
+---
+
+### Phase 4: Python API Integration
+**Goal**: Tie everything together in simple Python API
+
+**Entry Criteria**: Phases 0, 2, 3 complete (detector, server, frontend all working)
+
+**Tasks**:
+- [ ] Implement Charting class __init__ (depends on: [Phase 0, Phase 2: all utilities])
+  - Acceptance criteria: Class instantiates with configurable options
+  - Test strategy: Unit test verifying default values and option overrides
+
+- [ ] Implement load() method with auto-detection (depends on: [Charting __init__, Phase 0: detector])
+  - Acceptance criteria: Accepts DataFrame, auto-detects columns, classifies indicators
+  - Test strategy: Integration test with sample DataFrame containing OHLC + indicators
+
+- [ ] Implement load() orchestration logic (depends on: [load() method, Phase 0: transformer, Phase 2: server])
+  - Acceptance criteria: Orchestrates: detect → transform → start server → open browser
+  - Test strategy: End-to-end test with DataFrame input, verify browser opens with chart
+
+- [ ] Implement close() method (depends on: [load() orchestration])
+  - Acceptance criteria: Stops server, cleans up temp files
+  - Test strategy: Integration test verifying cleanup
+
+- [ ] Add manual override support (depends on: [load() auto-detection])
+  - Acceptance criteria: Users can pass explicit overlay/subplot lists
+  - Test strategy: Unit test with manual classification, verify auto-detection skipped
+
+- [ ] Export public API in __init__.py (depends on: [Charting class complete])
+  - Acceptance criteria: `from charting import Charting` works
+  - Test strategy: Import test in clean environment
+
+**Exit Criteria**: 
+- `chart = Charting(); chart.load(df)` works end-to-end
+- Browser opens with chart in <5 seconds
+- Manual override works correctly
+- Documentation covers basic usage
+
+**Delivers**: Complete Python API for DataFrame visualization
+
+---
+
+### Phase 5: Polish & Documentation
+**Goal**: Production-ready quality and comprehensive docs
+
+**Entry Criteria**: Phase 4 complete, all core functionality working
+
+**Tasks**:
+- [ ] Add error handling for missing OHLC columns (depends on: [Phase 4: load() method])
+  - Acceptance criteria: Clear error message if DataFrame lacks required columns
+  - Test strategy: Unit test with invalid DataFrames
+
+- [ ] Add DataFrame validation (depends on: [error handling])
+  - Acceptance criteria: Validates timestamp index, numeric OHLC columns
+  - Test strategy: Unit tests with edge cases (strings in price columns, etc.)
+
+- [ ] Add configuration presets (depends on: [Phase 4: Charting class])
+  - Acceptance criteria: Preset modes for different chart types (minimal, full, custom)
+  - Test strategy: Unit test verifying preset configurations
+
+- [ ] Create usage examples (depends on: [Phase 4 complete])
+  - Acceptance criteria: 5+ example scripts covering common use cases
+  - Test strategy: Run all examples, verify they work
+
+- [ ] Write API documentation (depends on: [Phase 4 complete])
+  - Acceptance criteria: Docstrings for all public methods, README with quickstart
+  - Test strategy: Documentation review, test README instructions
+
+- [ ] Add logging support (depends on: [Phase 4 complete])
+  - Acceptance criteria: Configurable logging for debugging
+  - Test strategy: Test with logging enabled, verify useful output
+
+**Exit Criteria**: 
+- All edge cases handled gracefully
+- Clear error messages for user mistakes
+- Examples run successfully
+- Documentation covers all features
+
+**Delivers**: Production-ready library with excellent developer experience
+
+</implementation-roadmap>
+
+---
+
+<test-strategy>
+## Test Pyramid
+
+```
+        /\
+       /E2E\       ← 10% (Full workflow: DataFrame → Browser chart)
+      /------\
+     /Integration\ ← 30% (Module interactions: API ↔ Frontend, Server ↔ Backend)
+    /------------\
+   /  Unit Tests  \ ← 60% (Isolated functions: detection, classification, transformation)
+  /----------------\
+```
+
+## Coverage Requirements
+- Line coverage: 85% minimum
+- Branch coverage: 80% minimum
+- Function coverage: 90% minimum
+- Statement coverage: 85% minimum
+
+## Critical Test Scenarios
+
+### detector.py (OHLC and Indicator Detection)
+**Happy path**:
+- DataFrame with standard column names (open, high, low, close, volume) → Detects all correctly
+- DataFrame with indicators (rsi_14, sma_20) → Classifies as subplot, overlay
+
+**Edge cases**:
+- Mixed case column names (Open, HIGH, Low) → Still detects correctly
+- Abbreviated names (o, h, l, c) → Detects as OHLC
+- Custom indicator names (my_custom_ma) → Defaults to subplot classification
+
+**Error cases**:
+- Missing OHLC columns → Returns empty dict, user gets clear error
+- All columns are indicators → No OHLC detected, error raised
+
+**Integration points**:
+- detector.py → transformer.py: Detected columns used for CSV mapping
+- detector.py → charting.py: Classification results passed to API
+
+### transformer.py (DataFrame to CSV Conversion)
+**Happy path**:
+- DataFrame with datetime index → Converted to timestamp column
+- Mixed OHLC + indicators → All columns preserved in CSV
+
+**Edge cases**:
+- DataFrame with string index → Converted/validated as timestamp
+- Large DataFrame (100k rows) → Conversion completes in <5 seconds
+- Missing values (NaN) → Preserved as empty/null in CSV
+
+**Error cases**:
+- Invalid timestamp data → Clear error message
+- Non-numeric OHLC data → Validation error before conversion
+
+**Integration points**:
+- transformer.py → server.py: Temp CSV path passed to server
+- transformer.py → api/processor.py: CSV format matches backend expectations
+
+### server.py (Server Lifecycle Management)
+**Happy path**:
+- Start server on default port → Server responds in <2 seconds
+- Shutdown server → Cleans up gracefully
+
+**Edge cases**:
+- Port 8000 already in use → Finds next available port
+- Multiple simultaneous servers → Each gets unique port
+
+**Error cases**:
+- All ports in range occupied → Clear error message
+- Server fails to start → Exception with diagnostic info
+
+**Integration points**:
+- server.py → api/main.py: Uses existing FastAPI app
+- server.py → browser.py: Passes URL to browser launcher
+
+### multi-chart.js (Multi-Chart Rendering)
+**Happy path**:
+- 1 overlay, 1 subplot → Main chart + 1 subplot rendered
+- Cursor hover → All charts show cursor at same x position
+
+**Edge cases**:
+- 0 overlays, 3 subplots → Only OHLC in main, 3 independent subplots
+- 5 overlays, 0 subplots → All indicators overlaid on main chart
+
+**Error cases**:
+- Invalid indicator data (wrong length) → Error message in chart container
+- API returns no data → Show "No data available" message
+
+**Integration points**:
+- multi-chart.js → data-client.js: Receives indicator data and config
+- multi-chart.js → uPlot library: Creates multiple instances with sync
+
+### charting.py (Python API Orchestration)
+**Happy path**:
+- load(df) with standard DataFrame → Browser opens with chart
+- load(df, overlays=['sma_20']) → Manual classification used
+
+**Edge cases**:
+- Very small DataFrame (10 rows) → Still renders correctly
+- DataFrame with only OHLC, no indicators → Works as before (backward compat)
+
+**Error cases**:
+- Invalid DataFrame (missing index) → Clear error before server starts
+- Server fails to start → Clean error, no orphaned processes
+
+**Integration points**:
+- charting.py → ALL modules: Orchestrates full workflow
+- charting.py → user code: Simple, intuitive API surface
+
+## Test Generation Guidelines
+
+**For Surgical Test Generator:**
+1. **Prioritize unit tests** for detector.py and transformer.py - these are pure functions
+2. **Mock HTTP responses** for server.py tests - don't actually start servers in unit tests
+3. **Use fixture DataFrames** with known structure for consistent testing
+4. **Test async behavior** in server.py - verify background threads start/stop correctly
+5. **Browser tests are manual** - automation is complex, focus on unit/integration tests
+6. **Frontend tests use Puppeteer** for E2E scenarios (chart rendering, synchronization)
+
+**Test Data Fixtures:**
+- `fixture_ohlc_standard.csv`: Standard OHLC columns, 1000 rows
+- `fixture_with_indicators.csv`: OHLC + RSI, SMA, EMA indicators
+- `fixture_mixed_case.csv`: Mixed case column names
+- `fixture_large.csv`: 100k rows for performance testing
+
+**Coverage Focus:**
+- Detection algorithms: All column name variations
+- Classification: All common indicator name patterns
+- Server lifecycle: Start, stop, port conflicts
+- Chart rendering: All overlay/subplot combinations
+- Error paths: Invalid data, missing columns, server failures
+
+</test-strategy>
+
+---
+
+<architecture>
+## System Components
+
+### Component: Python API Layer
+**Responsibility**: User-facing interface for DataFrame visualization
+**Implementation**: Python module with Charting class
+**Key Design**: Facade pattern - simple API hiding complex orchestration
+
+### Component: Backend API Layer (Enhanced)
+**Responsibility**: Serve OHLC + indicator data to frontend
+**Implementation**: FastAPI endpoints with enhanced metadata
+**Key Design**: Pass-through architecture - no indicator calculation, just data routing
+
+### Component: Frontend Rendering Layer (Enhanced)
+**Responsibility**: Multi-chart display with synchronization
+**Implementation**: JavaScript with uPlot instances
+**Key Design**: Manager pattern - MultiChartManager coordinates multiple charts
+
+### Component: Server Management Layer
+**Responsibility**: Lifecycle control for local development server
+**Implementation**: Background thread with uvicorn
+**Key Design**: Threaded server with graceful shutdown handlers
+
+## Data Models
+
+### DataFrame Structure (Input)
+```python
+pd.DataFrame({
+    'timestamp': datetime64[ns] (index),
+    'open': float64,
+    'high': float64,
+    'low': float64,
+    'close': float64,
+    'volume': float64,
+    'rsi_14': float64,      # subplot indicator
+    'sma_20': float64,      # overlay indicator
+    'ema_12': float64,      # overlay indicator
+    ...                     # additional indicators
+})
+```
+
+### IndicatorMetadata (Backend Model)
+```python
+class IndicatorMetadata(BaseModel):
+    name: str              # Column name
+    type: str              # "overlay" or "subplot"
+    display_name: str      # Human-readable name (optional)
+```
+
+### ChartMetadata (Enhanced)
+```python
+class ChartMetadata(BaseModel):
+    columns: List[str]                    # ["timestamp", "open", ..., "rsi_14", "sma_20"]
+    total_rows: int
+    timeframe: Optional[str]
+    available_indicators: List[str]       # NEW: ["rsi_14", "sma_20", "ema_12"]
+    overlays: List[str]                   # NEW: ["sma_20", "ema_12"]
+    subplots: List[str]                   # NEW: ["rsi_14"]
+```
+
+### MultiChartConfig (Frontend)
+```javascript
+{
+    mainChart: {
+        ohlc: true,
+        overlays: ["sma_20", "ema_12"]
+    },
+    subplots: [
+        { name: "rsi_14", data: [...], type: "line" },
+        { name: "macd", data: [...], type: "line" }
+    ]
+}
+```
+
+## Technology Stack
+
+**Backend**:
+- Python 3.11+
+- FastAPI (existing)
+- Pandas (DataFrame handling)
+- Uvicorn (server)
+
+**Frontend**:
+- uPlot (existing)
+- Vanilla JavaScript (no framework)
+- Modern CSS (flexbox for layout)
+
+**Python API**:
+- Threading (background server)
+- Webbrowser (browser launch)
+- Tempfile (CSV storage)
+
+**Decision: Pass-Through Architecture for Indicators**
+- **Rationale**: Don't duplicate indicator calculation logic. Users calculate indicators in pandas, we just display them.
+- **Trade-offs**: Less control over indicator correctness, but much simpler and more flexible
+- **Alternatives considered**: 
+  - Calculate indicators in backend (rejected - too much complexity)
+  - Use JS indicator libraries in frontend (rejected - performance issues with large datasets)
+
+**Decision: Local Server Mode Only (No Jupyter Embedding)**
+- **Rationale**: User explicitly requested browser-based approach. Server mode works from any Python environment (scripts, notebooks, REPL).
+- **Trade-offs**: Requires browser, not embedded in notebook output
+- **Alternatives considered**:
+  - Embedded HTML in Jupyter (rejected per user request)
+  - Hybrid mode supporting both (deferred to future)
+
+**Decision: uPlot for Multi-Chart**
+- **Rationale**: Existing library with excellent sync support, very fast
+- **Trade-offs**: Learning curve for multiple instances, manual synchronization setup
+- **Alternatives considered**:
+  - Plotly (rejected - too heavy, slower)
+  - Lightweight-charts (rejected - poor multi-chart sync)
+
+**Decision: Background Thread for Server**
+- **Rationale**: Keep Python REPL responsive, allow user to continue working
+- **Trade-offs**: Need careful thread lifecycle management
+- **Alternatives considered**:
+  - Blocking server (rejected - bad UX)
+  - Separate process (rejected - harder to manage cleanup)
+
+</architecture>
+
+---
+
+<risks>
+## Technical Risks
+
+**Risk**: Multi-chart synchronization performance with many subplots
+- **Impact**: High - core feature, affects user experience
+- **Likelihood**: Medium - uPlot handles 2-3 charts well, uncertain beyond that
+- **Mitigation**: Implement lazy rendering, limit max subplots to 5, performance test with 100k datapoints
+- **Fallback**: Disable synchronization for >3 subplots, warn user
+
+**Risk**: DataFrame column detection accuracy
+- **Impact**: Medium - misclassification leads to wrong chart layout
+- **Likelihood**: Medium - many naming conventions exist
+- **Mitigation**: Extensive test dataset, allow manual override
+- **Fallback**: Default to requiring manual classification if auto-detection confidence < threshold
+
+**Risk**: Server lifecycle management edge cases
+- **Impact**: Medium - orphaned processes, port conflicts
+- **Likelihood**: Medium - threading is tricky
+- **Mitigation**: Comprehensive cleanup, use context managers, register atexit handlers
+- **Fallback**: Manual server management, expose start/stop methods
+
+## Dependency Risks
+
+**Risk**: uPlot library lacks feature for advanced multi-chart sync
+- **Impact**: High - blocks core feature
+- **Likelihood**: Low - uPlot has sync API, well-documented
+- **Mitigation**: Prototype multi-chart sync in Phase 3 Task 1
+- **Fallback**: Custom sync implementation using event propagation
+
+**Risk**: FastAPI background thread conflicts
+- **Impact**: Medium - server instability
+- **Likelihood**: Low - uvicorn supports background mode
+- **Mitigation**: Use uvicorn.Server programmatically, test thoroughly
+- **Fallback**: Use subprocess instead of thread
+
+## Scope Risks
+
+**Risk**: Feature creep - users request indicator calculation in library
+- **Impact**: Medium - scope explosion
+- **Likelihood**: High - natural user expectation
+- **Mitigation**: Clear documentation stating "pre-calculated indicators only"
+- **Fallback**: Defer to Phase 6 (out of scope for this PRD)
+
+**Risk**: Cross-platform browser launch issues
+- **Impact**: Low - annoyance, not blocker
+- **Likelihood**: Medium - different OS behaviors
+- **Mitigation**: Test on Windows/Mac/Linux, document known issues
+- **Fallback**: Print URL, let user open manually
+
+</risks>
+
+---
+
+<appendix>
+## References
+
+- **uPlot Documentation**: https://github.com/leeoniya/uPlot
+- **uPlot Sync Plugin**: https://github.com/leeoniya/uPlot/tree/master/demos/sync-cursor.html
+- **FastAPI Background Tasks**: https://fastapi.tiangolo.com/tutorial/background-tasks/
+- **Pandas DataFrame I/O**: https://pandas.pydata.org/docs/reference/io.html
+
+## Glossary
+
+- **OHLC**: Open, High, Low, Close - standard price data format
+- **Overlay Indicator**: Technical indicator displayed on same axis as price (e.g., moving averages)
+- **Subplot Indicator**: Technical indicator displayed on separate axis/chart (e.g., RSI, MACD)
+- **Pass-through Architecture**: Backend serves data without transformation/calculation
+- **Multi-chart Sync**: Keeping cursor, zoom, pan synchronized across multiple chart instances
+
+## Open Questions
+
+1. **Max number of subplots**: What's reasonable performance limit? Test in Phase 3.
+2. **Indicator color schemes**: Auto-assign colors or let user configure? Defer to Phase 5.
+3. **Subplot heights**: Equal distribution or weighted by importance? Start with equal, iterate.
+4. **Custom indicator classification**: If auto-detection fails, should we prompt user or default to subplot? Default to subplot, allow override.
+
+</appendix>
+
+---
+
+<task-master-integration>
+# Task Master Parsing Notes
+
+This PRD follows the Repository Planning Graph (RPG) method with explicit dependencies between modules and phases.
+
+## Key Sections for Parser
+
+1. **Functional Decomposition** → Capabilities map to high-level tasks
+   - Each `### Capability:` becomes a parent task
+   - Each `#### Feature:` becomes a subtask with clear acceptance criteria
+
+2. **Dependency Chain** → Task dependencies
+   - Foundation Layer (Phase 0): No dependencies
+   - Each subsequent phase depends on previous phase completion
+   - Within phases, tasks may depend on other tasks in same/previous phases
+
+3. **Implementation Roadmap** → Task ordering and priorities
+   - Phase 0 = Highest priority (foundation)
+   - Each phase has clear entry/exit criteria
+   - Tasks within a phase can be parallelized if no inter-dependencies
+
+## Parsing Directives
+
+**Suggest number of tasks**: ~35 top-level tasks across 5 phases
+
+**Complexity flags**:
+- Phase 3 (Frontend Multi-Chart): High complexity - needs detailed breakdown
+- Phase 4 (Python API Integration): Medium complexity - orchestration logic
+- Phase 0, 1, 2: Low-medium complexity - well-defined utilities
+
+**Recommended expansion**:
+- Expand Phase 3 Task 5 (cursor synchronization) - tricky coordination logic
+- Expand Phase 4 Task 3 (load orchestration) - many moving parts
+
+**Research mode**: Recommend enabling for uPlot multi-chart patterns (Phase 3)
+
+</task-master-integration>
+
