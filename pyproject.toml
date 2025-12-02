@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
+packages = [{include = "charting", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
