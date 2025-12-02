@@ -69,3 +69,26 @@ def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
     
     return rsi
 
+
+def calculate_sma(prices: pd.Series, period: int) -> pd.Series:
+    """
+    Calculate Simple Moving Average (SMA).
+    
+    SMA is the average of the last 'period' values.
+    
+    Args:
+        prices: Series of price data (typically close prices)
+        period: Window size for moving average
+    
+    Returns:
+        Series of SMA values with same index as input
+        First 'period-1' values will be NaN (insufficient data for window)
+    """
+    if len(prices) == 0:
+        return pd.Series([], dtype=float)
+    
+    # Use pandas rolling mean for efficient calculation
+    sma = prices.rolling(window=period, min_periods=period).mean()
+    
+    return sma
+
