@@ -4,6 +4,33 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime
 
 
+class ColumnMappingParams(BaseModel):
+    """
+    Optional column name mapping parameters for custom OHLC data.
+    
+    Allows users to specify custom column names in their CSV files
+    instead of relying on auto-detection.
+    """
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "open": "PriceOpen",
+                "high": "PriceHigh",
+                "low": "PriceLow",
+                "close": "PriceClose",
+                "volume": "Vol"
+            }
+        }
+    )
+    
+    open: Optional[str] = Field(None, description="Name of open price column")
+    high: Optional[str] = Field(None, description="Name of high price column")
+    low: Optional[str] = Field(None, description="Name of low price column")
+    close: Optional[str] = Field(None, description="Name of close price column")
+    volume: Optional[str] = Field(None, description="Name of volume column")
+
+
 class IndicatorMetadata(BaseModel):
     """Metadata for individual indicators including their type and display information."""
     

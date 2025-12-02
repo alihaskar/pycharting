@@ -13,6 +13,23 @@ from src.processing.pivot import to_uplot_format
 
 logger = logging.getLogger(__name__)
 
+# Import mapper/detector for column standardization
+# Note: Import directly from modules to avoid circular dependency through __init__.py
+try:
+    import src.python_api.detector as detector_module
+    import src.python_api.mapper as mapper_module
+    standardize_dataframe = detector_module.standardize_dataframe
+    ColumnNotFoundError = mapper_module.ColumnNotFoundError
+    ColumnValidationError = mapper_module.ColumnValidationError
+    MAPPER_AVAILABLE = True
+    logger.info("Mapper/detector modules loaded successfully")
+except ImportError as e:
+    logger.warning(f"Mapper/detector not available: {e}")
+    MAPPER_AVAILABLE = False
+    standardize_dataframe = None
+    ColumnNotFoundError = ValueError
+    ColumnValidationError = TypeError
+
 
 def sanitize_filename(filename: str) -> str:
     """
@@ -29,7 +46,20 @@ def sanitize_filename(filename: str) -> str:
     return sanitized.strip()
 
 
-def validate_filename(filename: str) -> None:
+def is_safe_absolute_path(filepath: str) -> bool:
+    """
+    Check if an absolute path is safe (e.g., in temp directory).
+    """
+    import tempfile
+    temp_dir = tempfile.gettempdir()
+    try:
+        resolved = str(Path(filepath).resolve())
+        return resolved.startswith(temp_dir) and filepath.endswith('.csv')
+    except Exception:
+        return False
+
+
+def validate_filename(filename: str, allow_temp: bool = True) -> None:
     """
     Validate filename for security.
     
@@ -64,8 +94,10 @@ def validate_filename(filename: str) -> None:
     if '..' in filename:
         raise ValueError("Invalid filename: directory traversal not allowed")
     
-    # Check for absolute paths
+    # Check for absolute paths (allow temp directory paths)
     if filename.startswith('/') or (len(filename) > 1 and filename[1] == ':'):
+        if allow_temp and is_safe_absolute_path(filename):
+            return  # Safe temp path, skip remaining validation
         raise ValueError("Invalid filename: absolute paths not allowed")
     
     # Check for path separators (only basename allowed)
@@ -217,7 +249,12 @@ def load_and_process_data(
     subplots: Optional[List[str]] = None,
     timeframe: Optional[str] = None,
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
+    column_open: Optional[str] = None,
+    column_high: Optional[str] = None,
+    column_low: Optional[str] = None,
+    column_close: Optional[str] = None,
+    column_volume: Optional[str] = None
 ) -> tuple[List[List], Dict[str, Any]]:
     """
     Load CSV file and process data with indicators and resampling.
@@ -230,6 +267,11 @@ def load_and_process_data(
         timeframe: Optional timeframe for resampling
         start_date: Optional start date for filtering
         end_date: Optional end date for filtering
+        column_open: Optional custom column name for open prices
+        column_high: Optional custom column name for high prices
+        column_low: Optional custom column name for low prices
+        column_close: Optional custom column name for close prices
+        column_volume: Optional custom column name for volume
         
     Returns:
         Tuple of (uplot_data, metadata)
@@ -237,27 +279,78 @@ def load_and_process_data(
     Raises:
         FileNotFoundError: If file doesn't exist
         ValueError: If data processing fails or filename is invalid
+        
+    Note:
+        Column mapping parameters (column_*) will be integrated with
+        mapper/detector modules in future updates.
     """
     # Validate filename for security
     validate_filename(filename)
     
-    # Sanitize filename
-    filename = sanitize_filename(filename)
-    
-    # Get data directory and construct file path
-    data_dir = get_data_directory()
-    file_path = data_dir / filename
+    # Handle absolute paths (temp files) vs relative paths (data dir)
+    if filename.startswith('/') or (len(filename) > 1 and filename[1] == ':'):
+        # Absolute path - use directly (already validated as safe temp path)
+        file_path = Path(filename)
+    else:
+        # Relative path - look in data directory
+        filename = sanitize_filename(filename)
+        data_dir = get_data_directory()
+        file_path = data_dir / filename
     
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {filename}")
     
     logger.info(f"Loading file: {file_path}")
+    logger.debug(f"MAPPER_AVAILABLE={MAPPER_AVAILABLE}, custom_columns={[column_open, column_high, column_low, column_close, column_volume]}")
     
-    # Load CSV
-    df = load_csv(str(file_path))
-    
-    # Parse datetime (automatically detects timestamp column)
-    df = parse_datetime(df)
+    # Always load CSV without strict validation first if mapper available (allows for column standardization)
+    if MAPPER_AVAILABLE:
+        # Load CSV without validation - we'll standardize columns first
+        logger.info("Loading CSV with mapper/detector support")
+        try:
+            df = pd.read_csv(file_path, encoding="utf-8")
+        except UnicodeDecodeError:
+            df = pd.read_csv(file_path, encoding="latin-1")
+        
+        if df.empty:
+            raise ValueError(f"No data found in CSV file: {filename}")
+        
+        # Parse datetime before standardization
+        df = parse_datetime(df)
+        
+        # Standardize column names (explicit mapping or auto-detection)
+        has_custom_columns = any([column_open, column_high, column_low, column_close, column_volume])
+        if has_custom_columns:
+            logger.info("Using explicit column mapping")
+            try:
+                df = standardize_dataframe(
+                    df,
+                    open=column_open,
+                    high=column_high,
+                    low=column_low,
+                    close=column_close,
+                    volume=column_volume
+                )
+                logger.info("Column standardization successful")
+            except (ColumnNotFoundError, ColumnValidationError) as e:
+                logger.error(f"Column mapping error: {e}")
+                raise ValueError(str(e))
+        else:
+            logger.info("Auto-detecting and standardizing columns")
+            try:
+                df = standardize_dataframe(df)
+                logger.info("Auto-detection successful")
+            except (ColumnNotFoundError, ColumnValidationError) as e:
+                logger.debug(f"Auto-detection failed, continuing with original columns: {e}")
+                # If auto-detection fails, validate that required columns exist
+                required_columns = {"timestamp", "open", "high", "low", "close", "volume"}
+                missing_columns = required_columns - set(df.columns)
+                if missing_columns:
+                    raise ValueError(f"Missing required columns: {missing_columns}. Found columns: {list(df.columns)}")
+    else:
+        # Standard flow with validation (backward compatibility)
+        df = load_csv(str(file_path))
+        df = parse_datetime(df)
     
     # Clean missing values
     df = clean_missing_values(df)

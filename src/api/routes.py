@@ -71,6 +71,27 @@ async def get_chart_data(
         None,
         description="Timeframe for resampling (e.g., 5min, 1h, 1D)",
         pattern=r"^\d+(min|h|d|w|m)$"
+    ),
+    # Column mapping parameters (NEW)
+    open: Optional[str] = Query(
+        None,
+        description="Name of open price column in CSV (for custom column names)"
+    ),
+    high: Optional[str] = Query(
+        None,
+        description="Name of high price column in CSV (for custom column names)"
+    ),
+    low: Optional[str] = Query(
+        None,
+        description="Name of low price column in CSV (for custom column names)"
+    ),
+    close: Optional[str] = Query(
+        None,
+        description="Name of close price column in CSV (for custom column names)"
+    ),
+    volume: Optional[str] = Query(
+        None,
+        description="Name of volume column in CSV (for custom column names)"
     )
 ):
     """
@@ -84,6 +105,11 @@ async def get_chart_data(
         start_date: Optional start date for filtering
         end_date: Optional end date for filtering
         timeframe: Optional timeframe for resampling
+        open: Optional custom column name for open prices
+        high: Optional custom column name for high prices
+        low: Optional custom column name for low prices
+        close: Optional custom column name for close prices
+        volume: Optional custom column name for volume
         
     Returns:
         ChartDataResponse with columnar array data
@@ -103,6 +129,10 @@ async def get_chart_data(
         if subplot_list:
             logger.info(f"Requested subplots: {subplot_list}")
         
+        # Log column mapping if provided
+        if any([open, high, low, close, volume]):
+            logger.info(f"Custom column mapping: open={open}, high={high}, low={low}, close={close}, volume={volume}")
+        
         # Load and process data
         uplot_data, metadata = load_and_process_data(
             filename=filename,
@@ -111,7 +141,12 @@ async def get_chart_data(
             subplots=subplot_list,
             timeframe=timeframe,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            column_open=open,
+            column_high=high,
+            column_low=low,
+            column_close=close,
+            column_volume=volume
         )
         
         return ChartDataResponse(

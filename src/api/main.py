@@ -1,8 +1,10 @@
 """Main FastAPI application entry point."""
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 import logging
 from src.api import routes
@@ -58,15 +60,14 @@ def get_app() -> FastAPI:
         allow_headers=["*"],
     )
     
-    # Root endpoint
-    @app.get("/", tags=["info"])
-    async def root():
-        """
-        Get API information.
-        
-        Returns:
-            API name and version
-        """
+    # Get frontend directory
+    frontend_dir = Path(__file__).parent.parent / "frontend"
+    logger.info(f"Frontend directory: {frontend_dir}")
+    
+    # API info endpoint
+    @app.get("/api", tags=["info"])
+    async def api_info():
+        """Get API information."""
         return {
             "name": app.title,
             "version": app.version,
@@ -114,6 +115,11 @@ def get_app() -> FastAPI:
             status_code=500,
             content={"detail": "Internal server error"}
         )
+    
+    # Mount static files LAST so API routes take priority
+    if frontend_dir.exists():
+        app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+        logger.info(f"Serving frontend from: {frontend_dir}")
     
     return app
 

@@ -18,7 +18,6 @@ from .detector import (
 from .transformer import transform_dataframe_to_csv
 from .server import ServerManager
 from .browser import launch_browser
-from src.api.main import app
 
 logger = logging.getLogger(__name__)
 
@@ -107,17 +106,32 @@ class Charting:
         self,
         df: pd.DataFrame,
         overlays: Optional[List[str]] = None,
-        subplots: Optional[List[str]] = None
+        subplots: Optional[List[str]] = None,
+        # Task 7.1: Explicit column mapping parameters
+        open: Optional[str] = None,
+        high: Optional[str] = None,
+        low: Optional[str] = None,
+        close: Optional[str] = None,
+        volume: Optional[str] = None,
+        # Task 7.1: Indicator classification dict
+        indicators: Optional[Dict[str, bool]] = None
     ) -> str:
         """
         Load DataFrame and display as interactive chart.
         
         Task 28: DataFrame loading with auto-detection
+        Task 7.1: Enhanced with explicit column mappings and indicator dict
         
         Args:
             df: Pandas DataFrame with OHLC data and optional indicators
             overlays: List of overlay indicator column names (optional)
             subplots: List of subplot indicator column names (optional)
+            open: Explicit column name for open prices (optional)
+            high: Explicit column name for high prices (optional)
+            low: Explicit column name for low prices (optional)
+            close: Explicit column name for close prices (optional)
+            volume: Explicit column name for volume (optional)
+            indicators: Dict mapping indicator names to True (overlay) or False (subplot)
             
         Returns:
             URL of the chart
@@ -125,14 +139,58 @@ class Charting:
         Raises:
             ValueError: If DataFrame is invalid
             RuntimeError: If chart startup fails
+            
+        Examples:
+            # Auto-detection (backward compatible)
+            chart.load(df)
+            
+            # Explicit column mapping
+            chart.load(df, open='PriceOpen', high='PriceHigh', ...)
+            
+            # Indicator classification
+            chart.load(df, indicators={'sma_20': True, 'rsi_14': False})
         """
         logger.info("Loading DataFrame...")
         
         # Task 28.1: Validate DataFrame
         self._validate_dataframe(df)
         
-        # Task 28.2: Auto-detect OHLC columns
-        ohlc_mapping = detect_ohlc_columns(df)
+        # Task 7.1: Check for explicit column mappings
+        explicit_mapping = {
+            'open': open,
+            'high': high,
+            'low': low,
+            'close': close,
+            'volume': volume
+        }
+        has_explicit_mapping = any(v is not None for v in explicit_mapping.values())
+        
+        if has_explicit_mapping:
+            # Task 7.1: Use explicit column mapping
+            ohlc_mapping = {}
+            for ohlc_name, col_name in explicit_mapping.items():
+                if col_name is not None:
+                    if col_name not in df.columns:
+                        raise ValueError(
+                            f"Column '{col_name}' for '{ohlc_name}' not found in DataFrame. "
+                            f"Available columns: {list(df.columns)}"
+                        )
+                    ohlc_mapping[ohlc_name] = col_name
+                else:
+                    # Fall back to auto-detection for unspecified columns
+                    pass
+            
+            # Auto-detect any unspecified columns
+            auto_mapping = detect_ohlc_columns(df)
+            for key in ['open', 'high', 'low', 'close', 'volume']:
+                if key not in ohlc_mapping and auto_mapping.get(key):
+                    ohlc_mapping[key] = auto_mapping[key]
+            
+            logger.info(f"Using explicit OHLC mapping: {ohlc_mapping}")
+        else:
+            # Task 28.2: Auto-detect OHLC columns
+            ohlc_mapping = detect_ohlc_columns(df)
+            logger.info(f"Detected OHLC columns: {ohlc_mapping}")
         
         if not ohlc_mapping.get('open') or not ohlc_mapping.get('close'):
             raise ValueError(
@@ -140,15 +198,30 @@ class Charting:
                 f"Detected columns: {list(df.columns)}"
             )
         
-        logger.info(f"Detected OHLC columns: {ohlc_mapping}")
-        
         # Task 28.3: Detect and classify indicators
         indicator_columns = detect_indicator_columns(df, ohlc_mapping)
         logger.info(f"Detected indicator columns: {indicator_columns}")
         
-        # Task 28.4: Handle manual override vs auto-classification
-        if overlays is None or subplots is None:
-            # Auto-classify indicators
+        # Task 7.1: Handle indicators dict classification
+        if indicators is not None:
+            # Use explicit indicator classification
+            overlays = overlays if overlays is not None else []
+            subplots = subplots if subplots is not None else []
+            
+            for ind_name, is_overlay in indicators.items():
+                if ind_name in df.columns:
+                    if is_overlay:
+                        if ind_name not in overlays:
+                            overlays.append(ind_name)
+                    else:
+                        if ind_name not in subplots:
+                            subplots.append(ind_name)
+                else:
+                    logger.warning(f"Indicator '{ind_name}' not found in DataFrame columns")
+            
+            logger.info(f"Using indicators dict: overlays={overlays}, subplots={subplots}")
+        elif overlays is None or subplots is None:
+            # Task 28.4: Auto-classify indicators
             auto_overlays, auto_subplots = classify_indicators(indicator_columns)
             overlays = overlays if overlays is not None else auto_overlays
             subplots = subplots if subplots is not None else auto_subplots
@@ -219,6 +292,8 @@ class Charting:
             
             # Task 29.2: Start server
             logger.info("Starting FastAPI server...")
+            # Lazy import to avoid circular dependency with processor
+            from src.api.main import app
             self.server_manager = ServerManager(app, self.port)
             chart_url = self.server_manager.start(
                 csv_path,

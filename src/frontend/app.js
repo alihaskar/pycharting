@@ -255,8 +255,15 @@ class ChartApplication {
 
     /**
      * Load application state from localStorage
+     * Skip if URL has filename (URL params take priority)
      */
     loadState() {
+        // URL params always take priority over localStorage
+        if (this.urlParams && this.urlParams.filename) {
+            console.log('Using URL filename, skipping localStorage');
+            return;
+        }
+        
         try {
             const saved = localStorage.getItem('chartAppState');
             if (saved) {
