@@ -440,3 +440,226 @@ class TestTemporaryFileCreation:
             if os.path.exists(filepath):
                 os.remove(filepath)
 
+
+class TestCSVFormattingAndValidation:
+    """Test complete DataFrame to CSV transformation pipeline."""
+    
+    def test_transform_dataframe_to_csv_complete(self):
+        """Test end-to-end transformation from DataFrame to CSV."""
+        dates = pd.date_range('2024-01-01', periods=5, freq='1min')
+        df = pd.DataFrame({
+            'Open': [100, 101, 102, 103, 104],
+            'High': [102, 103, 104, 105, 106],
+            'Low': [99, 100, 101, 102, 103],
+            'Close': [101, 102, 103, 104, 105],
+            'Volume': [1000, 1100, 1200, 1300, 1400],
+            'rsi_14': [45, 46, 47, 48, 49],
+            'sma_20': [100.5, 101.5, 102.5, 103.5, 104.5]
+        }, index=dates)
+        
+        ohlc_mapping = {
+            'open': 'Open',
+            'high': 'High',
+            'low': 'Low',
+            'close': 'Close',
+            'volume': 'Volume'
+        }
+        
+        filepath = transform_dataframe_to_csv(df, ohlc_mapping, ['rsi_14', 'sma_20'])
+        
+        try:
+            # File should exist
+            assert os.path.exists(filepath)
+            
+            # Read back and verify
+            df_read = pd.read_csv(filepath)
+            
+            # Check standardized column names
+            assert 'open' in df_read.columns
+            assert 'high' in df_read.columns
+            assert 'low' in df_read.columns
+            assert 'close' in df_read.columns
+            assert 'volume' in df_read.columns
+            
+            # Check indicator columns preserved
+            assert 'rsi_14' in df_read.columns
+            assert 'sma_20' in df_read.columns
+            
+            # Check timestamp column exists
+            assert 'timestamp' in df_read.columns
+            
+            # Check data integrity
+            assert len(df_read) == 5
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_transform_preserves_data_values(self):
+        """Test that transformation preserves all data values."""
+        dates = pd.date_range('2024-01-01', periods=3, freq='1min')
+        df = pd.DataFrame({
+            'open': [100.0, 101.0, 102.0],
+            'high': [102.0, 103.0, 104.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [101.0, 102.0, 103.0],
+            'rsi_14': [45.0, 46.0, 47.0]
+        }, index=dates)
+        
+        ohlc_mapping = {
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close'
+        }
+        
+        filepath = transform_dataframe_to_csv(df, ohlc_mapping, ['rsi_14'])
+        
+        try:
+            df_read = pd.read_csv(filepath)
+            
+            # Verify OHLC data
+            assert df_read['open'].tolist() == [100.0, 101.0, 102.0]
+            assert df_read['high'].tolist() == [102.0, 103.0, 104.0]
+            assert df_read['low'].tolist() == [99.0, 100.0, 101.0]
+            assert df_read['close'].tolist() == [101.0, 102.0, 103.0]
+            
+            # Verify indicator data
+            assert df_read['rsi_14'].tolist() == [45.0, 46.0, 47.0]
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_transform_with_abbreviated_ohlc(self):
+        """Test transformation with abbreviated OHLC column names."""
+        dates = pd.date_range('2024-01-01', periods=3, freq='1min')
+        df = pd.DataFrame({
+            'o': [100, 101, 102],
+            'h': [102, 103, 104],
+            'l': [99, 100, 101],
+            'c': [101, 102, 103],
+            'v': [1000, 1100, 1200]
+        }, index=dates)
+        
+        ohlc_mapping = {
+            'open': 'o',
+            'high': 'h',
+            'low': 'l',
+            'close': 'c',
+            'volume': 'v'
+        }
+        
+        filepath = transform_dataframe_to_csv(df, ohlc_mapping)
+        
+        try:
+            df_read = pd.read_csv(filepath)
+            
+            # Should have standardized names
+            assert 'open' in df_read.columns
+            assert 'high' in df_read.columns
+            assert 'low' in df_read.columns
+            assert 'close' in df_read.columns
+            assert 'volume' in df_read.columns
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_transform_backend_compatible(self):
+        """Test that output CSV is compatible with existing backend."""
+        dates = pd.date_range('2024-01-01', periods=5, freq='1min')
+        df = pd.DataFrame({
+            'open': [100, 101, 102, 103, 104],
+            'high': [102, 103, 104, 105, 106],
+            'low': [99, 100, 101, 102, 103],
+            'close': [101, 102, 103, 104, 105],
+            'volume': [1000, 1100, 1200, 1300, 1400]
+        }, index=dates)
+        
+        ohlc_mapping = {
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close',
+            'volume': 'volume'
+        }
+        
+        filepath = transform_dataframe_to_csv(df, ohlc_mapping)
+        
+        try:
+            # Backend expects CSV with:
+            # - timestamp column
+            # - open, high, low, close, volume columns
+            # - UTF-8 encoding
+            # - No pandas index
+            
+            df_read = pd.read_csv(filepath)
+            
+            # Verify required columns
+            assert 'timestamp' in df_read.columns
+            assert all(col in df_read.columns for col in ['open', 'high', 'low', 'close', 'volume'])
+            
+            # Verify no unnamed index columns
+            assert not any('unnamed' in col.lower() for col in df_read.columns)
+            
+            # Verify data is numeric where expected
+            assert pd.api.types.is_numeric_dtype(df_read['open'])
+            assert pd.api.types.is_numeric_dtype(df_read['high'])
+            assert pd.api.types.is_numeric_dtype(df_read['low'])
+            assert pd.api.types.is_numeric_dtype(df_read['close'])
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_transform_with_null_values(self):
+        """Test handling of null values in transformation."""
+        dates = pd.date_range('2024-01-01', periods=3, freq='1min')
+        df = pd.DataFrame({
+            'open': [100.0, np.nan, 102.0],
+            'high': [102.0, 103.0, 104.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [101.0, 102.0, 103.0]
+        }, index=dates)
+        
+        ohlc_mapping = {
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close'
+        }
+        
+        filepath = transform_dataframe_to_csv(df, ohlc_mapping)
+        
+        try:
+            df_read = pd.read_csv(filepath)
+            
+            # NaN should be preserved in CSV
+            assert df_read['open'].isna()[1]  # Second row should be NaN
+            assert len(df_read) == 3
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_transform_with_custom_output_path(self):
+        """Test transformation with custom output path."""
+        df = pd.DataFrame({
+            'open': [100], 'high': [101], 'low': [99], 'close': [100.5]
+        })
+        
+        ohlc_mapping = {
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close'
+        }
+        
+        custom_path = os.path.join(tempfile.gettempdir(), 'test_custom.csv')
+        
+        try:
+            filepath = transform_dataframe_to_csv(df, ohlc_mapping, output_path=custom_path)
+            
+            # Should use custom path
+            assert filepath == custom_path
+            assert os.path.exists(custom_path)
+        finally:
+            if os.path.exists(custom_path):
+                os.remove(custom_path)
+
