@@ -67,6 +67,12 @@ function assertTrue(value, message = '') {
     }
 }
 
+function assertFalse(value, message = '') {
+    if (value) {
+        throw new Error(`${message}\nExpected falsy value, got: ${value}`);
+    }
+}
+
 function assertNotNull(value, message = '') {
     if (value === null || value === undefined) {
         throw new Error(`${message}\nExpected non-null value, got: ${value}`);
@@ -606,6 +612,107 @@ test('MultiChartManager getSubplotHeight calculates correct height', () => {
     
     assertTrue(typeof height === 'number');
     assertTrue(height > 0);
+});
+
+// === Test 24: Cursor Synchronization ===
+
+test('MultiChartManager setupSynchronization collects all charts', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    // Mock some chart instances
+    manager.mainChart = { id: 'main' };
+    manager.subplots = [{ id: 'sub1' }, { id: 'sub2' }];
+    
+    manager.setupSynchronization();
+    
+    // Should have collected all charts
+    assertTrue(manager.syncedCharts.length === 3);
+});
+
+test('MultiChartManager creates sync group', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    manager.mainChart = { id: 'main' };
+    manager.setupSynchronization();
+    
+    // Sync group should be created
+    assertNotNull(manager.syncGroup);
+});
+
+test('MultiChartManager propagateCursorPosition updates all charts', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    // Mock charts with setCursor method
+    let chart1Updated = false;
+    let chart2Updated = false;
+    
+    const chart1 = { 
+        id: 'chart1',
+        setCursor: (pos) => { chart1Updated = true; }
+    };
+    const chart2 = { 
+        id: 'chart2',
+        setCursor: (pos) => { chart2Updated = true; }
+    };
+    
+    manager.syncedCharts = [chart1, chart2];
+    
+    // Propagate cursor from chart1
+    manager.propagateCursorPosition(chart1, { left: 100, top: 50 });
+    
+    // chart1 should not update itself, chart2 should
+    assertFalse(chart1Updated);
+    assertTrue(chart2Updated);
+});
+
+test('MultiChartManager throttle function limits call frequency', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    let callCount = 0;
+    const fn = () => { callCount++; };
+    
+    const throttled = manager.throttle(fn, 100);
+    
+    // Call multiple times rapidly
+    throttled();
+    throttled();
+    throttled();
+    
+    // Should only call once immediately
+    assertEqual(callCount, 1);
+});
+
+test('MultiChartManager setupCursorHandlers binds event handlers', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    const mockChart = { 
+        id: 'test',
+        over: { addEventListener: () => {} }
+    };
+    
+    manager.syncedCharts = [mockChart];
+    
+    // Should not throw
+    manager.setupCursorHandlers();
+    assertTrue(true);
+});
+
+test('MultiChartManager has proper sync configuration', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {
+        sync: {
+            cursor: true,
+            zoom: true
+        }
+    });
+    
+    assertTrue(manager.config.sync.cursor);
+    assertTrue(manager.config.sync.zoom);
 });
 
 // Print results
