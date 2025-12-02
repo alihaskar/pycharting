@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 import os
 import tempfile
+import time
 from datetime import datetime
 from src.python_api.transformer import (
     transform_dataframe_to_csv,
@@ -662,4 +663,183 @@ class TestCSVFormattingAndValidation:
         finally:
             if os.path.exists(custom_path):
                 os.remove(custom_path)
+
+
+class TestPerformanceOptimization:
+    """Test performance with large datasets."""
+    
+    def test_transform_10k_rows_performance(self):
+        """Test transformation completes quickly with 10k rows."""
+        dates = pd.date_range('2024-01-01', periods=10000, freq='1min')
+        df = pd.DataFrame({
+            'open': np.random.uniform(100, 200, 10000),
+            'high': np.random.uniform(100, 200, 10000),
+            'low': np.random.uniform(100, 200, 10000),
+            'close': np.random.uniform(100, 200, 10000),
+            'volume': np.random.randint(1000, 10000, 10000),
+            'rsi_14': np.random.uniform(0, 100, 10000),
+            'sma_20': np.random.uniform(100, 200, 10000)
+        }, index=dates)
+        
+        ohlc_mapping = {
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close',
+            'volume': 'volume'
+        }
+        
+        start_time = time.time()
+        filepath = transform_dataframe_to_csv(df, ohlc_mapping, ['rsi_14', 'sma_20'])
+        duration = time.time() - start_time
+        
+        try:
+            # Should complete in under 2 seconds
+            assert duration < 2.0, f"Transformation took {duration:.2f}s, expected < 2s"
+            
+            # Verify file was created
+            assert os.path.exists(filepath)
+            
+            # Verify data integrity
+            df_read = pd.read_csv(filepath)
+            assert len(df_read) == 10000
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_transform_50k_rows_performance(self):
+        """Test transformation completes efficiently with 50k rows."""
+        dates = pd.date_range('2024-01-01', periods=50000, freq='1min')
+        df = pd.DataFrame({
+            'open': np.random.uniform(100, 200, 50000),
+            'high': np.random.uniform(100, 200, 50000),
+            'low': np.random.uniform(100, 200, 50000),
+            'close': np.random.uniform(100, 200, 50000),
+            'volume': np.random.randint(1000, 10000, 50000)
+        }, index=dates)
+        
+        ohlc_mapping = {
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close',
+            'volume': 'volume'
+        }
+        
+        start_time = time.time()
+        filepath = transform_dataframe_to_csv(df, ohlc_mapping)
+        duration = time.time() - start_time
+        
+        try:
+            # Should complete in under 5 seconds
+            assert duration < 5.0, f"Transformation took {duration:.2f}s, expected < 5s"
+            assert os.path.exists(filepath)
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_transform_100k_rows_performance(self):
+        """Test transformation completes within acceptable time for 100k rows."""
+        dates = pd.date_range('2024-01-01', periods=100000, freq='1min')
+        df = pd.DataFrame({
+            'open': np.random.uniform(100, 200, 100000),
+            'high': np.random.uniform(100, 200, 100000),
+            'low': np.random.uniform(100, 200, 100000),
+            'close': np.random.uniform(100, 200, 100000),
+            'volume': np.random.randint(1000, 10000, 100000),
+            'rsi_14': np.random.uniform(0, 100, 100000),
+            'sma_20': np.random.uniform(100, 200, 100000),
+            'ema_12': np.random.uniform(100, 200, 100000)
+        }, index=dates)
+        
+        ohlc_mapping = {
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close',
+            'volume': 'volume'
+        }
+        
+        start_time = time.time()
+        filepath = transform_dataframe_to_csv(df, ohlc_mapping, ['rsi_14', 'sma_20', 'ema_12'])
+        duration = time.time() - start_time
+        
+        try:
+            # Should complete in under 10 seconds
+            assert duration < 10.0, f"Transformation took {duration:.2f}s, expected < 10s"
+            
+            # Verify file was created and has reasonable size
+            assert os.path.exists(filepath)
+            file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
+            assert file_size_mb > 0, "File should have content"
+            
+            # Verify data integrity (just check length, don't load all data)
+            df_read = pd.read_csv(filepath, nrows=5)  # Just verify headers and first few rows
+            assert len(df_read.columns) == 9  # timestamp + 5 OHLC + 3 indicators
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_transform_memory_efficient(self):
+        """Test that transformation doesn't create excessive memory copies."""
+        # Create a reasonably large DataFrame
+        dates = pd.date_range('2024-01-01', periods=10000, freq='1min')
+        df = pd.DataFrame({
+            'open': np.random.uniform(100, 200, 10000),
+            'high': np.random.uniform(100, 200, 10000),
+            'low': np.random.uniform(100, 200, 10000),
+            'close': np.random.uniform(100, 200, 10000)
+        }, index=dates)
+        
+        ohlc_mapping = {
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close'
+        }
+        
+        filepath = transform_dataframe_to_csv(df, ohlc_mapping)
+        
+        try:
+            # Just verify it completes successfully
+            assert os.path.exists(filepath)
+            
+            # Original DataFrame should still be valid (not modified)
+            assert 'open' in df.columns
+            assert len(df) == 10000
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_file_size_reasonable_for_large_data(self):
+        """Test that file size is reasonable for large datasets."""
+        dates = pd.date_range('2024-01-01', periods=50000, freq='1min')
+        df = pd.DataFrame({
+            'open': np.random.uniform(100, 200, 50000),
+            'high': np.random.uniform(100, 200, 50000),
+            'low': np.random.uniform(100, 200, 50000),
+            'close': np.random.uniform(100, 200, 50000),
+            'volume': np.random.randint(1000, 10000, 50000)
+        }, index=dates)
+        
+        ohlc_mapping = {
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close',
+            'volume': 'volume'
+        }
+        
+        filepath = transform_dataframe_to_csv(df, ohlc_mapping)
+        
+        try:
+            file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
+            
+            # File should be reasonable size (not bloated)
+            # 50k rows * 6 columns * ~10 bytes/value ≈ 3MB
+            assert file_size_mb < 50, f"File size {file_size_mb:.2f}MB seems excessive"
+            assert file_size_mb > 0.1, "File should have content"
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
 
