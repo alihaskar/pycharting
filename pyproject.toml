@@ -1,9 +1,23 @@
 [tool.poetry]
-name = "charting"
+name = "pycharting"
 version = "0.1.0"
-description = ""
-authors = ["Your Name <you@example.com>"]
+description = "High-performance financial charting library for OHLC data visualization with technical indicators"
+authors = ["ali askar <26202651+alihaskar@users.noreply.github.com>"]
 readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/alihaskar/pycharting"
+repository = "https://github.com/alihaskar/pycharting"
+keywords = ["charting", "finance", "ohlc", "technical-indicators", "trading", "visualization"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
 packages = [{include = "charting", from = "src"}]
 
 [tool.poetry.dependencies]
