@@ -12,6 +12,7 @@ pandas = "^2.3.3"
 numpy = "^2.3.5"
 pydantic = "^2.12.5"
 uvicorn = "^0.38.0"
+pytz = "^2025.2"
 
 
 [tool.poetry.group.dev.dependencies]
