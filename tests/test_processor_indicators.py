@@ -374,3 +374,173 @@ class TestResponseFormatEnhancement:
         assert len(data) > 6
         assert metadata['columns'] > 6
 
+
+class TestIntegrationWithExistingOHLC:
+    """Test integration with existing OHLC processing."""
+    
+    def setup_method(self):
+        """Set up test CSV files."""
+        self.temp_dir = tempfile.mkdtemp()
+        os.environ['DATA_DIR'] = self.temp_dir
+    
+    def teardown_method(self):
+        """Clean up test files."""
+        import shutil
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+        if 'DATA_DIR' in os.environ:
+            del os.environ['DATA_DIR']
+    
+    def create_test_csv(self, filename, include_indicators=False):
+        """Create a test CSV file."""
+        dates = pd.date_range('2024-01-01', periods=10, freq='1min')
+        data = {
+            'timestamp': dates,
+            'open': range(100, 110),
+            'high': range(102, 112),
+            'low': range(99, 109),
+            'close': range(101, 111),
+            'volume': range(1000, 1010)
+        }
+        
+        if include_indicators:
+            data['rsi_14'] = range(45, 55)
+            data['sma_20'] = [x + 0.5 for x in range(100, 110)]
+        
+        df = pd.DataFrame(data)
+        filepath = Path(self.temp_dir) / filename
+        df.to_csv(filepath, index=False)
+        return filename
+    
+    def test_backward_compatibility_ohlc_only(self):
+        """Test that OHLC-only CSV still works correctly."""
+        filename = self.create_test_csv('ohlc_only.csv', include_indicators=False)
+        
+        data, metadata = load_and_process_data(filename)
+        
+        # Should process successfully
+        assert len(data) == 6  # timestamp + OHLCV
+        assert metadata['available_indicators'] == []
+        assert metadata['indicators'] == []
+        assert metadata['filename'] == filename
+        assert metadata['rows'] == 10
+    
+    def test_csv_with_indicators_preserves_ohlc(self):
+        """Test that OHLC processing is not affected by indicators."""
+        filename = self.create_test_csv('with_indicators.csv', include_indicators=True)
+        
+        data, metadata = load_and_process_data(filename)
+        
+        # OHLC data should be first 6 columns
+        timestamps = data[0]
+        opens = data[1]
+        highs = data[2]
+        lows = data[3]
+        closes = data[4]
+        volumes = data[5]
+        
+        # Verify OHLC data is correct
+        assert len(timestamps) == 10
+        assert opens[0] == 100
+        assert highs[0] == 102
+        assert lows[0] == 99
+        assert closes[0] == 101
+        assert volumes[0] == 1000
+    
+    def test_end_to_end_with_resampling(self):
+        """Test end-to-end pipeline with resampling."""
+        filename = self.create_test_csv('resample_test.csv', include_indicators=True)
+        
+        # Process with resampling
+        data, metadata = load_and_process_data(filename, timeframe='5min')
+        
+        # Should process successfully
+        assert metadata['timeframe'] == '5min'
+        assert len(data) >= 6  # At least OHLCV columns
+        assert metadata['available_indicators'] == ['rsi_14', 'sma_20']
+    
+    def test_end_to_end_with_date_filtering(self):
+        """Test end-to-end pipeline with date filtering."""
+        filename = self.create_test_csv('date_filter_test.csv', include_indicators=True)
+        
+        # Filter to specific date range
+        data, metadata = load_and_process_data(
+            filename,
+            start_date='2024-01-01 00:03:00',
+            end_date='2024-01-01 00:07:00'
+        )
+        
+        # Should have filtered rows
+        assert metadata['rows'] < 10  # Less than original 10 rows
+        assert metadata['available_indicators'] == ['rsi_14', 'sma_20']
+    
+    def test_csv_indicators_plus_calculated_indicators(self):
+        """Test CSV indicators combined with calculated indicators."""
+        filename = self.create_test_csv('combined_indicators.csv', include_indicators=True)
+        
+        # Request calculation of additional indicator
+        data, metadata = load_and_process_data(filename, indicators=['RSI:10'])
+        
+        # CSV indicators
+        assert 'rsi_14' in metadata['available_indicators']
+        assert 'sma_20' in metadata['available_indicators']
+        
+        # Calculated indicator
+        assert 'rsi_10' in metadata['indicators']
+        
+        # Data should include all
+        assert len(data) > 6  # OHLCV + CSV indicators + calculated
+    
+    def test_no_regression_in_calculated_indicators(self):
+        """Test that existing calculated indicator functionality still works."""
+        filename = self.create_test_csv('calc_indicators.csv', include_indicators=False)
+        
+        # Calculate indicators on OHLC-only data
+        data, metadata = load_and_process_data(
+            filename,
+            indicators=['RSI:14', 'SMA:5']
+        )
+        
+        # Calculated indicators should work
+        assert 'rsi_14' in metadata['indicators']
+        assert 'sma_5' in metadata['indicators']
+        assert metadata['available_indicators'] == []
+    
+    def test_data_integrity_maintained(self):
+        """Test that data values are preserved correctly."""
+        filename = self.create_test_csv('integrity_test.csv', include_indicators=True)
+        
+        data, metadata = load_and_process_data(filename)
+        
+        # Indicator data should be in output (columns 6 and 7)
+        rsi_data = data[6]
+        sma_data = data[7]
+        
+        # Verify indicator values are present and numeric
+        assert len(rsi_data) == 10
+        assert len(sma_data) == 10
+        assert all(isinstance(x, (int, float)) or x is None for x in rsi_data)
+        assert all(isinstance(x, (int, float)) or x is None for x in sma_data)
+    
+    def test_metadata_columns_count_accurate(self):
+        """Test that metadata columns count includes all data."""
+        filename = self.create_test_csv('column_count.csv', include_indicators=True)
+        
+        data, metadata = load_and_process_data(filename)
+        
+        # Columns count should match data length
+        assert metadata['columns'] == len(data)
+        # Should be: timestamp + OHLCV (6) + 2 indicators = 8
+        assert metadata['columns'] == 8
+    
+    def test_empty_indicators_list_handled(self):
+        """Test that empty indicators list doesn't break processing."""
+        filename = self.create_test_csv('empty_list.csv', include_indicators=True)
+        
+        # Pass empty indicators list
+        data, metadata = load_and_process_data(filename, indicators=[])
+        
+        # Should process successfully
+        assert metadata['indicators'] == []
+        assert metadata['available_indicators'] == ['rsi_14', 'sma_20']
+
