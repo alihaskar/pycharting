@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
+from src.api import routes
 
 # Configure logging
 logging.basicConfig(
@@ -80,6 +81,9 @@ def get_app() -> FastAPI:
             Health status
         """
         return {"status": "healthy"}
+    
+    # Include routers
+    app.include_router(routes.router)
     
     return app
 
