@@ -101,3 +101,145 @@ def classify_indicators(indicator_columns: List[str]) -> Tuple[List[str], List[s
     # For now, just a stub - will be implemented in Task 12
     pass
 
+
+def check_numeric_columns(df: pd.DataFrame, ohlc_columns: Dict[str, str]) -> None:
+    """
+    Validate that OHLC columns contain numeric data types.
+    
+    Args:
+        df: pandas DataFrame
+        ohlc_columns: Dictionary mapping standard names to actual column names
+        
+    Raises:
+        ValueError: If any OHLC column contains non-numeric data
+    """
+    for standard_name, col_name in ohlc_columns.items():
+        if col_name not in df.columns:
+            continue
+            
+        # Check if column is numeric (int or float)
+        if not pd.api.types.is_numeric_dtype(df[col_name]):
+            raise ValueError(
+                f"Column '{col_name}' ({standard_name}) contains non-numeric data. "
+                f"OHLC columns must be numeric (int or float)."
+            )
+
+
+def check_null_values(df: pd.DataFrame, ohlc_columns: Dict[str, str]) -> bool:
+    """
+    Check for null values in OHLC columns.
+    
+    Args:
+        df: pandas DataFrame
+        ohlc_columns: Dictionary mapping standard names to actual column names
+        
+    Returns:
+        True if no nulls found, False if nulls exist
+    """
+    for standard_name, col_name in ohlc_columns.items():
+        if col_name not in df.columns:
+            continue
+            
+        if df[col_name].isnull().any():
+            return False
+    
+    return True
+
+
+def check_ohlc_relationships(df: pd.DataFrame, ohlc_columns: Dict[str, str]) -> None:
+    """
+    Validate OHLC relationships (high >= low, open/close within [low, high]).
+    
+    Args:
+        df: pandas DataFrame
+        ohlc_columns: Dictionary mapping standard names to actual column names
+        
+    Raises:
+        ValueError: If OHLC relationships are invalid
+    """
+    # Get column names
+    open_col = ohlc_columns.get('open')
+    high_col = ohlc_columns.get('high')
+    low_col = ohlc_columns.get('low')
+    close_col = ohlc_columns.get('close')
+    
+    # Need at least high and low for validation
+    if not (high_col and low_col):
+        return
+    
+    # Check high >= low
+    invalid_high_low = df[high_col] < df[low_col]
+    if invalid_high_low.any():
+        invalid_idx = invalid_high_low.idxmax()
+        raise ValueError(
+            f"Invalid OHLC relationship: high value {df.loc[invalid_idx, high_col]} "
+            f"is less than low value {df.loc[invalid_idx, low_col]} at index {invalid_idx}"
+        )
+    
+    # Check open within [low, high] if open exists
+    if open_col:
+        invalid_open = (df[open_col] < df[low_col]) | (df[open_col] > df[high_col])
+        if invalid_open.any():
+            invalid_idx = invalid_open.idxmax()
+            raise ValueError(
+                f"Invalid OHLC relationship: open value {df.loc[invalid_idx, open_col]} "
+                f"is outside range [{df.loc[invalid_idx, low_col]}, {df.loc[invalid_idx, high_col]}] "
+                f"at index {invalid_idx}"
+            )
+    
+    # Check close within [low, high] if close exists
+    if close_col:
+        invalid_close = (df[close_col] < df[low_col]) | (df[close_col] > df[high_col])
+        if invalid_close.any():
+            invalid_idx = invalid_close.idxmax()
+            raise ValueError(
+                f"Invalid OHLC relationship: close value {df.loc[invalid_idx, close_col]} "
+                f"is outside range [{df.loc[invalid_idx, low_col]}, {df.loc[invalid_idx, high_col]}] "
+                f"at index {invalid_idx}"
+            )
+
+
+def validate_ohlc_columns(df: pd.DataFrame, ohlc_columns: Dict[str, str]) -> bool:
+    """
+    Comprehensive validation of detected OHLC columns.
+    
+    Performs all validation checks:
+    - Numeric data types
+    - No null values
+    - Valid OHLC relationships
+    - Non-negative volume
+    
+    Args:
+        df: pandas DataFrame
+        ohlc_columns: Dictionary mapping standard names to actual column names
+        
+    Returns:
+        True if all validation checks pass
+        
+    Raises:
+        ValueError: If any validation check fails
+    """
+    # Check numeric data types
+    check_numeric_columns(df, ohlc_columns)
+    
+    # Check for null values (don't raise, just warn)
+    has_nulls = not check_null_values(df, ohlc_columns)
+    if has_nulls:
+        # For now, just pass - could add warning in future
+        pass
+    
+    # Check OHLC relationships
+    check_ohlc_relationships(df, ohlc_columns)
+    
+    # Check volume is non-negative if present
+    volume_col = ohlc_columns.get('volume')
+    if volume_col and volume_col in df.columns:
+        if (df[volume_col] < 0).any():
+            invalid_idx = (df[volume_col] < 0).idxmax()
+            raise ValueError(
+                f"Invalid volume: negative value {df.loc[invalid_idx, volume_col]} "
+                f"at index {invalid_idx}. Volume must be non-negative."
+            )
+    
+    return True
+

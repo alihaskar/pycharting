@@ -6,7 +6,13 @@ Testing pattern matching with various naming conventions.
 import pytest
 import pandas as pd
 import numpy as np
-from src.python_api.detector import detect_ohlc_columns
+from src.python_api.detector import (
+    detect_ohlc_columns,
+    validate_ohlc_columns,
+    check_numeric_columns,
+    check_null_values,
+    check_ohlc_relationships
+)
 
 
 class TestOHLCPatternMatching:
@@ -184,4 +190,195 @@ class TestOHLCPatternMatching:
         
         assert isinstance(result, dict)
         assert len(result) == 0
+
+
+class TestOHLCValidation:
+    """Test validation of detected OHLC columns."""
+    
+    def test_validate_numeric_columns_valid(self):
+        """Test validation passes for numeric columns."""
+        df = pd.DataFrame({
+            'open': [100.0, 101.0, 102.0],
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5],
+            'volume': [1000, 1100, 1200]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        # Should not raise any exception
+        check_numeric_columns(df, ohlc_cols)
+    
+    def test_validate_numeric_columns_invalid_string_data(self):
+        """Test validation fails for string data in OHLC columns."""
+        df = pd.DataFrame({
+            'open': ['100', '101', '102'],  # Strings instead of numbers
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        with pytest.raises(ValueError, match="non-numeric|string"):
+            check_numeric_columns(df, ohlc_cols)
+    
+    def test_validate_numeric_columns_integer_accepted(self):
+        """Test validation accepts integer types."""
+        df = pd.DataFrame({
+            'open': [100, 101, 102],  # Integers
+            'high': [101, 102, 103],
+            'low': [99, 100, 101],
+            'close': [100, 101, 102],
+            'volume': [1000, 1100, 1200]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        # Should not raise exception for integers
+        check_numeric_columns(df, ohlc_cols)
+    
+    def test_check_null_values_no_nulls(self):
+        """Test null check passes when no null values."""
+        df = pd.DataFrame({
+            'open': [100.0, 101.0, 102.0],
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        result = check_null_values(df, ohlc_cols)
+        assert result is True
+    
+    def test_check_null_values_with_nans(self):
+        """Test null check detects NaN values."""
+        df = pd.DataFrame({
+            'open': [100.0, np.nan, 102.0],
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        result = check_null_values(df, ohlc_cols)
+        assert result is False
+    
+    def test_check_null_values_with_none(self):
+        """Test null check detects None values."""
+        df = pd.DataFrame({
+            'open': [100.0, 101.0, None],
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        result = check_null_values(df, ohlc_cols)
+        assert result is False
+    
+    def test_check_ohlc_relationships_valid(self):
+        """Test OHLC relationship validation passes for valid data."""
+        df = pd.DataFrame({
+            'open': [100.0, 101.0, 102.0],
+            'high': [101.0, 102.0, 103.0],  # high >= all others
+            'low': [99.0, 100.0, 101.0],    # low <= all others
+            'close': [100.5, 101.5, 102.5]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        # Should not raise exception
+        check_ohlc_relationships(df, ohlc_cols)
+    
+    def test_check_ohlc_relationships_high_less_than_low(self):
+        """Test validation fails when high < low."""
+        df = pd.DataFrame({
+            'open': [100.0, 101.0, 102.0],
+            'high': [98.0, 102.0, 103.0],   # First high < low (invalid!)
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        with pytest.raises(ValueError, match="high.*less than.*low|invalid.*relationship"):
+            check_ohlc_relationships(df, ohlc_cols)
+    
+    def test_check_ohlc_relationships_high_equal_to_low(self):
+        """Test validation passes when high == low (valid for no price movement)."""
+        df = pd.DataFrame({
+            'open': [100.0, 101.0, 102.0],
+            'high': [100.0, 101.0, 102.0],  # high == low (valid)
+            'low': [100.0, 101.0, 102.0],
+            'close': [100.0, 101.0, 102.0]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        # Should not raise exception
+        check_ohlc_relationships(df, ohlc_cols)
+    
+    def test_check_ohlc_relationships_open_outside_range(self):
+        """Test validation fails when open is outside [low, high] range."""
+        df = pd.DataFrame({
+            'open': [105.0, 101.0, 102.0],  # First open > high (invalid!)
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        with pytest.raises(ValueError, match="open.*outside.*range|invalid.*relationship"):
+            check_ohlc_relationships(df, ohlc_cols)
+    
+    def test_check_ohlc_relationships_close_outside_range(self):
+        """Test validation fails when close is outside [low, high] range."""
+        df = pd.DataFrame({
+            'open': [100.0, 101.0, 102.0],
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [98.0, 101.5, 102.5]  # First close < low (invalid!)
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        with pytest.raises(ValueError, match="close.*outside.*range|invalid.*relationship"):
+            check_ohlc_relationships(df, ohlc_cols)
+    
+    def test_validate_ohlc_columns_comprehensive(self):
+        """Test complete validation pipeline."""
+        df = pd.DataFrame({
+            'open': [100.0, 101.0, 102.0],
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5],
+            'volume': [1000, 1100, 1200]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        # Should pass all validation checks
+        result = validate_ohlc_columns(df, ohlc_cols)
+        assert result is True
+    
+    def test_validate_negative_volume(self):
+        """Test validation fails for negative volume."""
+        df = pd.DataFrame({
+            'open': [100.0, 101.0, 102.0],
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5],
+            'volume': [1000, -100, 1200]  # Negative volume (invalid!)
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        with pytest.raises(ValueError, match="negative.*volume|volume.*negative"):
+            validate_ohlc_columns(df, ohlc_cols)
 
