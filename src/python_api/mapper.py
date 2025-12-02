@@ -155,8 +155,55 @@ def detect_columns(df: pd.DataFrame) -> Dict[str, str]:
         >>> detect_columns(df)
         {'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close'}
     """
-    # TODO: Implement in subtask 1.2
-    raise NotImplementedError("detect_columns() will be implemented in subtask 1.2")
+    detected = {}
+    columns = df.columns.tolist()
+    
+    # Define patterns for each OHLC field (in priority order)
+    patterns = {
+        'open': ['open', 'o'],
+        'high': ['high', 'h'],
+        'low': ['low', 'l'],
+        'close': ['close', 'c'],
+        'volume': ['volume', 'vol', 'v']
+    }
+    
+    # Try to detect each field
+    for field, pattern_list in patterns.items():
+        found = None
+        
+        # Try each pattern in priority order
+        for pattern in pattern_list:
+            # Case-insensitive match
+            for col in columns:
+                if col.lower() == pattern:
+                    # Prefer lowercase exact match if available
+                    if col == pattern:
+                        found = col
+                        break
+                    # Otherwise use first match found
+                    if found is None:
+                        found = col
+            
+            if found is not None:
+                break
+        
+        # Record detection
+        if found is not None:
+            detected[found] = field
+    
+    # Validate required columns were detected
+    required = ['open', 'high', 'low', 'close']
+    detected_fields = set(detected.values())
+    missing = [field for field in required if field not in detected_fields]
+    
+    if missing:
+        raise ValueError(
+            f"Could not detect required column(s): {', '.join(missing)}. "
+            f"Available columns: {columns}. "
+            f"Please specify column names explicitly using map_columns()."
+        )
+    
+    return detected
 
 
 def validate_column_mapping(df: pd.DataFrame, mapping: Dict[str, str]) -> tuple[bool, List[str]]:

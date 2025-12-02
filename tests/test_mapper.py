@@ -233,6 +233,186 @@ class TestMapColumnsEdgeCases:
         assert pd.isna(result['close'].iloc[3])
 
 
+class TestDetectColumnsBasic:
+    """Test basic detect_columns() auto-detection functionality"""
+    
+    def test_detect_standard_lowercase_names(self):
+        """Should detect standard lowercase OHLC names"""
+        from src.python_api.mapper import detect_columns
+        
+        dates = pd.date_range('2024-01-01', periods=5, freq='1h')
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'open': [100.0, 101.0, 102.0, 103.0, 104.0],
+            'high': [105.0, 106.0, 107.0, 108.0, 109.0],
+            'low': [99.0, 100.0, 101.0, 102.0, 103.0],
+            'close': [103.0, 104.0, 105.0, 106.0, 107.0],
+            'volume': [1000, 1200, 1100, 1300, 1250]
+        })
+        df.set_index('timestamp', inplace=True)
+        
+        result = detect_columns(df)
+        
+        assert result == {
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close',
+            'volume': 'volume'
+        }
+    
+    def test_detect_uppercase_names(self):
+        """Should detect uppercase OHLC names"""
+        from src.python_api.mapper import detect_columns
+        
+        dates = pd.date_range('2024-01-01', periods=5, freq='1h')
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'OPEN': [100.0, 101.0, 102.0, 103.0, 104.0],
+            'HIGH': [105.0, 106.0, 107.0, 108.0, 109.0],
+            'LOW': [99.0, 100.0, 101.0, 102.0, 103.0],
+            'CLOSE': [103.0, 104.0, 105.0, 106.0, 107.0]
+        })
+        df.set_index('timestamp', inplace=True)
+        
+        result = detect_columns(df)
+        
+        assert result == {
+            'OPEN': 'open',
+            'HIGH': 'high',
+            'LOW': 'low',
+            'CLOSE': 'close'
+        }
+    
+    def test_detect_mixed_case_names(self):
+        """Should detect mixed case names (Open, High, etc.)"""
+        from src.python_api.mapper import detect_columns
+        
+        dates = pd.date_range('2024-01-01', periods=5, freq='1h')
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'Open': [100.0, 101.0, 102.0, 103.0, 104.0],
+            'High': [105.0, 106.0, 107.0, 108.0, 109.0],
+            'Low': [99.0, 100.0, 101.0, 102.0, 103.0],
+            'Close': [103.0, 104.0, 105.0, 106.0, 107.0]
+        })
+        df.set_index('timestamp', inplace=True)
+        
+        result = detect_columns(df)
+        
+        assert result == {
+            'Open': 'open',
+            'High': 'high',
+            'Low': 'low',
+            'Close': 'close'
+        }
+    
+    def test_detect_abbreviations(self):
+        """Should detect common abbreviations (o, h, l, c)"""
+        from src.python_api.mapper import detect_columns
+        
+        dates = pd.date_range('2024-01-01', periods=5, freq='1h')
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'o': [100.0, 101.0, 102.0, 103.0, 104.0],
+            'h': [105.0, 106.0, 107.0, 108.0, 109.0],
+            'l': [99.0, 100.0, 101.0, 102.0, 103.0],
+            'c': [103.0, 104.0, 105.0, 106.0, 107.0],
+            'v': [1000, 1200, 1100, 1300, 1250]
+        })
+        df.set_index('timestamp', inplace=True)
+        
+        result = detect_columns(df)
+        
+        assert result == {
+            'o': 'open',
+            'h': 'high',
+            'l': 'low',
+            'c': 'close',
+            'v': 'volume'
+        }
+    
+    def test_volume_optional_in_detection(self):
+        """Volume should be optional in auto-detection"""
+        from src.python_api.mapper import detect_columns
+        
+        dates = pd.date_range('2024-01-01', periods=5, freq='1h')
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'open': [100.0, 101.0, 102.0, 103.0, 104.0],
+            'high': [105.0, 106.0, 107.0, 108.0, 109.0],
+            'low': [99.0, 100.0, 101.0, 102.0, 103.0],
+            'close': [103.0, 104.0, 105.0, 106.0, 107.0]
+        })
+        df.set_index('timestamp', inplace=True)
+        
+        result = detect_columns(df)
+        
+        assert 'volume' not in result.values()
+        assert len(result) == 4
+
+
+class TestDetectColumnsEdgeCases:
+    """Test edge cases and unusual patterns"""
+    
+    def test_detect_vol_abbreviation(self):
+        """Should detect 'vol' as volume"""
+        from src.python_api.mapper import detect_columns
+        
+        dates = pd.date_range('2024-01-01', periods=5, freq='1h')
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'open': [100.0, 101.0, 102.0, 103.0, 104.0],
+            'high': [105.0, 106.0, 107.0, 108.0, 109.0],
+            'low': [99.0, 100.0, 101.0, 102.0, 103.0],
+            'close': [103.0, 104.0, 105.0, 106.0, 107.0],
+            'vol': [1000, 1200, 1100, 1300, 1250]
+        })
+        df.set_index('timestamp', inplace=True)
+        
+        result = detect_columns(df)
+        
+        assert result['vol'] == 'volume'
+    
+    def test_missing_required_column_raises_error(self):
+        """Should raise error when required column missing"""
+        from src.python_api.mapper import detect_columns
+        
+        dates = pd.date_range('2024-01-01', periods=5, freq='1h')
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'open': [100.0, 101.0, 102.0, 103.0, 104.0],
+            'high': [105.0, 106.0, 107.0, 108.0, 109.0],
+            'low': [99.0, 100.0, 101.0, 102.0, 103.0]
+            # Missing 'close'
+        })
+        df.set_index('timestamp', inplace=True)
+        
+        with pytest.raises(ValueError, match="Could not detect required column"):
+            detect_columns(df)
+    
+    def test_ambiguous_columns_prefers_exact_match(self):
+        """When multiple candidates exist, prefer exact match"""
+        from src.python_api.mapper import detect_columns
+        
+        dates = pd.date_range('2024-01-01', periods=5, freq='1h')
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'open': [100.0, 101.0, 102.0, 103.0, 104.0],
+            'Open': [100.5, 101.5, 102.5, 103.5, 104.5],  # Ambiguous!
+            'high': [105.0, 106.0, 107.0, 108.0, 109.0],
+            'low': [99.0, 100.0, 101.0, 102.0, 103.0],
+            'close': [103.0, 104.0, 105.0, 106.0, 107.0]
+        })
+        df.set_index('timestamp', inplace=True)
+        
+        result = detect_columns(df)
+        
+        # Should prefer lowercase exact match
+        assert result['open'] == 'open'
+        assert 'Open' not in result
+
+
 class TestMapColumnsDataIntegrity:
     """Test that data values are correctly preserved"""
     
