@@ -352,17 +352,10 @@ export class MultiChartManager {
         };
         
         // Store configuration for testing
-        this.mainChartConfig = {
-            data,
-            opts,
-            series,
-            axes
-        };
+        // Create the actual uPlot chart instance
+        this.mainChart = new uPlot(opts, data, mainContainer);
         
-        console.log(`Main chart configured with ${overlays.length} overlays`);
-        
-        // In production, would create actual uPlot instance:
-        // this.mainChart = new uPlot(opts, data, mainContainer);
+        console.log(`Main chart created with ${overlays.length} overlays`);
     }
     
     /**
@@ -554,26 +547,11 @@ export class MultiChartManager {
                 scales: scales
             };
             
-            // Store configuration for testing
-            const subplotConfig = {
-                id: `subplot-${index}`,
-                name: indicatorName,
-                type: chartType,
-                data: subplotData,
-                opts: opts,
-                series: series,
-                axes: axes,
-                scales: scales
-            };
-            
-            // Add to subplots tracking
-            this.subplots.push(subplotConfig);
+            // Create the actual uPlot chart instance
+            const chart = new uPlot(opts, subplotData, subplotContainer);
+            this.subplots.push(chart);
             
             console.log(`Created subplot ${index}: ${indicatorName} (${chartType})`);
-            
-            // In production, would create actual uPlot instance:
-            // const chart = new uPlot(opts, subplotData, subplotContainer);
-            // this.subplots.push(chart);
         });
         
         console.log(`Total subplots created: ${this.subplots.length}`);
