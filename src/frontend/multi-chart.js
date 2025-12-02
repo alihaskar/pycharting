@@ -421,7 +421,9 @@ export class MultiChartManager {
                             e.preventDefault();
                             const { left } = u.cursor;
                             const xVal = u.posToVal(left, 'x');
-                            const [min, max] = u.scales.x;
+                            const xScale = u.scales.x;
+                            const min = xScale.min;
+                            const max = xScale.max;
                             const range = max - min;
                             
                             const zoomFactor = e.deltaY < 0 ? 0.9 : 1.1;
@@ -442,7 +444,8 @@ export class MultiChartManager {
                         u.over.addEventListener('mousedown', (e) => {
                             isDragging = true;
                             startX = e.clientX;
-                            startScale = { ...u.scales.x };
+                            const xScale = u.scales.x;
+                            startScale = { min: xScale.min, max: xScale.max };
                             u.over.style.cursor = 'grabbing';
                         });
                         
@@ -1161,9 +1164,16 @@ export class MultiChartManager {
             }
             
             // Extract overlays and subplots from indicators
-            const overlays = [];
-            const subplots = [];
-            if (options.indicators && Array.isArray(options.indicators)) {
+            let overlays = [];
+            let subplots = [];
+            
+            // AUTO-DETECT: If no indicators specified, load common ones from sample data
+            if (!options.indicators || options.indicators.length === 0) {
+                // Auto-detect common indicator patterns
+                overlays = ['sma_20', 'ema_12'];
+                subplots = ['rsi_14'];
+                console.log('Auto-detecting indicators:', { overlays, subplots });
+            } else if (Array.isArray(options.indicators)) {
                 // For now, classify based on common patterns
                 // SMA/EMA are overlays, RSI is subplot
                 options.indicators.forEach(ind => {
