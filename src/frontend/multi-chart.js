@@ -168,9 +168,11 @@ export class MultiChartManager {
     async fetchChartData() {
         // Return real data if loaded via loadAndRender
         if (this.chartData && Array.isArray(this.chartData)) {
+            console.log('Using loaded chart data, points:', this.chartData[0]?.length || 0);
             return this.chartData;
         }
         
+        console.warn('No chart data loaded, using mock data');
         // Fallback to mock data for testing
         const mockData = [
             // Timestamps
@@ -1038,13 +1040,17 @@ export class MultiChartManager {
             
             // Fetch data
             const apiUrl = `${this.config.apiBaseUrl || 'http://127.0.0.1:8000'}/chart-data?${params}`;
+            console.log('Fetching from:', apiUrl);
             const response = await fetch(apiUrl);
             
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error('API Error:', response.status, errorText);
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const result = await response.json();
+            console.log('API Response:', result);
             
             // Update config with detected indicators
             this.config.overlays = result.metadata?.overlays || [];
