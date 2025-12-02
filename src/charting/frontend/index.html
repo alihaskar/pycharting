@@ -170,18 +170,12 @@
                 </select>
             </div>
             
-            <!-- Indicator Selection -->
-            <div class="control-group">
+            <!-- Indicator Selection - Hidden by default, shows calculated indicators from CSV -->
+            <div class="control-group" style="display: none;">
                 <label for="indicator-select">Indicators</label>
                 <select id="indicator-select" style="width: 120px;">
                     <option value="">Add...</option>
-                    <option value="RSI:14">RSI (14)</option>
-                    <option value="RSI:20">RSI (20)</option>
-                    <option value="SMA:20">SMA (20)</option>
-                    <option value="SMA:50">SMA (50)</option>
-                    <option value="SMA:200">SMA (200)</option>
-                    <option value="EMA:12">EMA (12)</option>
-                    <option value="EMA:26">EMA (26)</option>
+                    <!-- Dynamically populated from CSV columns -->
                 </select>
             </div>
             
