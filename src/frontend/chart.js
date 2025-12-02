@@ -44,6 +44,67 @@ class ChartManager {
         this.state = new ChartState();
         this.currentData = null;
         this.currentMetadata = null;
+        
+        // Bind the candlestick paths function
+        this.ohlcPaths = this.candlestickPaths.bind(this);
+    }
+
+    /**
+     * Draw candlestick paths for uPlot
+     * @param {Object} u - uPlot instance
+     * @param {number} seriesIdx - Series index
+     * @param {number} idx0 - Start index
+     * @param {number} idx1 - End index
+     * @returns {Object} SVG path object
+     */
+    candlestickPaths(u, seriesIdx, idx0, idx1) {
+        const data = u.data;
+        const timestamps = data[0];
+        const opens = data[1];
+        const highs = data[2];
+        const lows = data[3];
+        const closes = data[4];
+        
+        let pathUp = '';
+        let pathDown = '';
+        
+        const candleWidth = Math.max(2, (u.bbox.width / (idx1 - idx0)) * 0.6);
+        
+        for (let i = idx0; i <= idx1; i++) {
+            if (opens[i] == null || closes[i] == null) continue;
+            
+            const x = Math.round(u.valToPos(timestamps[i], 'x', true));
+            const open = u.valToPos(opens[i], 'y', true);
+            const high = u.valToPos(highs[i], 'y', true);
+            const low = u.valToPos(lows[i], 'y', true);
+            const close = u.valToPos(closes[i], 'y', true);
+            
+            const isUp = closes[i] >= opens[i];
+            const halfWidth = candleWidth / 2;
+            
+            // Draw wick (high-low line)
+            const wick = `M ${x} ${high} L ${x} ${low}`;
+            
+            // Draw body (open-close rectangle)
+            const bodyTop = Math.min(open, close);
+            const bodyBottom = Math.max(open, close);
+            const bodyHeight = Math.abs(bodyBottom - bodyTop);
+            
+            const body = bodyHeight > 0
+                ? `M ${x - halfWidth} ${bodyTop} L ${x + halfWidth} ${bodyTop} L ${x + halfWidth} ${bodyBottom} L ${x - halfWidth} ${bodyBottom} Z`
+                : `M ${x - halfWidth} ${bodyTop} L ${x + halfWidth} ${bodyTop}`;
+            
+            if (isUp) {
+                pathUp += wick + ' ' + body + ' ';
+            } else {
+                pathDown += wick + ' ' + body + ' ';
+            }
+        }
+        
+        return {
+            stroke: new Path2D(pathDown),
+            fill: new Path2D(pathUp)
+        };
     }
 
     /**
@@ -53,9 +114,9 @@ class ChartManager {
      */
     createChartOptions(metadata) {
         const opts = {
-            title: "Financial Chart",
+            title: "Financial Chart - OHLC",
             width: this.container.clientWidth,
-            height: 400,
+            height: 500,
             cursor: {
                 drag: {
                     x: true,
@@ -104,19 +165,31 @@ class ChartManager {
                 }
             ],
             series: [
-                {},  // Timestamps
-                { label: "Open", stroke: "blue", scale: 'y' },
-                { label: "High", stroke: "green", scale: 'y' },
-                { label: "Low", stroke: "red", scale: 'y' },
-                { label: "Close", stroke: "black", width: 2, scale: 'y' },
-                { label: "Volume", stroke: "gray", scale: 'y' }
+                {},  // Timestamps (series[0])
+                // OHLC candlestick - series[1] reads data[1-4] for O,H,L,C
+                {
+                    label: "OHLC",
+                    scale: 'y',
+                    paths: this.ohlcPaths,
+                    points: { show: false },
+                    stroke: "#ef5350",  // Red for bearish candles
+                    fill: "#26a69a",    // Green for bullish candles
+                    width: 1.5
+                },
+                // These are placeholders for H, L, C in data array
+                // They won't be rendered separately since OHLC handles all 4
+                { show: false }, // High (data[2])
+                { show: false }, // Low (data[3])
+                { show: false }, // Close (data[4])
+                // Volume
+                { show: false }  // Volume (data[5]) - hidden for now
             ],
             plugins: []
         };
         
         // Add indicator series with appropriate axes
         if (metadata && metadata.indicators && metadata.indicators.length > 0) {
-            const colors = ['orange', 'purple', 'brown', 'pink', 'cyan'];
+            const colors = ['#ff6b35', '#7b2cbf', '#06ffa5', '#ffd60a', '#00b4d8'];
             metadata.indicators.forEach((indicator, index) => {
                 // Determine if indicator needs its own axis (oscillators like RSI)
                 const needsOwnAxis = indicator.toUpperCase().includes('RSI');
@@ -124,11 +197,14 @@ class ChartManager {
                 if (needsOwnAxis) {
                     // Create new scale and axis for oscillator
                     const scaleKey = `ind${index}`;
-                    opts.scales[scaleKey] = { auto: true };
+                    opts.scales[scaleKey] = { 
+                        auto: true,
+                        range: [0, 100]  // RSI is 0-100
+                    };
                     opts.axes.push({
                         scale: scaleKey,
                         label: indicator,
-                        side: 3, // Right side
+                        side: 1, // Right side
                         size: 50,
                         grid: { show: false }
                     });
@@ -137,7 +213,8 @@ class ChartManager {
                         label: indicator,
                         stroke: colors[index % colors.length],
                         scale: scaleKey,
-                        width: 2
+                        width: 2,
+                        points: { show: false }
                     });
                 } else {
                     // Overlay on price axis (moving averages)
@@ -145,7 +222,9 @@ class ChartManager {
                         label: indicator,
                         stroke: colors[index % colors.length],
                         scale: 'y',
-                        width: 2
+                        width: 2,
+                        points: { show: false },
+                        dash: [5, 5]  // Dashed line for overlays
                     });
                 }
             });
