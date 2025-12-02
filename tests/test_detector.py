@@ -11,7 +11,10 @@ from src.python_api.detector import (
     validate_ohlc_columns,
     check_numeric_columns,
     check_null_values,
-    check_ohlc_relationships
+    check_ohlc_relationships,
+    OHLCColumnsNotFoundError,
+    AmbiguousColumnError,
+    require_ohlc_columns
 )
 
 
@@ -381,4 +384,124 @@ class TestOHLCValidation:
         
         with pytest.raises(ValueError, match="negative.*volume|volume.*negative"):
             validate_ohlc_columns(df, ohlc_cols)
+
+
+class TestErrorHandling:
+    """Test custom exception handling for missing/invalid columns."""
+    
+    def test_ohlc_columns_not_found_error_creation(self):
+        """Test OHLCColumnsNotFoundError can be created."""
+        missing = ['open', 'high']
+        error = OHLCColumnsNotFoundError(missing)
+        
+        assert isinstance(error, Exception)
+        assert 'open' in str(error)
+        assert 'high' in str(error)
+    
+    def test_ambiguous_column_error_creation(self):
+        """Test AmbiguousColumnError can be created."""
+        candidates = ['open', 'Open', 'OPEN']
+        error = AmbiguousColumnError('open', candidates)
+        
+        assert isinstance(error, Exception)
+        assert 'open' in str(error).lower()
+        assert 'open' in str(error) or 'Open' in str(error)
+    
+    def test_require_ohlc_columns_all_present(self):
+        """Test require_ohlc_columns passes when all required columns present."""
+        df = pd.DataFrame({
+            'open': [100.0], 'high': [101.0], 'low': [99.0], 'close': [100.5]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        # Should not raise exception
+        require_ohlc_columns(ohlc_cols)
+    
+    def test_require_ohlc_columns_missing_one_required(self):
+        """Test require_ohlc_columns raises when required column missing."""
+        df = pd.DataFrame({
+            'high': [101.0], 'low': [99.0], 'close': [100.5]
+            # Missing 'open'
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        with pytest.raises(OHLCColumnsNotFoundError) as exc_info:
+            require_ohlc_columns(ohlc_cols)
+        
+        # Check error message mentions missing column
+        assert 'open' in str(exc_info.value).lower()
+    
+    def test_require_ohlc_columns_missing_multiple_required(self):
+        """Test require_ohlc_columns raises when multiple columns missing."""
+        df = pd.DataFrame({
+            'low': [99.0], 'close': [100.5]
+            # Missing 'open' and 'high'
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        with pytest.raises(OHLCColumnsNotFoundError) as exc_info:
+            require_ohlc_columns(ohlc_cols)
+        
+        error_msg = str(exc_info.value).lower()
+        assert 'open' in error_msg
+        assert 'high' in error_msg
+    
+    def test_require_ohlc_columns_missing_all_required(self):
+        """Test require_ohlc_columns raises when no OHLC columns found."""
+        df = pd.DataFrame({
+            'price': [100.0], 'quantity': [1000]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        with pytest.raises(OHLCColumnsNotFoundError) as exc_info:
+            require_ohlc_columns(ohlc_cols)
+        
+        error_msg = str(exc_info.value)
+        # Should list all required columns
+        assert 'open' in error_msg.lower()
+        assert 'high' in error_msg.lower()
+        assert 'low' in error_msg.lower()
+        assert 'close' in error_msg.lower()
+    
+    def test_require_ohlc_columns_volume_optional(self):
+        """Test require_ohlc_columns doesn't require volume column."""
+        df = pd.DataFrame({
+            'open': [100.0], 'high': [101.0], 'low': [99.0], 'close': [100.5]
+            # No volume - should be okay
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        # Should not raise exception even without volume
+        require_ohlc_columns(ohlc_cols)
+    
+    def test_error_message_includes_suggestions(self):
+        """Test error messages include helpful suggestions."""
+        df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=3, freq='1min'),
+            'price': [100.0, 101.0, 102.0],
+            'quantity': [1000, 1100, 1200]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        with pytest.raises(OHLCColumnsNotFoundError) as exc_info:
+            require_ohlc_columns(ohlc_cols)
+        
+        error_msg = str(exc_info.value)
+        # Should include helpful suggestion
+        assert 'rename' in error_msg.lower() or 'column' in error_msg.lower()
+    
+    def test_empty_dataframe_handling(self):
+        """Test graceful handling of empty DataFrame."""
+        df = pd.DataFrame()
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        with pytest.raises(OHLCColumnsNotFoundError):
+            require_ohlc_columns(ohlc_cols)
 

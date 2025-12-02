@@ -10,6 +10,45 @@ from typing import Dict, List, Tuple
 import pandas as pd
 
 
+class OHLCColumnsNotFoundError(Exception):
+    """Raised when required OHLC columns are not found in DataFrame."""
+    
+    def __init__(self, missing_columns: List[str]):
+        self.missing_columns = missing_columns
+        
+        if len(missing_columns) == 1:
+            message = (
+                f"Required OHLC column not found: '{missing_columns[0]}'. "
+                f"Please ensure your DataFrame contains columns named "
+                f"'open', 'high', 'low', and 'close' (or abbreviated forms like 'o', 'h', 'l', 'c')."
+            )
+        else:
+            cols_str = "', '".join(missing_columns)
+            message = (
+                f"Required OHLC columns not found: '{cols_str}'. "
+                f"Please ensure your DataFrame contains columns named "
+                f"'open', 'high', 'low', and 'close' (or abbreviated forms like 'o', 'h', 'l', 'c')."
+            )
+        
+        super().__init__(message)
+
+
+class AmbiguousColumnError(Exception):
+    """Raised when multiple columns match the same OHLC pattern."""
+    
+    def __init__(self, standard_name: str, candidates: List[str]):
+        self.standard_name = standard_name
+        self.candidates = candidates
+        
+        candidates_str = "', '".join(candidates)
+        message = (
+            f"Ambiguous column names for '{standard_name}': found multiple candidates '{candidates_str}'. "
+            f"Please rename columns to have unique OHLC identifiers."
+        )
+        
+        super().__init__(message)
+
+
 def detect_ohlc_columns(df: pd.DataFrame) -> Dict[str, str]:
     """
     Detect OHLC (Open, High, Low, Close, Volume) columns in a DataFrame.
@@ -242,4 +281,24 @@ def validate_ohlc_columns(df: pd.DataFrame, ohlc_columns: Dict[str, str]) -> boo
             )
     
     return True
+
+
+def require_ohlc_columns(ohlc_columns: Dict[str, str], required: List[str] = None) -> None:
+    """
+    Verify that required OHLC columns are present.
+    
+    Args:
+        ohlc_columns: Dictionary of detected OHLC columns from detect_ohlc_columns()
+        required: List of required column names (defaults to ['open', 'high', 'low', 'close'])
+        
+    Raises:
+        OHLCColumnsNotFoundError: If any required columns are missing
+    """
+    if required is None:
+        required = ['open', 'high', 'low', 'close']
+    
+    missing = [col for col in required if col not in ohlc_columns]
+    
+    if missing:
+        raise OHLCColumnsNotFoundError(missing)
 
