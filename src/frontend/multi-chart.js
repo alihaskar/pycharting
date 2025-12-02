@@ -56,6 +56,7 @@ export class MultiChartManager {
         this.mainChart = null;
         this.subplots = [];
         this.syncedCharts = [];
+        this.chartData = null; // Stores data loaded via loadAndRender
         
         console.log('MultiChartManager initialized');
     }
@@ -165,8 +166,12 @@ export class MultiChartManager {
      * @returns {Promise<Array>} uPlot-compatible data array
      */
     async fetchChartData() {
-        // Stub implementation - returns mock data for testing
-        // In production, this would fetch from DataClient
+        // Return real data if loaded via loadAndRender
+        if (this.chartData && Array.isArray(this.chartData)) {
+            return this.chartData;
+        }
+        
+        // Fallback to mock data for testing
         const mockData = [
             // Timestamps
             [1609459200000, 1609545600000, 1609632000000],
@@ -988,6 +993,82 @@ export class MultiChartManager {
         
         // Stub - will be implemented in later tasks
         console.log('Syncing zoom...', zoomData);
+    }
+    
+    /**
+     * Load data and render charts (compatibility method for app.js)
+     * 
+     * @param {string} filename - CSV filename to load
+     * @param {Object} options - Loading options
+     * @returns {Promise<void>}
+     */
+    async loadAndRender(filename, options = {}) {
+        try {
+            // Show loading state
+            this.container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #999;">Loading chart data...</div>';
+            
+            // Build API URL
+            const params = new URLSearchParams({ filename });
+            if (options.timeframe) {
+                params.append('timeframe', options.timeframe);
+            }
+            
+            // Extract overlays and subplots from indicators
+            const overlays = [];
+            const subplots = [];
+            if (options.indicators && Array.isArray(options.indicators)) {
+                // For now, classify based on common patterns
+                // SMA/EMA are overlays, RSI is subplot
+                options.indicators.forEach(ind => {
+                    const indLower = ind.toLowerCase();
+                    if (indLower.includes('sma') || indLower.includes('ema')) {
+                        overlays.push(ind);
+                    } else {
+                        subplots.push(ind);
+                    }
+                });
+            }
+            
+            if (overlays.length > 0) {
+                params.append('overlays', overlays.join(','));
+            }
+            if (subplots.length > 0) {
+                params.append('subplots', subplots.join(','));
+            }
+            
+            // Fetch data
+            const apiUrl = `${this.config.apiBaseUrl || 'http://127.0.0.1:8000'}/chart-data?${params}`;
+            const response = await fetch(apiUrl);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            // Update config with detected indicators
+            this.config.overlays = result.metadata?.overlays || [];
+            this.config.subplots = result.metadata?.subplots?.map(s => ({
+                name: s.name,
+                type: 'subplot',
+                display_name: s.display_name
+            })) || [];
+            
+            // Store data
+            this.chartData = result.data;
+            
+            // Initialize charts with the new data
+            await this.initialize();
+            
+            console.log('Charts loaded successfully');
+        } catch (error) {
+            console.error('Failed to load chart:', error);
+            this.container.innerHTML = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #e74c3c;">
+                <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">Failed to load chart</p>
+                <p style="font-size: 0.9rem; color: #999;">${error.message}</p>
+            </div>`;
+            throw error;
+        }
     }
 }
 
