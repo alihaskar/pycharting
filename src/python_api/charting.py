@@ -18,7 +18,6 @@ from .detector import (
 from .transformer import transform_dataframe_to_csv
 from .server import ServerManager
 from .browser import launch_browser
-from src.api.main import app
 
 logger = logging.getLogger(__name__)
 
@@ -219,6 +218,8 @@ class Charting:
             
             # Task 29.2: Start server
             logger.info("Starting FastAPI server...")
+            # Lazy import to avoid circular dependency with processor
+            from src.api.main import app
             self.server_manager = ServerManager(app, self.port)
             chart_url = self.server_manager.start(
                 csv_path,

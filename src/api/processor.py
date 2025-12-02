@@ -13,6 +13,23 @@ from src.processing.pivot import to_uplot_format
 
 logger = logging.getLogger(__name__)
 
+# Import mapper/detector for column standardization
+# Note: Import directly from modules to avoid circular dependency through __init__.py
+try:
+    import src.python_api.detector as detector_module
+    import src.python_api.mapper as mapper_module
+    standardize_dataframe = detector_module.standardize_dataframe
+    ColumnNotFoundError = mapper_module.ColumnNotFoundError
+    ColumnValidationError = mapper_module.ColumnValidationError
+    MAPPER_AVAILABLE = True
+    logger.info("Mapper/detector modules loaded successfully")
+except ImportError as e:
+    logger.warning(f"Mapper/detector not available: {e}")
+    MAPPER_AVAILABLE = False
+    standardize_dataframe = None
+    ColumnNotFoundError = ValueError
+    ColumnValidationError = TypeError
+
 
 def sanitize_filename(filename: str) -> str:
     """
@@ -266,12 +283,56 @@ def load_and_process_data(
         raise FileNotFoundError(f"File not found: {filename}")
     
     logger.info(f"Loading file: {file_path}")
+    logger.debug(f"MAPPER_AVAILABLE={MAPPER_AVAILABLE}, custom_columns={[column_open, column_high, column_low, column_close, column_volume]}")
     
-    # Load CSV
-    df = load_csv(str(file_path))
-    
-    # Parse datetime (automatically detects timestamp column)
-    df = parse_datetime(df)
+    # Always load CSV without strict validation first if mapper available (allows for column standardization)
+    if MAPPER_AVAILABLE:
+        # Load CSV without validation - we'll standardize columns first
+        logger.info("Loading CSV with mapper/detector support")
+        try:
+            df = pd.read_csv(file_path, encoding="utf-8")
+        except UnicodeDecodeError:
+            df = pd.read_csv(file_path, encoding="latin-1")
+        
+        if df.empty:
+            raise ValueError(f"No data found in CSV file: {filename}")
+        
+        # Parse datetime before standardization
+        df = parse_datetime(df)
+        
+        # Standardize column names (explicit mapping or auto-detection)
+        has_custom_columns = any([column_open, column_high, column_low, column_close, column_volume])
+        if has_custom_columns:
+            logger.info("Using explicit column mapping")
+            try:
+                df = standardize_dataframe(
+                    df,
+                    open=column_open,
+                    high=column_high,
+                    low=column_low,
+                    close=column_close,
+                    volume=column_volume
+                )
+                logger.info("Column standardization successful")
+            except (ColumnNotFoundError, ColumnValidationError) as e:
+                logger.error(f"Column mapping error: {e}")
+                raise ValueError(str(e))
+        else:
+            logger.info("Auto-detecting and standardizing columns")
+            try:
+                df = standardize_dataframe(df)
+                logger.info("Auto-detection successful")
+            except (ColumnNotFoundError, ColumnValidationError) as e:
+                logger.debug(f"Auto-detection failed, continuing with original columns: {e}")
+                # If auto-detection fails, validate that required columns exist
+                required_columns = {"timestamp", "open", "high", "low", "close", "volume"}
+                missing_columns = required_columns - set(df.columns)
+                if missing_columns:
+                    raise ValueError(f"Missing required columns: {missing_columns}. Found columns: {list(df.columns)}")
+    else:
+        # Standard flow with validation (backward compatibility)
+        df = load_csv(str(file_path))
+        df = parse_datetime(df)
     
     # Clean missing values
     df = clean_missing_values(df)
