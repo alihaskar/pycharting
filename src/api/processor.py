@@ -261,6 +261,9 @@ def load_and_process_data(
     # Optimize DataFrame
     df = optimize_dataframe(df)
     
+    # Detect pre-existing indicator columns in CSV
+    available_indicators = detect_indicator_columns(df)
+    
     # Apply time filtering if specified
     if start_date:
         df = df[df.index >= pd.to_datetime(start_date)]
@@ -302,7 +305,8 @@ def load_and_process_data(
         "rows": len(df),
         "columns": len(uplot_data),
         "timeframe": timeframe,
-        "indicators": indicator_names
+        "indicators": indicator_names,  # Calculated indicators
+        "available_indicators": available_indicators  # Pre-existing indicators from CSV
     }
     
     return uplot_data, metadata
