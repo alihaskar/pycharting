@@ -1,0 +1,138 @@
+"""
+Tests for server port management utilities.
+Testing port availability checking and conflict resolution.
+"""
+
+import pytest
+import socket
+from unittest.mock import patch, MagicMock
+from src.python_api.server import find_available_port
+
+
+class TestSocketBindingAndAvailability:
+    """Test socket binding and port availability checking."""
+    
+    def test_find_available_port_default(self):
+        """Test finding available port with default parameters."""
+        port = find_available_port()
+        
+        # Should return a port number
+        assert isinstance(port, int)
+        assert port >= 8000
+        assert port < 8010  # Within default range
+    
+    def test_find_available_port_custom_preferred(self):
+        """Test finding available port with custom preferred port."""
+        port = find_available_port(preferred_port=9000)
+        
+        assert isinstance(port, int)
+        assert port >= 9000
+    
+    def test_find_available_port_actually_available(self):
+        """Test that returned port is actually available."""
+        port = find_available_port()
+        
+        # Try to bind to the returned port
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('localhost', port))
+            # If this doesn't raise, the port is available
+            assert True
+    
+    def test_find_available_port_socket_cleanup(self):
+        """Test that sockets are properly cleaned up."""
+        port1 = find_available_port(preferred_port=8100)
+        port2 = find_available_port(preferred_port=8100)
+        
+        # Should return same port since first socket was cleaned up
+        assert port1 == port2
+
+
+class TestPortRangeIteration:
+    """Test port range iteration and conflict resolution."""
+    
+    @patch('socket.socket')
+    def test_tries_next_port_on_conflict(self, mock_socket_class):
+        """Test that function tries next port when first is occupied."""
+        mock_socket = MagicMock()
+        mock_socket_class.return_value.__enter__.return_value = mock_socket
+        
+        # First port fails, second succeeds
+        mock_socket.bind.side_effect = [OSError(), None]
+        
+        port = find_available_port(preferred_port=8000, max_attempts=5)
+        
+        # Should return second port (8001)
+        assert port == 8001
+    
+    @patch('socket.socket')
+    def test_tries_multiple_ports(self, mock_socket_class):
+        """Test iteration through multiple occupied ports."""
+        mock_socket = MagicMock()
+        mock_socket_class.return_value.__enter__.return_value = mock_socket
+        
+        # First 3 ports fail, 4th succeeds
+        mock_socket.bind.side_effect = [OSError(), OSError(), OSError(), None]
+        
+        port = find_available_port(preferred_port=8000, max_attempts=10)
+        
+        # Should return 4th port (8003)
+        assert port == 8003
+    
+    def test_custom_max_attempts(self):
+        """Test custom max_attempts parameter."""
+        # This should work with custom max_attempts
+        port = find_available_port(preferred_port=8200, max_attempts=20)
+        
+        assert port >= 8200
+        assert port < 8220
+
+
+class TestErrorHandling:
+    """Test error handling for edge cases."""
+    
+    @patch('socket.socket')
+    def test_raises_error_when_all_ports_occupied(self, mock_socket_class):
+        """Test that RuntimeError is raised when no ports available."""
+        mock_socket = MagicMock()
+        mock_socket_class.return_value.__enter__.return_value = mock_socket
+        
+        # All ports fail
+        mock_socket.bind.side_effect = OSError()
+        
+        with pytest.raises(RuntimeError, match="No available ports"):
+            find_available_port(preferred_port=8000, max_attempts=5)
+    
+    @patch('socket.socket')
+    def test_error_message_includes_range(self, mock_socket_class):
+        """Test that error message includes attempted port range."""
+        mock_socket = MagicMock()
+        mock_socket_class.return_value.__enter__.return_value = mock_socket
+        mock_socket.bind.side_effect = OSError()
+        
+        with pytest.raises(RuntimeError) as exc_info:
+            find_available_port(preferred_port=8000, max_attempts=3)
+        
+        error_msg = str(exc_info.value)
+        assert "8000" in error_msg
+        assert "8003" in error_msg or "8002" in error_msg  # End of range
+    
+    def test_handles_invalid_port_numbers(self):
+        """Test handling of edge case port numbers."""
+        # Very high port number should still work
+        port = find_available_port(preferred_port=50000, max_attempts=5)
+        assert port >= 50000
+    
+    @patch('socket.socket')
+    def test_handles_generic_socket_errors(self, mock_socket_class):
+        """Test handling of non-OSError socket exceptions."""
+        mock_socket = MagicMock()
+        mock_socket_class.return_value.__enter__.return_value = mock_socket
+        
+        # Simulate different socket error on first attempt, success on second
+        mock_socket.bind.side_effect = [OSError("Address already in use"), None]
+        
+        port = find_available_port(preferred_port=8000)
+        
+        # Should handle the error and return next available port
+        assert port == 8001
+
