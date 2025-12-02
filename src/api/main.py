@@ -1,10 +1,12 @@
 """Main FastAPI application entry point."""
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 import logging
 from src.api import routes
+from src.api import exceptions as api_exceptions
 
 # Configure logging
 logging.basicConfig(
@@ -84,6 +86,34 @@ def get_app() -> FastAPI:
     
     # Include routers
     app.include_router(routes.router)
+    
+    # Register exception handlers
+    @app.exception_handler(api_exceptions.APIException)
+    async def api_exception_handler(request: Request, exc: api_exceptions.APIException):
+        """Handle custom API exceptions."""
+        logger.error(f"API error: {exc.message}")
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.message}
+        )
+    
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        """Handle FastAPI validation errors."""
+        logger.error(f"Validation error: {exc}")
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "Validation error", "errors": exc.errors()}
+        )
+    
+    @app.exception_handler(Exception)
+    async def general_exception_handler(request: Request, exc: Exception):
+        """Handle unexpected exceptions."""
+        logger.error(f"Unexpected error: {exc}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"}
+        )
     
     return app
 

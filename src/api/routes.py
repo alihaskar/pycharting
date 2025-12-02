@@ -1,8 +1,9 @@
 """API routes for chart data endpoints."""
-from fastapi import APIRouter, Query, HTTPException, status
+from fastapi import APIRouter, Query
 from typing import Optional, List
 from src.api.models import ChartDataResponse, ErrorResponse
 from src.api.processor import load_and_process_data
+from src.api import exceptions
 import logging
 
 logger = logging.getLogger(__name__)
@@ -77,20 +78,11 @@ async def get_chart_data(
         
     except FileNotFoundError as e:
         logger.error(f"File not found: {filename}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"File not found: {filename}"
-        )
+        raise exceptions.FileNotFoundError(filename)
     except ValueError as e:
         logger.error(f"Invalid parameters: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise exceptions.ValidationError(str(e))
     except Exception as e:
         logger.error(f"Error processing request: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
-        )
+        raise exceptions.ProcessingError("Failed to process chart data")
 
