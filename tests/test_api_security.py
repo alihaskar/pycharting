@@ -1,8 +1,8 @@
 """Security tests for API file path validation."""
 import pytest
 from fastapi.testclient import TestClient
-from src.api.main import app
-from src.api.processor import validate_filename, sanitize_filename
+from charting.api.main import app
+from charting.api.processor import validate_filename, sanitize_filename
 from pathlib import Path
 
 

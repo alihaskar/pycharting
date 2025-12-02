@@ -1,7 +1,7 @@
 """Integration tests for API with data processing modules."""
 import pytest
 from fastapi.testclient import TestClient
-from src.api.main import app
+from charting.api.main import app
 import os
 from pathlib import Path
 

@@ -1,9 +1,9 @@
 """API routes for chart data endpoints."""
 from fastapi import APIRouter, Query
 from typing import Optional, List
-from src.api.models import ChartDataResponse, ErrorResponse
-from src.api.processor import load_and_process_data
-from src.api import exceptions
+from charting.api.models import ChartDataResponse, ErrorResponse
+from charting.api.processor import load_and_process_data
+from charting.api import exceptions
 import logging
 
 logger = logging.getLogger(__name__)

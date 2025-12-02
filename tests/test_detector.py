@@ -6,7 +6,7 @@ Testing pattern matching with various naming conventions.
 import pytest
 import pandas as pd
 import numpy as np
-from src.charting.detector import (
+from charting.detector import (
     detect_ohlc_columns,
     validate_ohlc_columns,
     check_numeric_columns,

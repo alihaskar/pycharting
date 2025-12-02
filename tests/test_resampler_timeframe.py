@@ -1,6 +1,6 @@
 """Tests for timeframe conversion and validation in resampler module."""
 import pytest
-from src.processing.resampler import (
+from charting.processing.resampler import (
     validate_timeframe,
     parse_timeframe,
     TimeframeValidationError

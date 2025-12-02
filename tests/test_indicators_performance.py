@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 import numpy as np
 import time
-from src.processing.indicators import calculate_rsi, calculate_sma, calculate_ema
+from charting.processing.indicators import calculate_rsi, calculate_sma, calculate_ema
 
 
 def test_sma_performance_large_dataset():

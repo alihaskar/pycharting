@@ -2,7 +2,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from src.processing.indicators import calculate_indicator, IndicatorValidationError
+from charting.processing.indicators import calculate_indicator, IndicatorValidationError
 
 
 def test_calculate_indicator_sma():

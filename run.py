@@ -49,7 +49,7 @@ def main():
     # If the user runs "python run.py", they might not be in poetry env.
     # We'll try to use 'uvicorn' directly if available, or assume user is in env.
     
-    cmd = [sys.executable, "-m", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", str(port)]
+    cmd = [sys.executable, "-m", "uvicorn", "charting.api.main:app", "--host", "0.0.0.0", "--port", str(port)]
     
     try:
         # Start process

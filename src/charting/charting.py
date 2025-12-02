@@ -356,7 +356,7 @@ class Charting:
             # Task 29.2: Start server
             logger.info("Starting FastAPI server...")
             # Lazy import to avoid circular dependency with processor
-            from src.api.main import app
+            from charting.api.main import app
             self.server_manager = ServerManager(app, self.port)
             chart_url = self.server_manager.start(
                 csv_path,

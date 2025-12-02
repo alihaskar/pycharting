@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from src.processing.indicators import calculate_rsi
+from charting.processing.indicators import calculate_rsi
 
 
 def test_rsi_basic_calculation():

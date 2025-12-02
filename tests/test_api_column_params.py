@@ -8,7 +8,7 @@ Tests cover:
 """
 import pytest
 from fastapi.testclient import TestClient
-from src.api.main import app
+from charting.api.main import app
 
 client = TestClient(app)
 
@@ -18,12 +18,12 @@ class TestColumnParameterModels:
     
     def test_column_mapping_model_exists(self):
         """Should have ColumnMappingParams model"""
-        from src.api.models import ColumnMappingParams
+        from charting.api.models import ColumnMappingParams
         assert ColumnMappingParams is not None
     
     def test_column_mapping_accepts_optional_params(self):
         """Model should accept optional column parameters"""
-        from src.api.models import ColumnMappingParams
+        from charting.api.models import ColumnMappingParams
         
         params = ColumnMappingParams(
             open='Open',
@@ -39,7 +39,7 @@ class TestColumnParameterModels:
     
     def test_column_mapping_all_fields_optional(self):
         """All column fields should be optional"""
-        from src.api.models import ColumnMappingParams
+        from charting.api.models import ColumnMappingParams
         
         params = ColumnMappingParams()
         
@@ -51,7 +51,7 @@ class TestColumnParameterModels:
     
     def test_column_mapping_accepts_volume(self):
         """Model should accept volume parameter"""
-        from src.api.models import ColumnMappingParams
+        from charting.api.models import ColumnMappingParams
         
         params = ColumnMappingParams(volume='Vol')
         
@@ -140,7 +140,7 @@ class TestParameterValidation:
     
     def test_column_params_must_be_strings(self):
         """Column parameters should be validated as strings"""
-        from src.api.models import ColumnMappingParams
+        from charting.api.models import ColumnMappingParams
         
         # Should accept strings
         params = ColumnMappingParams(open='Open')
@@ -148,7 +148,7 @@ class TestParameterValidation:
     
     def test_empty_string_column_names_handled(self):
         """Empty string column names should be handled"""
-        from src.api.models import ColumnMappingParams
+        from charting.api.models import ColumnMappingParams
         
         # Empty strings might be treated as None or rejected
         params = ColumnMappingParams(open='')

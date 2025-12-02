@@ -159,8 +159,8 @@ def resample_ohlc(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
     if len(df) == 0:
         return df.copy()
     
-    # Validate required columns
-    required_columns = ['open', 'high', 'low', 'close', 'volume']
+    # Validate required columns (volume is optional)
+    required_columns = ['open', 'high', 'low', 'close']
     missing_columns = set(required_columns) - set(df.columns)
     if missing_columns:
         raise ValueError(f"Missing required columns: {missing_columns}")
@@ -171,8 +171,11 @@ def resample_ohlc(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
         'high': 'max',      # Highest high of period
         'low': 'min',       # Lowest low of period
         'close': 'last',    # Last close of period
-        'volume': 'sum'     # Total volume of period
     }
+    
+    # Add volume if it exists
+    if 'volume' in df.columns:
+        ohlc_dict['volume'] = 'sum'  # Total volume of period
     
     # Resample using pandas resample with proper OHLC aggregation
     resampled = df.resample(timeframe).agg(ohlc_dict)

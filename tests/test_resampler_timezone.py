@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import pytz
-from src.processing.resampler import resample_ohlc_with_timezone
+from charting.processing.resampler import resample_ohlc_with_timezone
 
 
 @pytest.fixture

@@ -2,7 +2,7 @@
 import pytest
 from pathlib import Path
 from fastapi.testclient import TestClient
-from src.api.main import app
+from charting.api.main import app
 
 
 @pytest.fixture
