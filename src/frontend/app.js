@@ -1,5 +1,5 @@
 /**
- * Main Application Module
+ * Main Application Module - Task 26: MultiChartManager Integration
  * Integrates all components and handles user interactions
  */
 
@@ -10,6 +10,9 @@ class ChartApplication {
         this.activeIndicators = [];
         this.currentFilename = null;
         this.currentTimeframe = null;
+        
+        // Task 26.3: Parse URL parameters for overlays and subplots
+        this.urlParams = this.parseURLParameters();
         
         // Get DOM elements
         this.fileInput = document.getElementById('file-select');
@@ -24,17 +27,67 @@ class ChartApplication {
         // Setup event listeners
         this.setupEventListeners();
         
-        // Load state from localStorage
+        // Load state from localStorage or URL params
         this.loadState();
     }
 
     /**
+     * Parse URL parameters
+     * Task 26.3: URL parameter parsing functionality
+     * @returns {Object} Parsed parameters {overlays, subplots, filename}
+     */
+    parseURLParameters() {
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Parse overlays (comma-separated)
+        const overlaysParam = urlParams.get('overlays');
+        const overlays = overlaysParam ? overlaysParam.split(',').filter(o => o.trim()) : [];
+        
+        // Parse subplots (comma-separated)
+        const subplotsParam = urlParams.get('subplots');
+        const subplots = subplotsParam ? subplotsParam.split(',').filter(s => s.trim()) : [];
+        
+        // Parse filename if provided
+        const filename = urlParams.get('filename') || null;
+        
+        console.log('Parsed URL params:', { overlays, subplots, filename });
+        
+        return { overlays, subplots, filename };
+    }
+
+    /**
      * Initialize chart manager
+     * Task 26.4: MultiChartManager integration
      */
     initializeChart() {
         try {
-            this.chartManager = new ChartManager('chart-container');
-            console.log('Chart manager initialized successfully');
+            // Task 26.4: Use MultiChartManager instead of ChartManager
+            const container = document.getElementById('chart-container');
+            
+            // Configure multi-chart with overlays and subplots from URL
+            const config = {
+                overlays: this.urlParams.overlays,
+                subplots: this.urlParams.subplots,
+                mainChart: {
+                    height: 400
+                },
+                sync: {
+                    cursor: true,
+                    zoom: true
+                }
+            };
+            
+            // Create MultiChartManager instance
+            this.chartManager = new MultiChartManager(container, config);
+            console.log('MultiChartManager initialized successfully');
+            
+            // If filename is in URL, auto-load
+            if (this.urlParams.filename) {
+                this.fileInput.value = this.urlParams.filename;
+                this.currentFilename = this.urlParams.filename;
+                // Auto-load after a short delay to allow UI to settle
+                setTimeout(() => this.loadChart(), 100);
+            }
         } catch (error) {
             console.error('Failed to initialize chart:', error);
             this.showError('Failed to initialize chart: ' + error.message);
