@@ -8,6 +8,7 @@ with standardized column names for backend processing.
 import os
 import tempfile
 import time
+import random
 from typing import Dict, List, Optional
 import pandas as pd
 
@@ -110,6 +111,71 @@ def handle_datetime_index(df: pd.DataFrame) -> pd.DataFrame:
         df_copy.reset_index(drop=True, inplace=True)
     
     return df_copy
+
+
+def generate_temp_filepath(prefix: str = "chart_data") -> str:
+    """
+    Generate a unique temporary file path with timestamp-based naming.
+    
+    Creates a filepath in the system's temporary directory with a unique
+    timestamp-based filename to prevent collisions.
+    
+    Args:
+        prefix: Filename prefix (default: "chart_data")
+        
+    Returns:
+        Full path to temporary file location
+        
+    Examples:
+        >>> filepath = generate_temp_filepath()
+        >>> filepath.endswith('.csv')
+        True
+        >>> 'chart_data_' in filepath
+        True
+    """
+    # Get system temp directory
+    temp_dir = tempfile.gettempdir()
+    
+    # Generate unique filename using timestamp and random component
+    timestamp = int(time.time() * 1000000)  # Microsecond precision
+    random_suffix = random.randint(1000, 9999)  # Add random component for uniqueness
+    filename = f"{prefix}_{timestamp}_{random_suffix}.csv"
+    
+    # Construct full file path
+    filepath = os.path.join(temp_dir, filename)
+    
+    return filepath
+
+
+def create_temp_csv(df: pd.DataFrame, filepath: Optional[str] = None) -> str:
+    """
+    Create a temporary CSV file from DataFrame.
+    
+    Writes the DataFrame to a CSV file in the system temp directory
+    with proper formatting for backend consumption.
+    
+    Args:
+        df: pandas DataFrame to write
+        filepath: Optional custom filepath (generates one if not provided)
+        
+    Returns:
+        Path to the created CSV file
+        
+    Examples:
+        >>> df = pd.DataFrame({'open': [100], 'close': [101]})
+        >>> filepath = create_temp_csv(df)
+        >>> os.path.exists(filepath)
+        True
+    """
+    # Generate filepath if not provided
+    if filepath is None:
+        filepath = generate_temp_filepath()
+    
+    # Write DataFrame to CSV
+    # index=False to avoid writing pandas index column
+    df.to_csv(filepath, index=False)
+    
+    return filepath
 
 
 def transform_dataframe_to_csv(
