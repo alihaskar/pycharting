@@ -6,6 +6,8 @@
  * synchronization across all charts.
  */
 
+import { DraggableDivider } from './divider.js';
+
 /**
  * Draw candlestick paths for uPlot OHLC rendering
  * @param {Object} u - uPlot instance
@@ -120,6 +122,7 @@ export class MultiChartManager {
         this.subplotContainers = [];
         this.mainChartWrapper = null;
         this.subplotsWrapper = null;
+        this.dividers = [];
         
         console.log('MultiChartManager initialized');
     }
@@ -149,6 +152,83 @@ export class MultiChartManager {
     }
     
     /**
+     * Setup draggable dividers between charts
+     * 
+     * Task 26.1: Divider implementation
+     */
+    setupDividers() {
+        console.log('Setting up dividers...');
+        
+        // Clear existing dividers
+        this.dividers.forEach(d => d.destroy());
+        this.dividers = [];
+        
+        const subplotCount = this.subplots.length;
+        if (subplotCount === 0) {
+            return;
+        }
+        
+        // 1. Divider between Main Chart and First Subplot
+        const mainContainer = document.getElementById('main-chart-container');
+        const firstSubplotContainer = document.getElementById('subplot-0-container');
+        
+        if (mainContainer && firstSubplotContainer) {
+            this.createDivider(mainContainer, firstSubplotContainer, this.mainChart, this.subplots[0]);
+        }
+        
+        // 2. Dividers between Subplots
+        for (let i = 0; i < subplotCount - 1; i++) {
+            const topContainer = document.getElementById(`subplot-${i}-container`);
+            const bottomContainer = document.getElementById(`subplot-${i+1}-container`);
+            
+            if (topContainer && bottomContainer) {
+                this.createDivider(topContainer, bottomContainer, this.subplots[i], this.subplots[i+1]);
+            }
+        }
+        
+        console.log(`Created ${this.dividers.length} dividers`);
+    }
+
+    /**
+     * Create a single divider between two chart containers
+     * 
+     * @param {HTMLElement} topContainer
+     * @param {HTMLElement} bottomContainer
+     * @param {Object} topChart - uPlot instance
+     * @param {Object} bottomChart - uPlot instance
+     */
+    createDivider(topContainer, bottomContainer, topChart, bottomChart) {
+        const divider = new DraggableDivider(this.container, {
+            topElement: topContainer,
+            bottomElement: bottomContainer,
+            minSize: 100, // Minimum height for any chart
+            onDrag: () => {
+                // Resize uPlot instances to match new container dimensions
+                if (topChart && topContainer) {
+                    topChart.setSize({
+                        width: topContainer.clientWidth,
+                        height: topContainer.clientHeight
+                    });
+                }
+                
+                if (bottomChart && bottomContainer) {
+                    bottomChart.setSize({
+                        width: bottomContainer.clientWidth,
+                        height: bottomContainer.clientHeight
+                    });
+                }
+            }
+        });
+        
+        // Insert divider in DOM between the two containers
+        if (bottomContainer && bottomContainer.parentNode === this.container) {
+            this.container.insertBefore(divider.element, bottomContainer);
+        }
+        
+        this.dividers.push(divider);
+    }
+
+    /**
      * Initialize the multi-chart system
      * 
      * Creates containers and sets up all charts
@@ -157,6 +237,7 @@ export class MultiChartManager {
         this.createContainers();
         await this.createMainChart();
         await this.createSubplots();
+        this.setupDividers();
         this.setupSynchronization();
     }
     
@@ -564,7 +645,7 @@ export class MultiChartManager {
         const mainContainer = document.createElement('div');
         mainContainer.id = 'main-chart-container';
         mainContainer.style.height = heights.main;
-        mainContainer.style.marginBottom = `${this.config.layout.spacing}px`;
+        // Margin removed, handled by divider
         mainContainer.style.position = 'relative'; // For responsive behavior
         this.container.appendChild(mainContainer);
         
@@ -573,7 +654,7 @@ export class MultiChartManager {
             const subplotContainer = document.createElement('div');
             subplotContainer.id = `subplot-${index}-container`;
             subplotContainer.style.height = heights.subplot;
-            subplotContainer.style.marginBottom = `${this.config.layout.spacing}px`;
+            // Margin removed, handled by divider
             subplotContainer.style.position = 'relative'; // For responsive behavior
             this.container.appendChild(subplotContainer);
         });
