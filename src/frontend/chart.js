@@ -251,6 +251,9 @@ class ChartManager {
             this.chart.destroy();
         }
         
+        // Clear any loading/error messages
+        this.container.innerHTML = '';
+        
         // Create new chart
         this.chart = new uPlot(opts, data, this.container);
         
@@ -337,13 +340,17 @@ class ChartManager {
      * Show loading indicator
      */
     showLoading() {
-        if (!this.chart) {
-            this.container.innerHTML = `
-                <div style="padding: 20px; text-align: center;">
-                    <p>Loading chart data...</p>
-                </div>
-            `;
+        // Destroy existing chart first
+        if (this.chart) {
+            this.chart.destroy();
+            this.chart = null;
         }
+        
+        this.container.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #999;">
+                <p>Loading chart data...</p>
+            </div>
+        `;
     }
 
     /**
