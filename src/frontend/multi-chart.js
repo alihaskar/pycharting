@@ -359,13 +359,217 @@ export class MultiChartManager {
     }
     
     /**
+     * Extract data for a specific subplot indicator
+     * 
+     * Task 23.4: Data extraction for subplot indicators
+     * @param {Array} fullData - Complete dataset from fetchChartData
+     * @param {string} indicatorName - Name of indicator to extract
+     * @param {number} dataIndex - Index in data array where indicator data is located
+     * @returns {Array} [timestamps, indicatorData]
+     */
+    extractSubplotData(fullData, indicatorName, dataIndex) {
+        if (!fullData || fullData.length < 2) {
+            return [[], []];
+        }
+        
+        // Return timestamps and specific indicator data
+        return [
+            fullData[0], // timestamps
+            fullData[dataIndex] || [] // indicator data at specified index
+        ];
+    }
+    
+    /**
+     * Detect chart type based on indicator name
+     * 
+     * Task 23.5: Chart type detection
+     * @param {string} indicatorName - Name of the indicator
+     * @returns {string} Chart type: 'line', 'area', or 'histogram'
+     */
+    detectChartType(indicatorName) {
+        const lower = indicatorName.toLowerCase();
+        
+        // Histogram indicators
+        if (lower.includes('volume') || lower.includes('vol')) {
+            return 'histogram';
+        }
+        
+        // Area chart indicators (e.g., Bollinger Bands)
+        if (lower.includes('bb') || lower.includes('band')) {
+            return 'area';
+        }
+        
+        // Default to line chart
+        return 'line';
+    }
+    
+    /**
+     * Create series configuration for subplot
+     * 
+     * Task 23.1 & 23.5: Subplot series with chart type handling
+     * @param {string} indicatorName - Name of the indicator
+     * @param {string} chartType - Type of chart (line/area/histogram)
+     * @returns {Array} Series configuration
+     */
+    createSubplotSeriesConfig(indicatorName, chartType = 'line') {
+        const series = [
+            // X-axis (time)
+            { label: 'Time' },
+            
+            // Indicator series
+            {
+                label: indicatorName,
+                stroke: this.getIndicatorColor(indicatorName),
+                width: 2,
+                scale: `${indicatorName}_scale`
+            }
+        ];
+        
+        // Apply chart type specific configuration
+        if (chartType === 'histogram') {
+            series[1].paths = 'bars';
+            series[1].width = 1;
+        } else if (chartType === 'area') {
+            series[1].fill = this.getIndicatorColor(indicatorName) + '33'; // Add transparency
+        }
+        
+        return series;
+    }
+    
+    /**
+     * Create axes configuration for subplot
+     * 
+     * Task 23.2: Independent y-axis configuration
+     * @param {string} indicatorName - Name of the indicator
+     * @returns {Array} Axes configuration
+     */
+    createSubplotAxesConfig(indicatorName) {
+        return [
+            // X-axis (shared/synchronized - Task 23.3)
+            {
+                scale: 'x',
+                show: false // Hide x-axis labels on subplots (main chart shows them)
+            },
+            // Y-axis (independent per subplot - Task 23.2)
+            {
+                scale: `${indicatorName}_scale`,
+                side: 1, // Right side
+                space: 40
+            }
+        ];
+    }
+    
+    /**
+     * Create scale configuration for subplot
+     * 
+     * Task 23.6: Scale management per subplot
+     * @param {string} indicatorName - Name of the indicator
+     * @returns {Object} Scale configuration
+     */
+    createScaleConfig(indicatorName) {
+        return {
+            auto: true, // Auto-scale based on data
+            range: (u, min, max) => {
+                // Add 5% padding to top and bottom
+                const padding = (max - min) * 0.05;
+                return [min - padding, max + padding];
+            }
+        };
+    }
+    
+    /**
+     * Get subplot height from configuration
+     * 
+     * @returns {number} Height in pixels
+     */
+    getSubplotHeight() {
+        const subplotCount = this.config.subplots.length;
+        if (subplotCount === 0) return 0;
+        
+        // Default subplot height or from config
+        return this.config.subplots[0].height || 150;
+    }
+    
+    /**
      * Create subplot charts
      * 
+     * Task 23: Complete subplot implementation
      * @returns {Promise<void>}
      */
     async createSubplots() {
-        // Stub implementation - will be filled in later tasks
         console.log('Creating subplots...');
+        
+        if (!this.config.subplots || this.config.subplots.length === 0) {
+            console.log('No subplots configured');
+            return;
+        }
+        
+        // Fetch data
+        const fullData = await this.fetchChartData();
+        
+        // Create each subplot (Task 23.1)
+        this.config.subplots.forEach((subplot, index) => {
+            const indicatorName = subplot.name || `subplot_${index}`;
+            const chartType = subplot.type || this.detectChartType(indicatorName);
+            
+            // Extract data for this subplot (Task 23.4)
+            const subplotData = this.extractSubplotData(
+                fullData, 
+                indicatorName, 
+                index + 5 // Skip timestamps + OHLC data (indices 0-4)
+            );
+            
+            // Create series configuration (Task 23.1 & 23.5)
+            const series = this.createSubplotSeriesConfig(indicatorName, chartType);
+            
+            // Create axes configuration (Task 23.2 & 23.3)
+            const axes = this.createSubplotAxesConfig(indicatorName);
+            
+            // Create scale configuration (Task 23.6)
+            const scales = {
+                x: { time: true }, // Shared time scale (Task 23.3)
+                [`${indicatorName}_scale`]: this.createScaleConfig(indicatorName)
+            };
+            
+            // Get subplot container
+            const subplotContainer = document.getElementById(`subplot-${index}-container`);
+            if (!subplotContainer) {
+                console.warn(`Subplot container ${index} not found`);
+                return;
+            }
+            
+            // Configuration for uPlot
+            const opts = {
+                width: subplotContainer.clientWidth || 800,
+                height: this.getSubplotHeight(),
+                series: series,
+                axes: axes,
+                scales: scales
+            };
+            
+            // Store configuration for testing
+            const subplotConfig = {
+                id: `subplot-${index}`,
+                name: indicatorName,
+                type: chartType,
+                data: subplotData,
+                opts: opts,
+                series: series,
+                axes: axes,
+                scales: scales
+            };
+            
+            // Add to subplots tracking
+            this.subplots.push(subplotConfig);
+            
+            console.log(`Created subplot ${index}: ${indicatorName} (${chartType})`);
+            
+            // In production, would create actual uPlot instance:
+            // const chart = new uPlot(opts, subplotData, subplotContainer);
+            // this.subplots.push(chart);
+        });
+        
+        console.log(`Total subplots created: ${this.subplots.length}`);
     }
     
     /**

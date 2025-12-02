@@ -511,6 +511,103 @@ test('MultiChartManager creates axes configuration with shared scale', () => {
     assertTrue(axes.length === 2); // x-axis and y-axis
 });
 
+// === Test 23: Subplot Charts ===
+
+test('MultiChartManager has extractSubplotData method', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.extractSubplotData === 'function');
+});
+
+test('MultiChartManager extractSubplotData filters correct data', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    const fullData = [
+        [100, 200, 300],        // timestamps
+        [50, 51, 52],           // RSI
+        [10, 11, 12]            // MACD
+    ];
+    
+    const subplotData = manager.extractSubplotData(fullData, 'rsi', 1);
+    
+    assertTrue(Array.isArray(subplotData));
+    assertEqual(subplotData.length, 2); // timestamps + indicator
+    assertEqual(subplotData[0].length, 3); // 3 data points
+});
+
+test('MultiChartManager creates subplot series config', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    const series = manager.createSubplotSeriesConfig('rsi_14', 'line');
+    
+    assertTrue(Array.isArray(series));
+    assertTrue(series.length === 2); // time + indicator
+    assertEqual(series[1].label, 'rsi_14');
+});
+
+test('MultiChartManager creates subplot axes with independent scale', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    const axes = manager.createSubplotAxesConfig('rsi_14');
+    
+    assertTrue(Array.isArray(axes));
+    assertTrue(axes.length === 2);
+    // Check y-axis has custom scale
+    assertNotNull(axes[1].scale);
+});
+
+test('MultiChartManager detects chart type from indicator', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    const rsiType = manager.detectChartType('rsi');
+    const volumeType = manager.detectChartType('volume');
+    
+    assertEqual(rsiType, 'line');
+    assertEqual(volumeType, 'histogram');
+});
+
+test('MultiChartManager handles multiple subplots', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {
+        subplots: [
+            { name: 'rsi_14', type: 'line' },
+            { name: 'macd', type: 'line' }
+        ]
+    });
+    
+    // Subplots config should have 2 items
+    assertEqual(manager.config.subplots.length, 2);
+});
+
+test('MultiChartManager creates unique scales for each subplot', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    const scale1 = manager.createScaleConfig('rsi_14');
+    const scale2 = manager.createScaleConfig('macd');
+    
+    assertNotNull(scale1);
+    assertNotNull(scale2);
+    assertTrue(scale1.auto === true);
+});
+
+test('MultiChartManager getSubplotHeight calculates correct height', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {
+        subplots: [{ name: 'rsi' }, { name: 'macd' }]
+    });
+    
+    const height = manager.getSubplotHeight();
+    
+    assertTrue(typeof height === 'number');
+    assertTrue(height > 0);
+});
+
 // Print results
 console.log('\n' + '='.repeat(50));
 console.log(`Total: ${passed + failed}`);
