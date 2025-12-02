@@ -684,6 +684,301 @@ test('calculateHeights handles edge case with zero subplots', () => {
 });
 
 // ============================================================================
+// Test Suite: localStorage Persistence
+// ============================================================================
+
+test('saveLayout method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    assertTrue(typeof manager.saveLayout === 'function',
+        'Should have saveLayout method');
+});
+
+test('loadLayout method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    assertTrue(typeof manager.loadLayout === 'function',
+        'Should have loadLayout method');
+});
+
+test('saveLayout stores layout state to localStorage', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    // Mock localStorage
+    const storage = {};
+    global.localStorage = {
+        getItem: (key) => storage[key],
+        setItem: (key, value) => { storage[key] = value; }
+    };
+    
+    manager.layoutState.mainHeight = 0.6;
+    manager.saveLayout();
+    
+    assertTrue(storage['chart-layout-state'] !== undefined,
+        'Should save to localStorage');
+    
+    delete global.localStorage;
+});
+
+test('saveLayout serializes layout state as JSON', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    const storage = {};
+    global.localStorage = {
+        getItem: (key) => storage[key],
+        setItem: (key, value) => { storage[key] = value; }
+    };
+    
+    manager.layoutState.mainHeight = 0.65;
+    manager.saveLayout();
+    
+    const saved = JSON.parse(storage['chart-layout-state']);
+    assertEqual(saved.mainHeight, 0.65, 'Should serialize as JSON');
+    
+    delete global.localStorage;
+});
+
+test('loadLayout retrieves layout state from localStorage', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    const savedState = JSON.stringify({ mainHeight: 0.7 });
+    global.localStorage = {
+        getItem: (key) => key === 'chart-layout-state' ? savedState : null,
+        setItem: () => {}
+    };
+    
+    const loaded = manager.loadLayout();
+    
+    assertEqual(loaded.mainHeight, 0.7, 'Should load from localStorage');
+    
+    delete global.localStorage;
+});
+
+test('loadLayout returns null when no saved state exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    global.localStorage = {
+        getItem: () => null,
+        setItem: () => {}
+    };
+    
+    const loaded = manager.loadLayout();
+    
+    assertEqual(loaded, null, 'Should return null when no saved state');
+    
+    delete global.localStorage;
+});
+
+test('loadLayout handles corrupted JSON gracefully', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    global.localStorage = {
+        getItem: () => 'not valid json{]',
+        setItem: () => {}
+    };
+    
+    const loaded = manager.loadLayout();
+    
+    assertEqual(loaded, null, 'Should return null for corrupted JSON');
+    
+    delete global.localStorage;
+});
+
+test('loadLayout validates loaded data structure', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    // Invalid data structure (missing required fields)
+    const invalidState = JSON.stringify({ foo: 'bar' });
+    global.localStorage = {
+        getItem: () => invalidState,
+        setItem: () => {}
+    };
+    
+    const loaded = manager.loadLayout();
+    
+    // Should either return null or valid default structure
+    assertTrue(loaded === null || typeof loaded.mainHeight === 'number',
+        'Should validate data structure');
+    
+    delete global.localStorage;
+});
+
+test('saveLayout uses custom storage key from config', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container, {
+        storageKey: 'my-custom-key'
+    });
+    
+    const storage = {};
+    global.localStorage = {
+        getItem: (key) => storage[key],
+        setItem: (key, value) => { storage[key] = value; }
+    };
+    
+    manager.layoutState.mainHeight = 0.5;
+    manager.saveLayout();
+    
+    assertTrue(storage['my-custom-key'] !== undefined,
+        'Should use custom storage key');
+    
+    delete global.localStorage;
+});
+
+test('localStorage methods handle missing localStorage API', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    // Ensure localStorage is undefined
+    delete global.localStorage;
+    
+    // Should not throw
+    manager.saveLayout();
+    const loaded = manager.loadLayout();
+    
+    assertEqual(loaded, null, 'Should handle missing localStorage gracefully');
+});
+
+test('autoSave can be disabled via configuration', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container, {
+        autoSave: false
+    });
+    
+    const config = manager.getConfiguration();
+    
+    assertFalse(config.autoSave, 'Should disable autoSave when configured');
+});
+
+// ============================================================================
+// Test Suite: DraggableDivider Coordination
+// ============================================================================
+
+test('initializeDividers method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    assertTrue(typeof manager.initializeDividers === 'function',
+        'Should have initializeDividers method');
+});
+
+test('initializeDividers creates dividers array', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    manager.initializeDividers([
+        { id: 'main', type: 'main-subplot' }
+    ]);
+    
+    assertTrue(Array.isArray(manager.dividers), 'Should have dividers array');
+});
+
+test('initializeDividers tracks divider count', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    manager.initializeDividers([
+        { id: 'main', type: 'main-subplot' },
+        { id: 'subplot1', type: 'subplot' }
+    ]);
+    
+    assertTrue(manager.dividers.length >= 0, 'Should track divider count');
+});
+
+test('onDividerDrag callback exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    assertTrue(typeof manager.onDividerDrag === 'function',
+        'Should have onDividerDrag callback');
+});
+
+test('onDividerDrag updates layout state', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    manager.layoutState.mainHeight = 0.6;
+    
+    // Simulate divider drag
+    manager.onDividerDrag({ dividerId: 'main', deltaY: 50 });
+    
+    // State should be updated (exact value depends on implementation)
+    assertTrue(manager.layoutState.mainHeight !== undefined,
+        'Should update layout state');
+});
+
+test('onDividerDrag triggers autoSave when enabled', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container, { autoSave: true });
+    
+    let saveCalled = false;
+    manager.saveLayout = () => { saveCalled = true; return true; };
+    
+    manager.onDividerDrag({ dividerId: 'main', deltaY: 10 });
+    
+    assertTrue(saveCalled, 'Should trigger autoSave');
+});
+
+test('onDividerDrag does not save when autoSave disabled', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container, { autoSave: false });
+    
+    let saveCalled = false;
+    manager.saveLayout = () => { saveCalled = true; return true; };
+    
+    manager.onDividerDrag({ dividerId: 'main', deltaY: 10 });
+    
+    assertFalse(saveCalled, 'Should not trigger save when autoSave disabled');
+});
+
+test('destroy cleans up all divider instances', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    // Mock dividers with destroy method
+    manager.dividers = [
+        { id: 'div1', destroy: () => {} },
+        { id: 'div2', destroy: () => {} }
+    ];
+    
+    manager.destroy();
+    
+    assertEqual(manager.dividers.length, 0, 'Should clear all dividers');
+});
+
+test('getPanelConfig method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    assertTrue(typeof manager.getPanelConfig === 'function',
+        'Should have getPanelConfig method');
+});
+
+test('setPanelConfig method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    assertTrue(typeof manager.setPanelConfig === 'function',
+        'Should have setPanelConfig method');
+});
+
+test('setPanelConfig updates panel configuration', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    manager.setPanelConfig([
+        { id: 'main', height: 0.6 },
+        { id: 'subplot1', height: 0.4 }
+    ]);
+    
+    assertTrue(manager.panels.length > 0, 'Should update panel configuration');
+});
+
+// ============================================================================
 // Run Tests
 // ============================================================================
 

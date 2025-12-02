@@ -447,5 +447,237 @@ export class LayoutManager {
         
         return true;
     }
+    
+    /**
+     * Save layout state to localStorage
+     * 
+     * Serializes the current layout state and stores it in localStorage
+     * for persistence across page reloads.
+     * 
+     * @returns {boolean} True if save was successful
+     * 
+     * @example
+     * manager.saveLayout();
+     */
+    saveLayout() {
+        // Check if localStorage is available
+        if (typeof localStorage === 'undefined') {
+            console.warn('LayoutManager: localStorage not available');
+            return false;
+        }
+        
+        try {
+            // Serialize layout state
+            const stateToSave = {
+                mainHeight: this.layoutState.mainHeight,
+                subplotHeights: this.layoutState.subplotHeights,
+                containerHeight: this.layoutState.containerHeight,
+                timestamp: Date.now()
+            };
+            
+            const serialized = JSON.stringify(stateToSave);
+            
+            // Save to localStorage
+            localStorage.setItem(this.config.storageKey, serialized);
+            
+            console.log('LayoutManager: layout saved to localStorage');
+            return true;
+        } catch (error) {
+            console.error('LayoutManager: failed to save layout', error);
+            return false;
+        }
+    }
+    
+    /**
+     * Load layout state from localStorage
+     * 
+     * Retrieves and deserializes saved layout state from localStorage.
+     * Returns null if no saved state exists or if data is corrupted.
+     * 
+     * @returns {Object|null} Loaded layout state or null
+     * 
+     * @example
+     * const savedLayout = manager.loadLayout();
+     * if (savedLayout) {
+     *     // Apply saved layout
+     * }
+     */
+    loadLayout() {
+        // Check if localStorage is available
+        if (typeof localStorage === 'undefined') {
+            console.warn('LayoutManager: localStorage not available');
+            return null;
+        }
+        
+        try {
+            // Retrieve from localStorage
+            const serialized = localStorage.getItem(this.config.storageKey);
+            
+            if (!serialized) {
+                console.log('LayoutManager: no saved layout found');
+                return null;
+            }
+            
+            // Deserialize
+            const loaded = JSON.parse(serialized);
+            
+            // Validate structure
+            if (!this._isValidLayoutState(loaded)) {
+                console.warn('LayoutManager: invalid saved layout structure, ignoring');
+                return null;
+            }
+            
+            console.log('LayoutManager: layout loaded from localStorage');
+            return loaded;
+        } catch (error) {
+            console.error('LayoutManager: failed to load layout', error);
+            return null;
+        }
+    }
+    
+    /**
+     * Validate loaded layout state structure
+     * 
+     * @private
+     * @param {Object} state - Layout state to validate
+     * @returns {boolean} True if valid
+     */
+    _isValidLayoutState(state) {
+        if (!state || typeof state !== 'object') {
+            return false;
+        }
+        
+        // Check for required fields
+        if (typeof state.mainHeight !== 'number') {
+            return false;
+        }
+        
+        // mainHeight should be between 0 and 1
+        if (state.mainHeight < 0 || state.mainHeight > 1) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Initialize draggable dividers
+     * 
+     * Creates DraggableDivider instances for panel boundaries.
+     * Divider instances are stored and managed by the LayoutManager.
+     * 
+     * @param {Array} config - Array of divider configurations
+     * @returns {void}
+     * 
+     * @example
+     * manager.initializeDividers([
+     *     { id: 'main', type: 'main-subplot', topElement: mainPanel, bottomElement: subplotPanel }
+     * ]);
+     */
+    initializeDividers(config) {
+        if (!Array.isArray(config)) {
+            console.warn('LayoutManager: initializeDividers requires array config');
+            return;
+        }
+        
+        // Clear existing dividers
+        this.dividers.forEach(divider => {
+            if (divider && typeof divider.destroy === 'function') {
+                divider.destroy();
+            }
+        });
+        this.dividers = [];
+        
+        // Create new dividers (placeholder - actual DraggableDivider integration in future)
+        config.forEach(dividerConfig => {
+            const divider = {
+                id: dividerConfig.id,
+                type: dividerConfig.type,
+                config: dividerConfig,
+                destroy: () => {}  // Mock destroy for now
+            };
+            this.dividers.push(divider);
+        });
+        
+        console.log(`LayoutManager: initialized ${this.dividers.length} dividers`);
+    }
+    
+    /**
+     * Handle divider drag events
+     * 
+     * Called when a divider is dragged. Updates layout state and
+     * optionally saves to localStorage.
+     * 
+     * @param {Object} event - Drag event data
+     * @param {string} event.dividerId - ID of dragged divider
+     * @param {number} event.deltaY - Vertical movement in pixels
+     * @returns {void}
+     * 
+     * @example
+     * manager.onDividerDrag({ dividerId: 'main', deltaY: 50 });
+     */
+    onDividerDrag(event) {
+        if (!event || typeof event !== 'object') {
+            return;
+        }
+        
+        const { dividerId, deltaY } = event;
+        
+        console.log(`LayoutManager: divider '${dividerId}' dragged by ${deltaY}px`);
+        
+        // Update layout state based on drag
+        // (Actual implementation would calculate new heights based on deltaY)
+        // For now, just mark that state should be updated
+        this.layoutState.lastDragEvent = {
+            dividerId,
+            deltaY,
+            timestamp: Date.now()
+        };
+        
+        // Auto-save if enabled
+        if (this.config.autoSave) {
+            this.saveLayout();
+        }
+    }
+    
+    /**
+     * Get panel configuration
+     * 
+     * Returns the current panel configuration including heights
+     * and layout information.
+     * 
+     * @returns {Array} Array of panel configurations
+     * 
+     * @example
+     * const panels = manager.getPanelConfig();
+     */
+    getPanelConfig() {
+        return [...this.panels];
+    }
+    
+    /**
+     * Set panel configuration
+     * 
+     * Updates the panel configuration with new layout information.
+     * 
+     * @param {Array} config - Array of panel configurations
+     * @returns {void}
+     * 
+     * @example
+     * manager.setPanelConfig([
+     *     { id: 'main', height: 0.6 },
+     *     { id: 'subplot1', height: 0.4 }
+     * ]);
+     */
+    setPanelConfig(config) {
+        if (!Array.isArray(config)) {
+            console.warn('LayoutManager: setPanelConfig requires array');
+            return;
+        }
+        
+        this.panels = [...config];
+        
+        console.log(`LayoutManager: panel config updated, ${this.panels.length} panels`);
+    }
 }
 
