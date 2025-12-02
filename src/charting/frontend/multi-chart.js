@@ -1616,9 +1616,6 @@ export class MultiChartManager {
             
             // Build API URL
             const params = new URLSearchParams({ filename });
-            if (options.timeframe) {
-                params.append('timeframe', options.timeframe);
-            }
             
             // Extract overlays and subplots from options or config
             let overlays = [];
@@ -1688,10 +1685,13 @@ export class MultiChartManager {
             
             const result = await response.json();
             console.log('API Response:', result);
+            console.log('API returned overlays:', result.metadata?.overlays);
+            console.log('API returned subplots:', result.metadata?.subplots);
             
-            // Update config with detected indicators
-            this.config.overlays = result.metadata?.overlays || [];
-            this.config.subplots = result.metadata?.subplots || [];
+            // Keep the requested overlays/subplots (don't overwrite with API response)
+            // The API response confirms what's available, but we already requested them
+            // this.config.overlays = result.metadata?.overlays || [];
+            // this.config.subplots = result.metadata?.subplots || [];
             
             // Store data
             this.chartData = result.data;

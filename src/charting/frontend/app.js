@@ -11,14 +11,12 @@ class ChartApplication {
         this.chartManager = null;
         this.activeIndicators = [];
         this.currentFilename = null;
-        this.currentTimeframe = null;
         
         // Task 26.3: Parse URL parameters for overlays and subplots
         this.urlParams = this.parseURLParameters();
         
         // Get DOM elements
         this.fileInput = document.getElementById('file-select');
-        this.timeframeSelect = document.getElementById('timeframe-select');
         this.indicatorSelect = document.getElementById('indicator-select');
         this.loadBtn = document.getElementById('load-btn');
         this.activeIndicatorsContainer = document.getElementById('active-indicators');
@@ -113,12 +111,6 @@ class ChartApplication {
             }
         });
         
-        // Timeframe selection
-        this.timeframeSelect.addEventListener('change', () => {
-            if (this.currentFilename) {
-                this.loadChart();
-            }
-        });
         
         // Enter key on file input
         this.fileInput.addEventListener('keypress', (e) => {
@@ -204,16 +196,13 @@ class ChartApplication {
         }
         
         this.currentFilename = filename;
-        this.currentTimeframe = this.timeframeSelect.value;
         
         // Build options
         const options = {
-            indicators: this.activeIndicators
+            indicators: this.activeIndicators,
+            overlays: this.chartManager.config?.overlays || [],
+            subplots: this.chartManager.config?.subplots || []
         };
-        
-        if (this.currentTimeframe) {
-            options.timeframe = this.currentTimeframe;
-        }
         
         // Save state
         this.saveState();
@@ -331,7 +320,6 @@ class ChartApplication {
     saveState() {
         const state = {
             filename: this.currentFilename,
-            timeframe: this.currentTimeframe,
             indicators: this.activeIndicators
         };
         
@@ -363,10 +351,6 @@ class ChartApplication {
                     this.currentFilename = state.filename;
                 }
                 
-                if (state.timeframe) {
-                    this.timeframeSelect.value = state.timeframe;
-                    this.currentTimeframe = state.timeframe;
-                }
                 
                 if (state.indicators && Array.isArray(state.indicators)) {
                     this.activeIndicators = state.indicators;
@@ -384,9 +368,7 @@ class ChartApplication {
     clearState() {
         this.activeIndicators = [];
         this.currentFilename = null;
-        this.currentTimeframe = null;
         this.fileInput.value = '';
-        this.timeframeSelect.value = '';
         this.updateIndicatorDisplay();
         
         try {
@@ -407,7 +389,6 @@ class ChartApplication {
     getState() {
         return {
             filename: this.currentFilename,
-            timeframe: this.currentTimeframe,
             indicators: [...this.activeIndicators],
             hasChart: this.chartManager && this.chartManager.chart !== null
         };
