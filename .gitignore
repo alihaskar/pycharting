@@ -84,9 +84,9 @@ data/
 *.parquet
 
 # Task Master
-.cursor/
-*.cursor
 .taskmaster/
+/.taskmaster
+
 
 # Dependency directories
 node_modules/
@@ -96,3 +96,6 @@ node_modules/
 
 # Poetry
 poetry.lock
+
+
+
