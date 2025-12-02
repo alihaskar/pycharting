@@ -116,9 +116,88 @@ export class LayoutManager {
         this.layoutState.initialized = true;
         this.isDestroyed = false;
         
+        // Setup resize observer
+        this.setupResizeObserver();
+        
         console.log('LayoutManager: initialized');
         
         return this;
+    }
+    
+    /**
+     * Setup ResizeObserver to monitor container size changes
+     * 
+     * Creates a ResizeObserver that watches the container element
+     * and triggers debounced layout recalculations on resize.
+     * 
+     * @private
+     * @returns {void}
+     * 
+     * @example
+     * this.setupResizeObserver();
+     */
+    setupResizeObserver() {
+        // Check if ResizeObserver is available
+        if (typeof ResizeObserver === 'undefined') {
+            console.warn('LayoutManager: ResizeObserver not available');
+            return;
+        }
+        
+        // Create debounced resize handler
+        const debouncedResize = (entries) => {
+            // Clear existing timer
+            if (this.debounceTimer) {
+                clearTimeout(this.debounceTimer);
+            }
+            
+            // Set new timer
+            this.debounceTimer = setTimeout(() => {
+                this.handleResize(entries);
+                this.debounceTimer = null;
+            }, this.config.debounceDelay);
+        };
+        
+        // Create ResizeObserver
+        this.resizeObserver = new ResizeObserver(debouncedResize);
+        
+        // Observe container
+        this.resizeObserver.observe(this.container);
+        
+        console.log('LayoutManager: ResizeObserver setup complete');
+    }
+    
+    /**
+     * Handle container resize events
+     * 
+     * Called after debounce delay when container size changes.
+     * Recalculates layout and updates panel dimensions.
+     * 
+     * @private
+     * @param {ResizeObserverEntry[]} entries - ResizeObserver entries
+     * @returns {void}
+     * 
+     * @example
+     * this.handleResize(entries);
+     */
+    handleResize(entries) {
+        if (this.isDestroyed || !this.layoutState.initialized) {
+            return;
+        }
+        
+        // Get new container dimensions
+        const entry = entries?.[0];
+        if (!entry) {
+            return;
+        }
+        
+        const newHeight = entry.contentRect?.height || entry.target?.offsetHeight || 0;
+        
+        // Update layout state
+        this.layoutState.containerHeight = newHeight;
+        
+        console.log('LayoutManager: container resized to', newHeight);
+        
+        // TODO: Recalculate layout (will be implemented in next subtask)
     }
     
     /**

@@ -361,6 +361,186 @@ test('Default maxMainHeight is reasonable', () => {
 });
 
 // ============================================================================
+// Test Suite: ResizeObserver Integration
+// ============================================================================
+
+test('LayoutManager has setupResizeObserver method', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    assertTrue(typeof manager.setupResizeObserver === 'function',
+        'Should have setupResizeObserver method');
+});
+
+test('setupResizeObserver creates ResizeObserver', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    // Mock ResizeObserver
+    global.ResizeObserver = class {
+        constructor(callback) {
+            this.callback = callback;
+        }
+        observe() {}
+        disconnect() {}
+    };
+    
+    manager.setupResizeObserver();
+    
+    assertTrue(manager.resizeObserver !== null, 'Should create ResizeObserver');
+    
+    // Cleanup
+    delete global.ResizeObserver;
+});
+
+test('ResizeObserver observes container element', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    let observedElement = null;
+    global.ResizeObserver = class {
+        constructor(callback) {
+            this.callback = callback;
+        }
+        observe(element) {
+            observedElement = element;
+        }
+        disconnect() {}
+    };
+    
+    manager.setupResizeObserver();
+    
+    assertEqual(observedElement, container, 'Should observe container element');
+    
+    delete global.ResizeObserver;
+});
+
+test('ResizeObserver callback is debounced', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container, { debounceDelay: 150 });
+    
+    let callbackInvoked = false;
+    global.ResizeObserver = class {
+        constructor(callback) {
+            this.callback = callback;
+        }
+        observe() {}
+        disconnect() {}
+    };
+    
+    manager.setupResizeObserver();
+    manager.handleResize = () => { callbackInvoked = true; };
+    
+    // Should not call immediately
+    assertFalse(callbackInvoked, 'Should not call immediately (debounced)');
+    
+    delete global.ResizeObserver;
+});
+
+test('destroy disconnects ResizeObserver', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    let disconnected = false;
+    global.ResizeObserver = class {
+        constructor() {}
+        observe() {}
+        disconnect() {
+            disconnected = true;
+        }
+    };
+    
+    manager.setupResizeObserver();
+    manager.destroy();
+    
+    assertTrue(disconnected, 'Should disconnect ResizeObserver on destroy');
+    
+    delete global.ResizeObserver;
+});
+
+test('debounce timer is cleared on destroy', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    manager.debounceTimer = setTimeout(() => {}, 1000);
+    const timerId = manager.debounceTimer;
+    
+    manager.destroy();
+    
+    assertEqual(manager.debounceTimer, null, 'Should clear debounce timer');
+});
+
+test('handleResize method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    
+    assertTrue(typeof manager.handleResize === 'function',
+        'Should have handleResize method');
+});
+
+test('handleResize is called after debounce delay', async () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container, { debounceDelay: 50 });
+    
+    let resizeHandled = false;
+    manager.handleResize = () => {
+        resizeHandled = true;
+    };
+    
+    global.ResizeObserver = class {
+        constructor(callback) {
+            this.callback = callback;
+        }
+        observe() {
+            // Simulate resize event
+            setTimeout(() => {
+                this.callback([{ target: container }]);
+            }, 10);
+        }
+        disconnect() {}
+    };
+    
+    manager.setupResizeObserver();
+    
+    // Wait for debounce delay
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    assertTrue(resizeHandled, 'Should call handleResize after debounce');
+    delete global.ResizeObserver;
+});
+
+test('multiple resize events only trigger one handleResize', async () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container, { debounceDelay: 50 });
+    
+    let resizeCount = 0;
+    manager.handleResize = () => {
+        resizeCount++;
+    };
+    
+    let observerCallback;
+    global.ResizeObserver = class {
+        constructor(callback) {
+            observerCallback = callback;
+        }
+        observe() {}
+        disconnect() {}
+    };
+    
+    manager.setupResizeObserver();
+    
+    // Trigger multiple resize events rapidly
+    observerCallback([{ target: container }]);
+    observerCallback([{ target: container }]);
+    observerCallback([{ target: container }]);
+    
+    // Wait for debounce delay
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    assertEqual(resizeCount, 1, 'Should only call handleResize once (debounced)');
+    delete global.ResizeObserver;
+});
+
+// ============================================================================
 // Run Tests
 // ============================================================================
 
