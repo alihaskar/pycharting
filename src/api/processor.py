@@ -213,6 +213,8 @@ def parse_indicator_string(indicator_str: str) -> tuple[str, Dict[str, Any]]:
 def load_and_process_data(
     filename: str,
     indicators: Optional[List[str]] = None,
+    overlays: Optional[List[str]] = None,
+    subplots: Optional[List[str]] = None,
     timeframe: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
@@ -222,7 +224,9 @@ def load_and_process_data(
     
     Args:
         filename: CSV filename to load
-        indicators: Optional list of indicator strings
+        indicators: Optional list of indicator strings for calculation
+        overlays: Optional list of overlay indicator column names from CSV
+        subplots: Optional list of subplot indicator column names from CSV
         timeframe: Optional timeframe for resampling
         start_date: Optional start date for filtering
         end_date: Optional end date for filtering
@@ -263,6 +267,9 @@ def load_and_process_data(
     
     # Detect pre-existing indicator columns in CSV
     available_indicators = detect_indicator_columns(df)
+    
+    # Filter requested overlays and subplots
+    filtered_overlays, filtered_subplots = filter_indicator_data(df, overlays, subplots)
     
     # Apply time filtering if specified
     if start_date:
@@ -306,7 +313,9 @@ def load_and_process_data(
         "columns": len(uplot_data),
         "timeframe": timeframe,
         "indicators": indicator_names,  # Calculated indicators
-        "available_indicators": available_indicators  # Pre-existing indicators from CSV
+        "available_indicators": available_indicators,  # Pre-existing indicators from CSV
+        "overlays": filtered_overlays,  # Requested overlay indicators
+        "subplots": filtered_subplots  # Requested subplot indicators
     }
     
     return uplot_data, metadata
