@@ -136,6 +136,53 @@ def detect_indicator_columns(df: pd.DataFrame) -> List[str]:
     return indicator_columns
 
 
+def filter_indicator_data(
+    df: pd.DataFrame,
+    overlays: Optional[List[str]] = None,
+    subplots: Optional[List[str]] = None
+) -> tuple[List[str], List[str]]:
+    """
+    Filter and extract indicator data based on overlay and subplot parameters.
+    
+    Validates that requested indicator columns exist in the DataFrame and
+    returns filtered lists of valid overlay and subplot column names.
+    
+    Args:
+        df: pandas DataFrame containing indicator columns
+        overlays: Optional list of overlay indicator column names
+        subplots: Optional list of subplot indicator column names
+        
+    Returns:
+        Tuple of (filtered_overlays, filtered_subplots) containing only
+        columns that exist in the DataFrame
+        
+    Examples:
+        >>> df = pd.DataFrame({'rsi_14': [...], 'sma_20': [...]})
+        >>> filter_indicator_data(df, overlays=['sma_20'], subplots=['rsi_14'])
+        (['sma_20'], ['rsi_14'])
+    """
+    # Get available columns
+    available_columns = set(df.columns)
+    
+    # Filter overlays to only include existing columns
+    filtered_overlays = []
+    if overlays:
+        filtered_overlays = [
+            col for col in overlays
+            if col in available_columns
+        ]
+    
+    # Filter subplots to only include existing columns
+    filtered_subplots = []
+    if subplots:
+        filtered_subplots = [
+            col for col in subplots
+            if col in available_columns
+        ]
+    
+    return filtered_overlays, filtered_subplots
+
+
 def parse_indicator_string(indicator_str: str) -> tuple[str, Dict[str, Any]]:
     """
     Parse indicator string into type and parameters.
