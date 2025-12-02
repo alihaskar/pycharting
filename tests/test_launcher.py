@@ -16,26 +16,26 @@ class TestLauncherModuleExists:
     def test_launcher_module_exists(self):
         """Should have a launcher module"""
         try:
-            from src.python_api import launcher
+            from src.charting import launcher
             assert launcher is not None
         except ImportError:
             # Check alternative paths
-            from src.python_api.launcher import main
+            from src.charting.launcher import main
             assert main is not None
     
     def test_generate_sample_data_function_exists(self):
         """Should have generate_sample_data function"""
-        from src.python_api.launcher import generate_sample_data
+        from src.charting.launcher import generate_sample_data
         assert callable(generate_sample_data)
     
     def test_launch_chart_function_exists(self):
         """Should have launch_chart function"""
-        from src.python_api.launcher import launch_chart
+        from src.charting.launcher import launch_chart
         assert callable(launch_chart)
     
     def test_main_function_exists(self):
         """Should have main function"""
-        from src.python_api.launcher import main
+        from src.charting.launcher import main
         assert callable(main)
 
 
@@ -44,7 +44,7 @@ class TestGenerateSampleData:
     
     def test_generate_sample_data_returns_dataframe(self):
         """Should return a pandas DataFrame"""
-        from src.python_api.launcher import generate_sample_data
+        from src.charting.launcher import generate_sample_data
         
         df = generate_sample_data()
         
@@ -52,7 +52,7 @@ class TestGenerateSampleData:
     
     def test_generate_sample_data_has_ohlc_columns(self):
         """Should have OHLC columns"""
-        from src.python_api.launcher import generate_sample_data
+        from src.charting.launcher import generate_sample_data
         
         df = generate_sample_data()
         
@@ -63,7 +63,7 @@ class TestGenerateSampleData:
     
     def test_generate_sample_data_has_indicators(self):
         """Should have indicator columns"""
-        from src.python_api.launcher import generate_sample_data
+        from src.charting.launcher import generate_sample_data
         
         df = generate_sample_data()
         cols_lower = [c.lower() for c in df.columns]
@@ -77,7 +77,7 @@ class TestGenerateSampleData:
     
     def test_generate_sample_data_accepts_rows_parameter(self):
         """Should accept rows parameter"""
-        from src.python_api.launcher import generate_sample_data
+        from src.charting.launcher import generate_sample_data
         
         # Note: include_indicators=False to avoid warmup period dropping rows
         df = generate_sample_data(rows=50, include_indicators=False)
@@ -88,42 +88,42 @@ class TestGenerateSampleData:
 class TestLaunchChart:
     """Test chart launching"""
     
-    @patch('src.python_api.launcher.Charting')
+    @patch('src.charting.launcher.Charting')
     def test_launch_chart_creates_charting_instance(self, mock_charting_class):
         """Should create Charting instance"""
         mock_chart = MagicMock()
         mock_chart.load.return_value = 'http://test'
         mock_charting_class.return_value = mock_chart
         
-        from src.python_api.launcher import launch_chart, generate_sample_data
+        from src.charting.launcher import launch_chart, generate_sample_data
         
         df = generate_sample_data(rows=10)
         launch_chart(df)
         
         mock_charting_class.assert_called_once()
     
-    @patch('src.python_api.launcher.Charting')
+    @patch('src.charting.launcher.Charting')
     def test_launch_chart_calls_load(self, mock_charting_class):
         """Should call load() on chart"""
         mock_chart = MagicMock()
         mock_chart.load.return_value = 'http://test'
         mock_charting_class.return_value = mock_chart
         
-        from src.python_api.launcher import launch_chart, generate_sample_data
+        from src.charting.launcher import launch_chart, generate_sample_data
         
         df = generate_sample_data(rows=10)
         launch_chart(df)
         
         mock_chart.load.assert_called_once()
     
-    @patch('src.python_api.launcher.Charting')
+    @patch('src.charting.launcher.Charting')
     def test_launch_chart_returns_url(self, mock_charting_class):
         """Should return chart URL"""
         mock_chart = MagicMock()
         mock_chart.load.return_value = 'http://localhost:8000/chart'
         mock_charting_class.return_value = mock_chart
         
-        from src.python_api.launcher import launch_chart, generate_sample_data
+        from src.charting.launcher import launch_chart, generate_sample_data
         
         df = generate_sample_data(rows=10)
         url = launch_chart(df)
@@ -134,29 +134,29 @@ class TestLaunchChart:
 class TestMainFunction:
     """Test main entry point"""
     
-    @patch('src.python_api.launcher.launch_chart')
-    @patch('src.python_api.launcher.generate_sample_data')
+    @patch('src.charting.launcher.launch_chart')
+    @patch('src.charting.launcher.generate_sample_data')
     def test_main_generates_data(self, mock_gen, mock_launch):
         """main() should call generate_sample_data"""
         mock_df = pd.DataFrame({'a': [1]})
         mock_gen.return_value = mock_df
         mock_launch.return_value = 'http://test'
         
-        from src.python_api.launcher import main
+        from src.charting.launcher import main
         
         main()
         
         mock_gen.assert_called_once()
     
-    @patch('src.python_api.launcher.launch_chart')
-    @patch('src.python_api.launcher.generate_sample_data')
+    @patch('src.charting.launcher.launch_chart')
+    @patch('src.charting.launcher.generate_sample_data')
     def test_main_launches_chart(self, mock_gen, mock_launch):
         """main() should call launch_chart"""
         mock_df = pd.DataFrame({'a': [1]})
         mock_gen.return_value = mock_df
         mock_launch.return_value = 'http://test'
         
-        from src.python_api.launcher import main
+        from src.charting.launcher import main
         
         main()
         

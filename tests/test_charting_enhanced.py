@@ -13,7 +13,7 @@ class TestEnhancedLoadMethodSignature:
     
     def test_load_accepts_open_parameter(self):
         """load() should accept 'open' column name parameter"""
-        from src.python_api.charting import Charting
+        from src.charting.charting import Charting
         import inspect
         
         sig = inspect.signature(Charting.load)
@@ -24,7 +24,7 @@ class TestEnhancedLoadMethodSignature:
     
     def test_load_accepts_high_parameter(self):
         """load() should accept 'high' column name parameter"""
-        from src.python_api.charting import Charting
+        from src.charting.charting import Charting
         import inspect
         
         sig = inspect.signature(Charting.load)
@@ -35,7 +35,7 @@ class TestEnhancedLoadMethodSignature:
     
     def test_load_accepts_low_parameter(self):
         """load() should accept 'low' column name parameter"""
-        from src.python_api.charting import Charting
+        from src.charting.charting import Charting
         import inspect
         
         sig = inspect.signature(Charting.load)
@@ -46,7 +46,7 @@ class TestEnhancedLoadMethodSignature:
     
     def test_load_accepts_close_parameter(self):
         """load() should accept 'close' column name parameter"""
-        from src.python_api.charting import Charting
+        from src.charting.charting import Charting
         import inspect
         
         sig = inspect.signature(Charting.load)
@@ -57,7 +57,7 @@ class TestEnhancedLoadMethodSignature:
     
     def test_load_accepts_volume_parameter(self):
         """load() should accept 'volume' column name parameter"""
-        from src.python_api.charting import Charting
+        from src.charting.charting import Charting
         import inspect
         
         sig = inspect.signature(Charting.load)
@@ -68,7 +68,7 @@ class TestEnhancedLoadMethodSignature:
     
     def test_load_accepts_indicators_dict(self):
         """load() should accept 'indicators' dict for classification"""
-        from src.python_api.charting import Charting
+        from src.charting.charting import Charting
         import inspect
         
         sig = inspect.signature(Charting.load)
@@ -94,9 +94,9 @@ class TestEnhancedLoadWithCustomColumns:
             'rsi_14': [50.0 + i for i in range(10)]
         }, index=dates)
     
-    @patch('src.python_api.charting.ServerManager')
-    @patch('src.python_api.charting.launch_browser')
-    @patch('src.python_api.charting.transform_dataframe_to_csv', return_value='mock.csv')
+    @patch('src.charting.charting.ServerManager')
+    @patch('src.charting.charting.launch_browser')
+    @patch('src.charting.charting.transform_dataframe_to_csv', return_value='mock.csv')
     def test_load_uses_explicit_column_mapping(
         self, mock_transform, mock_browser, mock_server, sample_df_custom_cols
     ):
@@ -105,7 +105,7 @@ class TestEnhancedLoadWithCustomColumns:
         mock_server_instance.start.return_value = 'http://test'
         mock_server.return_value = mock_server_instance
         
-        from src.python_api.charting import Charting
+        from src.charting.charting import Charting
         
         chart = Charting(auto_open=False)
         
@@ -144,9 +144,9 @@ class TestEnhancedLoadWithIndicatorsDict:
             'custom_ind': [1.0 + i for i in range(10)]
         }, index=dates)
     
-    @patch('src.python_api.charting.ServerManager')
-    @patch('src.python_api.charting.launch_browser')
-    @patch('src.python_api.charting.transform_dataframe_to_csv', return_value='mock.csv')
+    @patch('src.charting.charting.ServerManager')
+    @patch('src.charting.charting.launch_browser')
+    @patch('src.charting.charting.transform_dataframe_to_csv', return_value='mock.csv')
     def test_load_uses_indicators_dict_classification(
         self, mock_transform, mock_browser, mock_server, sample_df_with_indicators
     ):
@@ -155,7 +155,7 @@ class TestEnhancedLoadWithIndicatorsDict:
         mock_server_instance.start.return_value = 'http://test'
         mock_server.return_value = mock_server_instance
         
-        from src.python_api.charting import Charting
+        from src.charting.charting import Charting
         
         chart = Charting(auto_open=False)
         
@@ -190,9 +190,9 @@ class TestBackwardCompatibility:
             'volume': [1000 + i*100 for i in range(10)]
         }, index=dates)
     
-    @patch('src.python_api.charting.ServerManager')
-    @patch('src.python_api.charting.launch_browser')
-    @patch('src.python_api.charting.transform_dataframe_to_csv', return_value='mock.csv')
+    @patch('src.charting.charting.ServerManager')
+    @patch('src.charting.charting.launch_browser')
+    @patch('src.charting.charting.transform_dataframe_to_csv', return_value='mock.csv')
     def test_load_works_without_new_parameters(
         self, mock_transform, mock_browser, mock_server, sample_df_standard
     ):
@@ -201,7 +201,7 @@ class TestBackwardCompatibility:
         mock_server_instance.start.return_value = 'http://test'
         mock_server.return_value = mock_server_instance
         
-        from src.python_api.charting import Charting
+        from src.charting.charting import Charting
         
         chart = Charting(auto_open=False)
         
@@ -213,9 +213,9 @@ class TestBackwardCompatibility:
         finally:
             chart.close()
     
-    @patch('src.python_api.charting.ServerManager')
-    @patch('src.python_api.charting.launch_browser')
-    @patch('src.python_api.charting.transform_dataframe_to_csv', return_value='mock.csv')
+    @patch('src.charting.charting.ServerManager')
+    @patch('src.charting.charting.launch_browser')
+    @patch('src.charting.charting.transform_dataframe_to_csv', return_value='mock.csv')
     def test_load_works_with_overlays_subplots_lists(
         self, mock_transform, mock_browser, mock_server, sample_df_standard
     ):
@@ -224,7 +224,7 @@ class TestBackwardCompatibility:
         mock_server_instance.start.return_value = 'http://test'
         mock_server.return_value = mock_server_instance
         
-        from src.python_api.charting import Charting
+        from src.charting.charting import Charting
         
         chart = Charting(auto_open=False)
         

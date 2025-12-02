@@ -17,17 +17,17 @@ class TestCustomExceptions:
     
     def test_column_not_found_error_exists(self):
         """ColumnNotFoundError should be importable"""
-        from src.python_api.mapper import ColumnNotFoundError
+        from src.charting.mapper import ColumnNotFoundError
         assert ColumnNotFoundError is not None
     
     def test_column_validation_error_exists(self):
         """ColumnValidationError should be importable"""
-        from src.python_api.mapper import ColumnValidationError
+        from src.charting.mapper import ColumnValidationError
         assert ColumnValidationError is not None
     
     def test_column_not_found_raised_with_suggestions(self):
         """ColumnNotFoundError should include column suggestions"""
-        from src.python_api.mapper import map_columns, ColumnNotFoundError
+        from src.charting.mapper import map_columns, ColumnNotFoundError
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -48,7 +48,7 @@ class TestCustomExceptions:
     
     def test_column_validation_error_for_non_numeric(self):
         """ColumnValidationError should be raised for non-numeric columns"""
-        from src.python_api.mapper import map_columns, ColumnValidationError
+        from src.charting.mapper import map_columns, ColumnValidationError
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -73,7 +73,7 @@ class TestColumnSuggestions:
     
     def test_suggest_similar_column_names(self):
         """Should suggest similar column names using fuzzy matching"""
-        from src.python_api.mapper import suggest_columns
+        from src.charting.mapper import suggest_columns
         
         available_columns = ['opening', 'closing', 'highest', 'lowest', 'vol']
         missing = 'open'
@@ -85,7 +85,7 @@ class TestColumnSuggestions:
     
     def test_suggest_case_variations(self):
         """Should suggest case variations"""
-        from src.python_api.mapper import suggest_columns
+        from src.charting.mapper import suggest_columns
         
         available_columns = ['Open', 'HIGH', 'low', 'Close']
         missing = 'open'
@@ -96,7 +96,7 @@ class TestColumnSuggestions:
     
     def test_suggest_returns_empty_when_no_matches(self):
         """Should return empty list when no similar columns"""
-        from src.python_api.mapper import suggest_columns
+        from src.charting.mapper import suggest_columns
         
         available_columns = ['foo', 'bar', 'baz']
         missing = 'open'
@@ -108,7 +108,7 @@ class TestColumnSuggestions:
     
     def test_suggest_limits_number_of_suggestions(self):
         """Should limit suggestions to reasonable number (e.g., 3)"""
-        from src.python_api.mapper import suggest_columns
+        from src.charting.mapper import suggest_columns
         
         available_columns = ['opening', 'opener', 'opened', 'opens', 'reopen', 'close']
         missing = 'open'
@@ -123,7 +123,7 @@ class TestErrorMessageQuality:
     
     def test_missing_column_error_includes_available_columns(self):
         """Error should list available columns"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -144,7 +144,7 @@ class TestErrorMessageQuality:
     
     def test_duplicate_mapping_error_shows_which_column(self):
         """Error should clearly identify the duplicate column"""
-        from src.python_api.mapper import map_columns
+        from src.charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -164,7 +164,7 @@ class TestErrorMessageQuality:
     
     def test_auto_detection_failure_suggests_explicit_mapping(self):
         """When auto-detection fails, suggest using explicit parameters"""
-        from src.python_api.mapper import detect_columns
+        from src.charting.mapper import detect_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({

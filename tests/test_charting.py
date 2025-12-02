@@ -8,7 +8,7 @@ import os
 import tempfile
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
-from src.python_api.charting import Charting
+from src.charting.charting import Charting
 
 
 class TestClassInitialization:
@@ -233,7 +233,7 @@ class TestDataFrameValidation:
 class TestOHLCDetection:
     """Test Task 28.2: OHLC auto-detection integration."""
     
-    @patch('src.python_api.charting.detect_ohlc_columns')
+    @patch('src.charting.charting.detect_ohlc_columns')
     def test_load_calls_detect_ohlc(self, mock_detect):
         """Test load() calls detect_ohlc_columns."""
         mock_detect.return_value = {
@@ -256,7 +256,7 @@ class TestOHLCDetection:
         
         mock_detect.assert_called_once()
     
-    @patch('src.python_api.charting.detect_ohlc_columns')
+    @patch('src.charting.charting.detect_ohlc_columns')
     def test_load_requires_open_close(self, mock_detect):
         """Test load() requires at least open and close columns."""
         mock_detect.return_value = {'open': 'open'}  # Missing close
@@ -274,9 +274,9 @@ class TestOHLCDetection:
 class TestIndicatorClassification:
     """Test Task 28.3: Indicator classification logic."""
     
-    @patch('src.python_api.charting.classify_indicators')
-    @patch('src.python_api.charting.detect_indicator_columns')
-    @patch('src.python_api.charting.detect_ohlc_columns')
+    @patch('src.charting.charting.classify_indicators')
+    @patch('src.charting.charting.detect_indicator_columns')
+    @patch('src.charting.charting.detect_ohlc_columns')
     def test_load_auto_classifies_indicators(
         self, mock_detect_ohlc, mock_detect_ind, mock_classify
     ):
@@ -309,7 +309,7 @@ class TestIndicatorClassification:
 class TestManualOverride:
     """Test Task 28.4: Manual override functionality."""
     
-    @patch('src.python_api.charting.detect_ohlc_columns')
+    @patch('src.charting.charting.detect_ohlc_columns')
     def test_load_respects_manual_overlays(self, mock_detect):
         """Test manual overlays parameter overrides auto-detection."""
         mock_detect.return_value = {
@@ -339,8 +339,8 @@ class TestManualOverride:
 class TestLoadOrchestration:
     """Test Task 29: Complete load orchestration."""
     
-    @patch('src.python_api.charting.transform_dataframe_to_csv')
-    @patch('src.python_api.charting.detect_ohlc_columns')
+    @patch('src.charting.charting.transform_dataframe_to_csv')
+    @patch('src.charting.charting.detect_ohlc_columns')
     def test_start_chart_calls_transformer(self, mock_detect, mock_transform):
         """Test _start_chart calls transform_dataframe_to_csv."""
         mock_detect.return_value = {
@@ -363,9 +363,9 @@ class TestLoadOrchestration:
         # Should have called transformer
         assert mock_transform.called or True  # Passes if not implemented yet
     
-    @patch('src.python_api.charting.ServerManager')
-    @patch('src.python_api.charting.transform_dataframe_to_csv')
-    @patch('src.python_api.charting.detect_ohlc_columns')
+    @patch('src.charting.charting.ServerManager')
+    @patch('src.charting.charting.transform_dataframe_to_csv')
+    @patch('src.charting.charting.detect_ohlc_columns')
     def test_start_chart_starts_server(
         self, mock_detect, mock_transform, mock_server_class
     ):
@@ -391,10 +391,10 @@ class TestLoadOrchestration:
         except (NotImplementedError, AttributeError):
             pass  # Expected until fully implemented
     
-    @patch('src.python_api.charting.launch_browser')
-    @patch('src.python_api.charting.ServerManager')
-    @patch('src.python_api.charting.transform_dataframe_to_csv')
-    @patch('src.python_api.charting.detect_ohlc_columns')
+    @patch('src.charting.charting.launch_browser')
+    @patch('src.charting.charting.ServerManager')
+    @patch('src.charting.charting.transform_dataframe_to_csv')
+    @patch('src.charting.charting.detect_ohlc_columns')
     def test_start_chart_launches_browser_when_auto_open(
         self, mock_detect, mock_transform, mock_server_class, mock_browser
     ):
@@ -421,10 +421,10 @@ class TestLoadOrchestration:
         except (NotImplementedError, AttributeError):
             pass
     
-    @patch('src.python_api.charting.launch_browser')
-    @patch('src.python_api.charting.ServerManager')
-    @patch('src.python_api.charting.transform_dataframe_to_csv')
-    @patch('src.python_api.charting.detect_ohlc_columns')
+    @patch('src.charting.charting.launch_browser')
+    @patch('src.charting.charting.ServerManager')
+    @patch('src.charting.charting.transform_dataframe_to_csv')
+    @patch('src.charting.charting.detect_ohlc_columns')
     def test_start_chart_skips_browser_when_auto_open_false(
         self, mock_detect, mock_transform, mock_server_class, mock_browser
     ):
@@ -451,8 +451,8 @@ class TestLoadOrchestration:
         except (NotImplementedError, AttributeError, AssertionError):
             pass
     
-    @patch('src.python_api.charting.transform_dataframe_to_csv')
-    @patch('src.python_api.charting.detect_ohlc_columns')
+    @patch('src.charting.charting.transform_dataframe_to_csv')
+    @patch('src.charting.charting.detect_ohlc_columns')
     def test_start_chart_cleanup_on_error(self, mock_detect, mock_transform):
         """Test _start_chart calls close() on error."""
         mock_detect.return_value = {
