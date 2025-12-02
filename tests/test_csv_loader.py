@@ -2,7 +2,7 @@
 import pytest
 import pandas as pd
 from pathlib import Path
-from src.ingestion.loader import load_csv, CSVLoadError
+from charting.ingestion.loader import load_csv, CSVLoadError
 
 
 @pytest.fixture

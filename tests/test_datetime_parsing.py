@@ -2,7 +2,7 @@
 import pytest
 import pandas as pd
 from pathlib import Path
-from src.ingestion.loader import load_csv, parse_datetime
+from charting.ingestion.loader import load_csv, parse_datetime
 
 
 @pytest.fixture

@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from src.ingestion.loader import load_csv, parse_datetime, clean_missing_values
+from charting.ingestion.loader import load_csv, parse_datetime, clean_missing_values
 
 
 @pytest.fixture

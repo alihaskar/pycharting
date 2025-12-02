@@ -6,18 +6,18 @@ import os
 import re
 import logging
 
-from src.ingestion.loader import load_csv, parse_datetime, clean_missing_values, optimize_dataframe
-from src.processing.indicators import calculate_indicator
-from src.processing.resampler import resample_ohlc
-from src.processing.pivot import to_uplot_format
+from charting.ingestion.loader import load_csv, parse_datetime, clean_missing_values, optimize_dataframe
+from charting.processing.indicators import calculate_indicator
+from charting.processing.resampler import resample_ohlc
+from charting.processing.pivot import to_uplot_format
 
 logger = logging.getLogger(__name__)
 
 # Import mapper/detector for column standardization
 # Note: Import directly from modules to avoid circular dependency through __init__.py
 try:
-    import src.charting.detector as detector_module
-    import src.charting.mapper as mapper_module
+    import charting.detector as detector_module
+    import charting.mapper as mapper_module
     standardize_dataframe = detector_module.standardize_dataframe
     ColumnNotFoundError = mapper_module.ColumnNotFoundError
     ColumnValidationError = mapper_module.ColumnValidationError
@@ -343,7 +343,7 @@ def load_and_process_data(
             except (ColumnNotFoundError, ColumnValidationError) as e:
                 logger.debug(f"Auto-detection failed, continuing with original columns: {e}")
                 # If auto-detection fails, validate that required columns exist
-                required_columns = {"timestamp", "open", "high", "low", "close", "volume"}
+                required_columns = {"timestamp", "open", "high", "low", "close"}
                 missing_columns = required_columns - set(df.columns)
                 if missing_columns:
                     raise ValueError(f"Missing required columns: {missing_columns}. Found columns: {list(df.columns)}")

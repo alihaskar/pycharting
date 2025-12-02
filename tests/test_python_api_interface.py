@@ -11,27 +11,27 @@ class TestPackageInterface:
     
     def test_can_import_charting_from_package(self):
         """Test Charting class can be imported from python_api."""
-        from src.charting import Charting
+        from charting import Charting
         
         assert Charting is not None
         assert callable(Charting)
     
     def test_can_import_chart_alias(self):
         """Test Chart alias can be imported."""
-        from src.charting import Chart
+        from charting import Chart
         
         assert Chart is not None
         assert callable(Chart)
     
     def test_chart_alias_is_charting(self):
         """Test Chart alias points to Charting class."""
-        from src.charting import Charting, Chart
+        from charting import Charting, Chart
         
         assert Chart is Charting
     
     def test_can_import_utility_functions(self):
         """Test utility functions can be imported."""
-        from src.charting import (
+        from charting import (
             detect_ohlc_columns,
             classify_indicators,
             transform_dataframe_to_csv
@@ -43,14 +43,14 @@ class TestPackageInterface:
     
     def test_package_has_version(self):
         """Test package has __version__ attribute."""
-        import src.charting as python_api
+        import charting as python_api
         
         assert hasattr(python_api, '__version__')
         assert isinstance(python_api.__version__, str)
     
     def test_package_has_all_attribute(self):
         """Test package has __all__ for export control."""
-        import src.charting as python_api
+        import charting as python_api
         
         assert hasattr(python_api, '__all__')
         assert isinstance(python_api.__all__, list)
@@ -59,7 +59,7 @@ class TestPackageInterface:
     
     def test_can_instantiate_charting_from_package_import(self):
         """Test can create Charting instance from package import."""
-        from src.charting import Charting
+        from charting import Charting
         
         chart = Charting()
         assert chart is not None
@@ -69,7 +69,7 @@ class TestPackageInterface:
     
     def test_can_use_chart_alias(self):
         """Test can use Chart alias to create instances."""
-        from src.charting import Chart
+        from charting import Chart
         
         chart = Chart(height=800)
         assert chart is not None

@@ -15,7 +15,7 @@ class TestDetectorMapperIntegration:
     
     def test_detector_uses_mapper_for_column_detection(self):
         """detector should use mapper.detect_columns() instead of own logic"""
-        from src.charting.detector import detect_ohlc_columns_via_mapper
+        from charting.detector import detect_ohlc_columns_via_mapper
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -33,7 +33,7 @@ class TestDetectorMapperIntegration:
     
     def test_detector_standardizes_dataframe_columns(self):
         """detector should return DataFrame with standardized column names"""
-        from src.charting.detector import standardize_dataframe
+        from charting.detector import standardize_dataframe
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -50,7 +50,7 @@ class TestDetectorMapperIntegration:
     
     def test_detector_handles_custom_column_names(self):
         """detector should handle user-specified column mappings"""
-        from src.charting.detector import standardize_dataframe
+        from charting.detector import standardize_dataframe
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -72,7 +72,7 @@ class TestDetectorMapperIntegration:
     
     def test_detector_preserves_indicator_columns(self):
         """detector should preserve indicator columns during standardization"""
-        from src.charting.detector import standardize_dataframe
+        from charting.detector import standardize_dataframe
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -93,7 +93,7 @@ class TestDetectorMapperIntegration:
     
     def test_detector_integration_with_existing_functions(self):
         """Existing detect_indicator_columns should work with standardized data"""
-        from src.charting.detector import standardize_dataframe, detect_indicator_columns
+        from charting.detector import standardize_dataframe, detect_indicator_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -121,7 +121,7 @@ class TestMapperErrorHandling:
     
     def test_detector_raises_on_missing_columns(self):
         """detector should raise clear error when OHLC columns missing"""
-        from src.charting.detector import standardize_dataframe
+        from charting.detector import standardize_dataframe
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -134,8 +134,8 @@ class TestMapperErrorHandling:
     
     def test_detector_provides_helpful_error_messages(self):
         """detector errors should include suggestions from mapper"""
-        from src.charting.detector import standardize_dataframe
-        from src.charting.mapper import ColumnNotFoundError
+        from charting.detector import standardize_dataframe
+        from charting.mapper import ColumnNotFoundError
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -159,7 +159,7 @@ class TestBackwardCompatibility:
     
     def test_old_detect_ohlc_columns_still_works(self):
         """Original detect_ohlc_columns should remain functional"""
-        from src.charting.detector import detect_ohlc_columns
+        from charting.detector import detect_ohlc_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -176,7 +176,7 @@ class TestBackwardCompatibility:
     
     def test_classify_indicators_still_works(self):
         """classify_indicators should work unchanged"""
-        from src.charting.detector import classify_indicators
+        from charting.detector import classify_indicators
         
         indicators = ['sma_20', 'rsi_14', 'ema_12', 'macd']
         overlays, subplots = classify_indicators(indicators)

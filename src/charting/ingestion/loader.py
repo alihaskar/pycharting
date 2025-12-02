@@ -41,8 +41,8 @@ def load_csv(file_path: Union[str, Path]) -> pd.DataFrame:
     if path.is_dir():
         raise CSVLoadError(f"Path is a directory, not a file: {file_path}")
     
-    # Required columns for OHLC data
-    required_columns = {"timestamp", "open", "high", "low", "close", "volume"}
+    # Required columns for OHLC data (volume is optional)
+    required_columns = {"timestamp", "open", "high", "low", "close"}
     
     try:
         # Load CSV with encoding detection
@@ -265,8 +265,8 @@ def optimize_dataframe(df: pd.DataFrame, source: str = None) -> pd.DataFrame:
     Raises:
         ValueError: If required columns are missing
     """
-    # Required columns for OHLC data
-    required_columns = ["timestamp", "open", "high", "low", "close", "volume"]
+    # Required columns for OHLC data (volume is optional)
+    required_columns = ["timestamp", "open", "high", "low", "close"]
     
     # Validate required columns
     missing_columns = set(required_columns) - set(df.columns)

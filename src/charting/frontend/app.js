@@ -222,9 +222,98 @@ class ChartApplication {
         try {
             await this.chartManager.loadAndRender(filename, options);
             console.log('Chart loaded successfully');
+            
+            // Build indicator controls after chart loads
+            this.buildIndicatorControls();
         } catch (error) {
             console.error('Error loading chart:', error);
             this.showError('Failed to load chart: ' + error.message);
+        }
+    }
+    
+    /**
+     * Build UI controls for toggling indicators
+     */
+    buildIndicatorControls() {
+        const container = document.getElementById('active-indicators');
+        if (!container) return;
+        
+        const available = this.chartManager.getAvailableIndicators();
+        const visible = this.chartManager.getVisibleIndicators();
+        
+        if (available.overlays.length === 0 && available.subplots.length === 0) {
+            container.innerHTML = '<span style="opacity: 0.7; font-size: 0.75rem;">No indicators available</span>';
+            return;
+        }
+        
+        container.innerHTML = '';
+        
+        // Helper to format indicator names
+        const formatName = (name) => {
+            return name.replace(/_/g, ' ').toUpperCase();
+        };
+        
+        // Add overlays section
+        if (available.overlays.length > 0) {
+            const overlayLabel = document.createElement('span');
+            overlayLabel.textContent = 'Overlays:';
+            overlayLabel.style.cssText = 'font-size: 0.75rem; opacity: 0.7; margin-right: 0.5rem;';
+            container.appendChild(overlayLabel);
+            
+            available.overlays.forEach(indicator => {
+                const label = document.createElement('label');
+                label.style.cssText = 'display: flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; cursor: pointer;';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = visible.overlays.includes(indicator);
+                checkbox.addEventListener('change', () => {
+                    this.chartManager.toggleOverlay(indicator);
+                    this.buildIndicatorControls(); // Rebuild UI
+                });
+                
+                const span = document.createElement('span');
+                span.textContent = formatName(indicator);
+                
+                label.appendChild(checkbox);
+                label.appendChild(span);
+                container.appendChild(label);
+            });
+        }
+        
+        // Add subplots section
+        if (available.subplots.length > 0) {
+            if (available.overlays.length > 0) {
+                const separator = document.createElement('span');
+                separator.textContent = '|';
+                separator.style.cssText = 'opacity: 0.3; margin: 0 0.5rem;';
+                container.appendChild(separator);
+            }
+            
+            const subplotLabel = document.createElement('span');
+            subplotLabel.textContent = 'Subplots:';
+            subplotLabel.style.cssText = 'font-size: 0.75rem; opacity: 0.7; margin-right: 0.5rem;';
+            container.appendChild(subplotLabel);
+            
+            available.subplots.forEach(indicator => {
+                const label = document.createElement('label');
+                label.style.cssText = 'display: flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; cursor: pointer;';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = visible.subplots.includes(indicator);
+                checkbox.addEventListener('change', () => {
+                    this.chartManager.toggleSubplot(indicator);
+                    this.buildIndicatorControls(); // Rebuild UI
+                });
+                
+                const span = document.createElement('span');
+                span.textContent = formatName(indicator);
+                
+                label.appendChild(checkbox);
+                label.appendChild(span);
+                container.appendChild(label);
+            });
         }
     }
 

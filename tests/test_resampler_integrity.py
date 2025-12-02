@@ -2,7 +2,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from src.processing.resampler import (
+from charting.processing.resampler import (
     verify_volume_conservation,
     verify_ohlc_relationships,
     verify_timestamp_continuity,
@@ -137,7 +137,7 @@ def test_verify_timestamp_continuity_allows_small_tolerance():
 
 def test_validate_resampled_data_complete(valid_ohlc_data):
     """Test complete data validation passes for valid data."""
-    from src.processing.resampler import resample_ohlc
+    from charting.processing.resampler import resample_ohlc
     resampled = resample_ohlc(valid_ohlc_data, "2h")
     
     # Should not raise error

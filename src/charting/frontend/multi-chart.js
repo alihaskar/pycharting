@@ -6,6 +6,8 @@
  * synchronization across all charts.
  */
 
+import { DraggableDivider } from './divider.js';
+
 /**
  * Draw candlestick paths for uPlot OHLC rendering
  * @param {Object} u - uPlot instance
@@ -120,6 +122,7 @@ export class MultiChartManager {
         this.subplotContainers = [];
         this.mainChartWrapper = null;
         this.subplotsWrapper = null;
+        this.dividers = [];
         
         console.log('MultiChartManager initialized');
     }
@@ -149,6 +152,89 @@ export class MultiChartManager {
     }
     
     /**
+     * Setup draggable dividers between charts
+     * 
+     * Task 26.1: Divider implementation
+     */
+    setupDividers() {
+        console.log('Setting up dividers...');
+        
+        // Clear existing dividers
+        this.dividers.forEach(d => d.destroy());
+        this.dividers = [];
+        
+        const subplotCount = this.subplots.length;
+        if (subplotCount === 0) {
+            return;
+        }
+        
+        // 1. Divider between Main Chart and First Subplot
+        const mainContainer = document.getElementById('main-chart-container');
+        const firstSubplotContainer = document.getElementById('subplot-0-container');
+        
+        if (mainContainer && firstSubplotContainer) {
+            this.createDivider(mainContainer, firstSubplotContainer, this.mainChart, this.subplots[0]);
+        }
+        
+        // 2. Dividers between Subplots
+        for (let i = 0; i < subplotCount - 1; i++) {
+            const topContainer = document.getElementById(`subplot-${i}-container`);
+            const bottomContainer = document.getElementById(`subplot-${i+1}-container`);
+            
+            if (topContainer && bottomContainer) {
+                this.createDivider(topContainer, bottomContainer, this.subplots[i], this.subplots[i+1]);
+            }
+        }
+        
+        console.log(`Created ${this.dividers.length} dividers`);
+    }
+
+    /**
+     * Create a single divider between two chart containers
+     * 
+     * @param {HTMLElement} topContainer
+     * @param {HTMLElement} bottomContainer
+     * @param {Object} topChart - uPlot instance
+     * @param {Object} bottomChart - uPlot instance
+     */
+    createDivider(topContainer, bottomContainer, topChart, bottomChart) {
+        // Create a temporary container for the divider to prevent it from auto-appending
+        const tempContainer = document.createElement('div');
+        
+        const divider = new DraggableDivider(tempContainer, {
+            topElement: topContainer,
+            bottomElement: bottomContainer,
+            minSize: 100, // Minimum height for any chart
+            onDrag: () => {
+                // Resize uPlot instances to match new container dimensions
+                if (topChart && topContainer) {
+                    topChart.setSize({
+                        width: topContainer.clientWidth,
+                        height: topContainer.clientHeight
+                    });
+                }
+                
+                if (bottomChart && bottomContainer) {
+                    bottomChart.setSize({
+                        width: bottomContainer.clientWidth,
+                        height: bottomContainer.clientHeight
+                    });
+                }
+            }
+        });
+        
+        // Remove from temp container and insert in correct position
+        divider.element.remove();
+        
+        // Insert divider in DOM between the two containers
+        if (bottomContainer && bottomContainer.parentNode) {
+            bottomContainer.parentNode.insertBefore(divider.element, bottomContainer);
+        }
+        
+        this.dividers.push(divider);
+    }
+
+    /**
      * Initialize the multi-chart system
      * 
      * Creates containers and sets up all charts
@@ -157,6 +243,7 @@ export class MultiChartManager {
         this.createContainers();
         await this.createMainChart();
         await this.createSubplots();
+        this.setupDividers();
         this.setupSynchronization();
     }
     
@@ -557,14 +644,18 @@ export class MultiChartManager {
         // Clear existing content
         this.container.innerHTML = '';
         
-        // Calculate dynamic heights
-        const heights = this.calculateHeights();
-        
         // Task 21.2 & 21.3: Create main chart container with proper ID and styling
         const mainContainer = document.createElement('div');
         mainContainer.id = 'main-chart-container';
-        mainContainer.style.height = heights.main;
-        mainContainer.style.marginBottom = `${this.config.layout.spacing}px`;
+        
+        // Use fixed height for scrollable layout
+        const subplotCount = this.config.subplots?.length || 0;
+        if (subplotCount > 0) {
+            mainContainer.style.height = '500px'; // Fixed height for main chart
+        } else {
+            mainContainer.style.height = '600px'; // Larger when no subplots
+        }
+        
         mainContainer.style.position = 'relative'; // For responsive behavior
         this.container.appendChild(mainContainer);
         
@@ -572,9 +663,11 @@ export class MultiChartManager {
         this.config.subplots.forEach((subplot, index) => {
             const subplotContainer = document.createElement('div');
             subplotContainer.id = `subplot-${index}-container`;
-            subplotContainer.style.height = heights.subplot;
-            subplotContainer.style.marginBottom = `${this.config.layout.spacing}px`;
+            
+            // Use fixed height for scrollable layout
+            subplotContainer.style.height = '200px'; // Fixed height for each subplot
             subplotContainer.style.position = 'relative'; // For responsive behavior
+            
             this.container.appendChild(subplotContainer);
         });
         
@@ -1527,9 +1620,24 @@ export class MultiChartManager {
                 params.append('timeframe', options.timeframe);
             }
             
-            // Extract overlays and subplots from indicators
+            // Extract overlays and subplots from options or config
             let overlays = [];
             let subplots = [];
+            
+            // Priority 1: Use overlays/subplots from options if provided
+            if (options.overlays && Array.isArray(options.overlays)) {
+                overlays = options.overlays;
+            } else if (this.config.overlays && Array.isArray(this.config.overlays)) {
+                // Priority 2: Use from config (set during initialization from URL)
+                overlays = this.config.overlays;
+            }
+            
+            if (options.subplots && Array.isArray(options.subplots)) {
+                subplots = options.subplots;
+            } else if (this.config.subplots && Array.isArray(this.config.subplots)) {
+                // Priority 2: Use from config (set during initialization from URL)
+                subplots = this.config.subplots;
+            }
             
             // Helper function to convert UI format (RSI:14) to CSV format (rsi_14)
             const convertIndicatorName = (uiName) => {
@@ -1537,22 +1645,17 @@ export class MultiChartManager {
                 return uiName.toLowerCase().replace(':', '_');
             };
             
-            // AUTO-DETECT: If no indicators specified, load common ones from sample data
-            if (!options.indicators || options.indicators.length === 0) {
-                // Auto-detect common indicator patterns
-                overlays = ['sma_20', 'ema_12'];
-                subplots = ['rsi_14'];
-                console.log('Auto-detecting indicators:', { overlays, subplots });
-            } else if (Array.isArray(options.indicators)) {
+            // Priority 3: Convert from indicators array (UI format)
+            if (overlays.length === 0 && subplots.length === 0 && options.indicators && Array.isArray(options.indicators)) {
                 // Classify based on common patterns
                 // SMA/EMA are overlays, RSI/MACD are subplots
                 options.indicators.forEach(ind => {
                     const csvName = convertIndicatorName(ind);
                     const indLower = ind.toLowerCase();
                     
-                    if (indLower.startsWith('sma') || indLower.startsWith('ema')) {
+                    if (indLower.startsWith('sma') || indLower.startsWith('ema') || indLower.startsWith('bb_')) {
                         overlays.push(csvName);
-                    } else if (indLower.startsWith('rsi') || indLower.startsWith('macd')) {
+                    } else if (indLower.startsWith('rsi') || indLower.startsWith('macd') || indLower.startsWith('stoch')) {
                         subplots.push(csvName);
                     }
                 });
@@ -1562,6 +1665,8 @@ export class MultiChartManager {
                     subplots 
                 });
             }
+            
+            console.log('Using indicators:', { overlays, subplots });
             
             if (overlays.length > 0) {
                 params.append('overlays', overlays.join(','));
@@ -1586,14 +1691,18 @@ export class MultiChartManager {
             
             // Update config with detected indicators
             this.config.overlays = result.metadata?.overlays || [];
-            this.config.subplots = result.metadata?.subplots?.map(s => ({
-                name: s.name,
-                type: 'subplot',
-                display_name: s.display_name
-            })) || [];
+            this.config.subplots = result.metadata?.subplots || [];
             
             // Store data
             this.chartData = result.data;
+            
+            // Store all available indicators from metadata
+            this.availableOverlays = result.metadata?.overlays || [];
+            this.availableSubplots = result.metadata?.subplots || [];
+            
+            // Track which indicators are currently visible
+            this.visibleOverlays = new Set(this.config.overlays);
+            this.visibleSubplots = new Set(this.config.subplots);
             
             // Initialize charts with the new data
             await this.initialize();
@@ -1607,6 +1716,64 @@ export class MultiChartManager {
             </div>`;
             throw error;
         }
+    }
+    
+    /**
+     * Toggle an overlay indicator on/off
+     * @param {string} indicator - Indicator name (e.g., 'sma_20')
+     */
+    toggleOverlay(indicator) {
+        if (this.visibleOverlays.has(indicator)) {
+            this.visibleOverlays.delete(indicator);
+        } else {
+            this.visibleOverlays.add(indicator);
+        }
+        
+        // Update config
+        this.config.overlays = Array.from(this.visibleOverlays);
+        
+        // Re-render the main chart
+        this.initialize();
+    }
+    
+    /**
+     * Toggle a subplot indicator on/off
+     * @param {string} indicator - Indicator name (e.g., 'rsi_14')
+     */
+    toggleSubplot(indicator) {
+        if (this.visibleSubplots.has(indicator)) {
+            this.visibleSubplots.delete(indicator);
+        } else {
+            this.visibleSubplots.add(indicator);
+        }
+        
+        // Update config
+        this.config.subplots = Array.from(this.visibleSubplots);
+        
+        // Re-render all charts
+        this.initialize();
+    }
+    
+    /**
+     * Get all available indicators
+     * @returns {Object} Object with overlays and subplots arrays
+     */
+    getAvailableIndicators() {
+        return {
+            overlays: this.availableOverlays || [],
+            subplots: this.availableSubplots || []
+        };
+    }
+    
+    /**
+     * Get currently visible indicators
+     * @returns {Object} Object with visible overlays and subplots arrays
+     */
+    getVisibleIndicators() {
+        return {
+            overlays: Array.from(this.visibleOverlays || []),
+            subplots: Array.from(this.visibleSubplots || [])
+        };
     }
 }
 

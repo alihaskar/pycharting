@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 import numpy as np
 import json
-from src.processing.pivot import to_uplot_format, sanitize_nan_values
+from charting.processing.pivot import to_uplot_format, sanitize_nan_values
 
 
 @pytest.fixture

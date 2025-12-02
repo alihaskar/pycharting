@@ -2,7 +2,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from src.processing.indicators import calculate_ema
+from charting.processing.indicators import calculate_ema
 
 
 def test_ema_basic_calculation():
@@ -50,7 +50,7 @@ def test_ema_responds_faster_than_sma():
     prices = pd.Series([10] * 10 + [20] * 10)
     
     ema = calculate_ema(prices, period=5)
-    from src.processing.indicators import calculate_sma
+    from charting.processing.indicators import calculate_sma
     sma = calculate_sma(prices, period=5)
     
     # After the price jump, EMA should reach new level faster than SMA

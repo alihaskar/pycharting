@@ -2,7 +2,7 @@
 import pytest
 import time
 from fastapi.testclient import TestClient
-from src.api.main import app
+from charting.api.main import app
 
 
 @pytest.fixture

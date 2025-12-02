@@ -5,7 +5,7 @@ Testing IndicatorMetadata and enhanced ChartMetadata models.
 
 import pytest
 from pydantic import ValidationError
-from src.api.models import IndicatorMetadata, ChartDataResponse
+from charting.api.models import IndicatorMetadata, ChartDataResponse
 
 
 class TestIndicatorMetadataModel:

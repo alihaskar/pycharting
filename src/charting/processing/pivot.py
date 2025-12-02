@@ -148,9 +148,9 @@ def to_uplot_format(
     ]
     
     Args:
-        df: DataFrame with DatetimeIndex and OHLCV columns
-            Required columns: 'open', 'high', 'low', 'close', 'volume'
-            Optional: any additional indicator columns
+        df: DataFrame with DatetimeIndex and OHLC columns
+            Required columns: 'open', 'high', 'low', 'close'
+            Optional: 'volume' and any additional indicator columns
         timestamp_unit: Unit for Unix timestamps ('ms' for milliseconds, 's' for seconds)
                        Default: 'ms'
     
@@ -179,8 +179,8 @@ def to_uplot_format(
             "Use df.set_index('timestamp') if needed."
         )
     
-    # Validate required OHLCV columns
-    required_cols = ['open', 'high', 'low', 'close', 'volume']
+    # Validate required OHLC columns (volume is optional)
+    required_cols = ['open', 'high', 'low', 'close']
     missing_cols = [col for col in required_cols if col not in df.columns]
     if missing_cols:
         raise ValueError(
@@ -198,14 +198,20 @@ def to_uplot_format(
         timestamps = [datetime_to_unix_seconds(ts) for ts in df.index]
     result.append(timestamps)
     
-    # Add OHLCV columns in order with NaN sanitization
+    # Add OHLC columns in order with NaN sanitization
     for col in required_cols:
         values = df[col].tolist()
         sanitized = sanitize_nan_values(values)
         result.append(sanitized)
     
+    # Add volume if it exists
+    if 'volume' in df.columns:
+        values = df['volume'].tolist()
+        sanitized = sanitize_nan_values(values)
+        result.append(sanitized)
+    
     # Add any additional indicator columns with NaN sanitization
-    indicator_cols = [col for col in df.columns if col not in required_cols]
+    indicator_cols = [col for col in df.columns if col not in required_cols and col != 'volume']
     for col in sorted(indicator_cols):  # Sort for consistent ordering
         values = df[col].tolist()
         sanitized = sanitize_nan_values(values)

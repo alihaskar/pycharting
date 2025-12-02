@@ -2,7 +2,7 @@
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from src.api.main import app, get_app
+from charting.api.main import app, get_app
 
 
 def test_app_instance():

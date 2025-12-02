@@ -7,6 +7,8 @@
     
     <!-- uPlot CSS from CDN -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.min.css">
+    <!-- Custom Divider CSS -->
+    <link rel="stylesheet" href="./divider.css">
     
     <!-- CSS Reset -->
     <style>
@@ -23,8 +25,8 @@
             background-color: #f5f5f5;
             display: flex;
             flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
+            min-height: 100vh;
+            overflow-y: auto;
         }
         
         header {
@@ -124,14 +126,12 @@
             flex: 1;
             padding: 0;
             margin: 0;
-            overflow: hidden;
         }
         
         #chart-container {
-            flex: 1;
             background: white;
             padding: 1rem;
-            overflow: hidden;
+            min-height: 800px; /* Minimum height to ensure charts are visible */
         }
         
         footer {
@@ -168,18 +168,12 @@
                 </select>
             </div>
             
-            <!-- Indicator Selection -->
-            <div class="control-group">
+            <!-- Indicator Selection - Hidden by default, shows calculated indicators from CSV -->
+            <div class="control-group" style="display: none;">
                 <label for="indicator-select">Indicators</label>
                 <select id="indicator-select" style="width: 120px;">
                     <option value="">Add...</option>
-                    <option value="RSI:14">RSI (14)</option>
-                    <option value="RSI:20">RSI (20)</option>
-                    <option value="SMA:20">SMA (20)</option>
-                    <option value="SMA:50">SMA (50)</option>
-                    <option value="SMA:200">SMA (200)</option>
-                    <option value="EMA:12">EMA (12)</option>
-                    <option value="EMA:26">EMA (26)</option>
+                    <!-- Dynamically populated from CSV columns -->
                 </select>
             </div>
             
@@ -190,8 +184,8 @@
             </div>
             
             <!-- Active Indicators Display -->
-            <div id="active-indicators">
-                <span style="opacity: 0.7; font-size: 0.75rem;">No indicators</span>
+            <div id="active-indicators" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                <span style="opacity: 0.7; font-size: 0.75rem;">No indicators loaded</span>
             </div>
         </div>
     </header>

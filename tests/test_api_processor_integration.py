@@ -10,7 +10,7 @@ Tests cover:
 import pytest
 import pandas as pd
 from pathlib import Path
-from src.api.processor import load_and_process_data
+from charting.api.processor import load_and_process_data
 
 
 class TestProcessorMapperIntegration:
@@ -19,7 +19,7 @@ class TestProcessorMapperIntegration:
     def test_processor_uses_mapper_for_custom_columns(self):
         """Should use mapper.map_columns() when custom columns provided"""
         # Use existing sample data directory
-        from src.api.processor import get_data_directory
+        from charting.api.processor import get_data_directory
         import tempfile
         import shutil
         
@@ -58,7 +58,7 @@ class TestProcessorMapperIntegration:
     
     def test_processor_auto_detects_when_no_custom_columns(self):
         """Should use auto-detection when custom columns not provided"""
-        from src.api.processor import get_data_directory
+        from charting.api.processor import get_data_directory
         
         data_dir = get_data_directory()
         temp_file = data_dir / "temp_standard_test.csv"
@@ -88,7 +88,7 @@ class TestProcessorDetectorIntegration:
     
     def test_processor_uses_detector_for_standardization(self):
         """Should use detector.standardize_dataframe() internally"""
-        from src.api.processor import get_data_directory
+        from charting.api.processor import get_data_directory
         
         data_dir = get_data_directory()
         temp_file = data_dir / "temp_mixed_case_test.csv"
@@ -118,7 +118,7 @@ class TestErrorPropagation:
     
     def test_processor_raises_on_missing_required_columns(self):
         """Should propagate ColumnNotFoundError from mapper"""
-        from src.api.processor import get_data_directory
+        from charting.api.processor import get_data_directory
         
         data_dir = get_data_directory()
         temp_file = data_dir / "temp_incomplete_test.csv"
@@ -140,7 +140,7 @@ class TestErrorPropagation:
     
     def test_processor_provides_helpful_error_messages(self):
         """Errors should include helpful suggestions"""
-        from src.api.processor import get_data_directory
+        from charting.api.processor import get_data_directory
         
         data_dir = get_data_directory()
         temp_file = data_dir / "temp_wrong_names_test.csv"
@@ -173,7 +173,7 @@ class TestDataFlowPipeline:
     
     def test_custom_columns_flow_through_pipeline(self):
         """Custom columns should flow through entire pipeline"""
-        from src.api.processor import get_data_directory
+        from charting.api.processor import get_data_directory
         
         data_dir = get_data_directory()
         temp_file = data_dir / "temp_pipeline_test.csv"
@@ -208,7 +208,7 @@ class TestDataFlowPipeline:
     
     def test_mixed_custom_and_auto_detection(self):
         """Should handle mix of custom and auto-detected columns"""
-        from src.api.processor import get_data_directory
+        from charting.api.processor import get_data_directory
         
         data_dir = get_data_directory()
         temp_file = data_dir / "temp_mixed_test.csv"

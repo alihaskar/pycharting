@@ -2,7 +2,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from src.processing.pivot import to_uplot_format
+from charting.processing.pivot import to_uplot_format
 
 
 @pytest.fixture

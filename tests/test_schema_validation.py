@@ -2,7 +2,7 @@
 import pytest
 from datetime import datetime
 from pydantic import ValidationError
-from src.ingestion.schema import OHLCRecord
+from charting.ingestion.schema import OHLCRecord
 
 
 def test_valid_ohlc_record():

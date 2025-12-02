@@ -9,7 +9,7 @@ import numpy as np
 import tempfile
 import os
 from pathlib import Path
-from src.api.processor import detect_indicator_columns, filter_indicator_data, load_and_process_data
+from charting.api.processor import detect_indicator_columns, filter_indicator_data, load_and_process_data
 
 
 class TestIndicatorColumnDetection:

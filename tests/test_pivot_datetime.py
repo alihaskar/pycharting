@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 import pytz
 from datetime import datetime
-from src.processing.pivot import (
+from charting.processing.pivot import (
     datetime_to_unix_ms,
     datetime_to_unix_seconds,
     to_uplot_format
