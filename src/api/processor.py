@@ -3,6 +3,7 @@ import pandas as pd
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 import os
+import re
 import logging
 
 from src.ingestion.loader import load_csv, parse_datetime, clean_missing_values, optimize_dataframe
@@ -11,6 +12,78 @@ from src.processing.resampler import resample_ohlc
 from src.processing.pivot import to_uplot_format
 
 logger = logging.getLogger(__name__)
+
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize filename by removing invalid characters.
+    
+    Args:
+        filename: Raw filename string
+        
+    Returns:
+        Sanitized filename
+    """
+    # Remove potentially dangerous characters
+    sanitized = re.sub(r'[^\w\s\-.]', '', filename)
+    return sanitized.strip()
+
+
+def validate_filename(filename: str) -> None:
+    """
+    Validate filename for security.
+    
+    Checks for:
+    - Directory traversal attempts
+    - Absolute paths
+    - Invalid file extensions
+    - Hidden files
+    - Path separators
+    - Null bytes
+    - Excessive length
+    
+    Args:
+        filename: Filename to validate
+        
+    Raises:
+        ValueError: If filename is invalid or potentially malicious
+    """
+    # Check for empty or whitespace-only
+    if not filename or not filename.strip():
+        raise ValueError("Filename cannot be empty")
+    
+    # Check length
+    if len(filename) > 255:
+        raise ValueError("Filename too long")
+    
+    # Check for null bytes
+    if '\x00' in filename:
+        raise ValueError("Invalid filename: contains null byte")
+    
+    # Check for directory traversal
+    if '..' in filename:
+        raise ValueError("Invalid filename: directory traversal not allowed")
+    
+    # Check for absolute paths
+    if filename.startswith('/') or (len(filename) > 1 and filename[1] == ':'):
+        raise ValueError("Invalid filename: absolute paths not allowed")
+    
+    # Check for path separators (only basename allowed)
+    if '/' in filename or '\\' in filename:
+        raise ValueError("Invalid filename: subdirectories not allowed")
+    
+    # Check for hidden files
+    if filename.startswith('.'):
+        raise ValueError("Invalid filename: hidden files not allowed")
+    
+    # Check file extension (must be .csv, case insensitive)
+    if not filename.lower().endswith('.csv'):
+        raise ValueError("Invalid file extension: only .csv files allowed")
+    
+    # Additional Unicode checks
+    # Remove right-to-left override and other problematic Unicode
+    if '\u202e' in filename or '\u200e' in filename or '\u200f' in filename:
+        raise ValueError("Invalid filename: suspicious Unicode characters")
 
 
 def get_data_directory() -> Path:
@@ -78,8 +151,14 @@ def load_and_process_data(
         
     Raises:
         FileNotFoundError: If file doesn't exist
-        ValueError: If data processing fails
+        ValueError: If data processing fails or filename is invalid
     """
+    # Validate filename for security
+    validate_filename(filename)
+    
+    # Sanitize filename
+    filename = sanitize_filename(filename)
+    
     # Get data directory and construct file path
     data_dir = get_data_directory()
     file_path = data_dir / filename
