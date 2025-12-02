@@ -2,7 +2,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from src.processing.indicators import (
+from charting.processing.indicators import (
     validate_indicator_input,
     check_sufficient_data,
     IndicatorValidationError

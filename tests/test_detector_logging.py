@@ -19,14 +19,14 @@ class TestLoggingSetup:
     
     def test_detector_has_logger(self):
         """detector module should have a configured logger"""
-        from src.charting import detector
+        from charting import detector
         
         assert hasattr(detector, 'logger')
         assert isinstance(detector.logger, logging.Logger)
     
     def test_logger_name_is_detector_module(self):
         """Logger should be named after the module"""
-        from src.charting import detector
+        from charting import detector
         
         assert 'detector' in detector.logger.name
 
@@ -34,10 +34,10 @@ class TestLoggingSetup:
 class TestDetectionLogging:
     """Test logging during column detection"""
     
-    @patch('src.charting.detector.logger')
+    @patch('charting.detector.logger')
     def test_logs_ohlc_detection_success(self, mock_logger):
         """Should log successful OHLC column detection"""
-        from src.charting.detector import detect_ohlc_columns_via_mapper
+        from charting.detector import detect_ohlc_columns_via_mapper
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -52,10 +52,10 @@ class TestDetectionLogging:
         # Should log INFO about detected columns
         assert mock_logger.info.called or mock_logger.debug.called
     
-    @patch('src.charting.detector.logger')
+    @patch('charting.detector.logger')
     def test_logs_standardization_process(self, mock_logger):
         """Should log DataFrame standardization"""
-        from src.charting.detector import standardize_dataframe
+        from charting.detector import standardize_dataframe
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -74,10 +74,10 @@ class TestDetectionLogging:
 class TestClassificationLogging:
     """Test logging during indicator classification"""
     
-    @patch('src.charting.detector.logger')
+    @patch('charting.detector.logger')
     def test_logs_user_override_usage(self, mock_logger):
         """Should log when user overrides are used"""
-        from src.charting.detector import classify_indicators_enhanced
+        from charting.detector import classify_indicators_enhanced
         
         indicators = ['custom_ind']
         user_mapping = {'custom_ind': True}
@@ -87,10 +87,10 @@ class TestClassificationLogging:
         # Should log that user override was applied
         assert mock_logger.info.called or mock_logger.debug.called
     
-    @patch('src.charting.detector.logger')
+    @patch('charting.detector.logger')
     def test_logs_pattern_matching_fallback(self, mock_logger):
         """Should log when pattern matching is used"""
-        from src.charting.detector import classify_indicators_enhanced
+        from charting.detector import classify_indicators_enhanced
         
         indicators = ['sma_20']  # No user mapping
         
@@ -99,10 +99,10 @@ class TestClassificationLogging:
         # Should log pattern matching was used
         assert mock_logger.debug.called
     
-    @patch('src.charting.detector.logger')
+    @patch('charting.detector.logger')
     def test_logs_unknown_indicator_warning(self, mock_logger):
         """Should warn when indicator in user_mapping not in indicator list"""
-        from src.charting.detector import classify_indicators_enhanced
+        from charting.detector import classify_indicators_enhanced
         
         indicators = ['sma_20']
         user_mapping = {
@@ -119,10 +119,10 @@ class TestClassificationLogging:
 class TestErrorLogging:
     """Test logging during error conditions"""
     
-    @patch('src.charting.detector.logger')
+    @patch('charting.detector.logger')
     def test_logs_column_not_found_error(self, mock_logger):
         """Should log when columns cannot be detected"""
-        from src.charting.detector import standardize_dataframe
+        from charting.detector import standardize_dataframe
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -143,7 +143,7 @@ class TestLogLevelControl:
     
     def test_can_set_log_level_debug(self):
         """Should be able to set logger to DEBUG level"""
-        from src.charting import detector
+        from charting import detector
         
         original_level = detector.logger.level
         detector.logger.setLevel(logging.DEBUG)
@@ -155,7 +155,7 @@ class TestLogLevelControl:
     
     def test_can_set_log_level_info(self):
         """Should be able to set logger to INFO level"""
-        from src.charting import detector
+        from charting import detector
         
         original_level = detector.logger.level
         detector.logger.setLevel(logging.INFO)

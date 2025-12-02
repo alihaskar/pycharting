@@ -2,7 +2,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from src.processing.pivot import (
+from charting.processing.pivot import (
     to_uplot_format,
     verify_data_alignment,
     DataAlignmentError

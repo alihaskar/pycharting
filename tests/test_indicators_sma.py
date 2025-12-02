@@ -2,7 +2,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from src.processing.indicators import calculate_sma
+from charting.processing.indicators import calculate_sma
 
 
 def test_sma_basic_calculation():

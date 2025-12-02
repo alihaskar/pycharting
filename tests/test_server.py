@@ -6,7 +6,7 @@ Testing port availability checking and conflict resolution.
 import pytest
 import socket
 from unittest.mock import patch, MagicMock
-from src.charting.server import find_available_port, ServerManager
+from charting.server import find_available_port, ServerManager
 
 
 class TestSocketBindingAndAvailability:

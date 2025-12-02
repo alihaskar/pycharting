@@ -7,8 +7,8 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 import logging
-from src.api import routes
-from src.api import exceptions as api_exceptions
+from charting.api import routes
+from charting.api import exceptions as api_exceptions
 
 # Configure logging
 logging.basicConfig(

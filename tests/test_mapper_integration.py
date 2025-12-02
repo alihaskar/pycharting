@@ -18,7 +18,7 @@ class TestDetectAndMapIntegration:
     
     def test_detect_then_map_standard_names(self):
         """Should detect and map standard lowercase names"""
-        from src.charting.mapper import detect_columns, map_columns
+        from charting.mapper import detect_columns, map_columns
         
         dates = pd.date_range('2024-01-01', periods=10, freq='1h')
         df = pd.DataFrame({
@@ -46,7 +46,7 @@ class TestDetectAndMapIntegration:
     
     def test_detect_then_map_mixed_case(self):
         """Should handle mixed case column names"""
-        from src.charting.mapper import detect_columns, map_columns
+        from charting.mapper import detect_columns, map_columns
         
         dates = pd.date_range('2024-01-01', periods=10, freq='1h')
         df = pd.DataFrame({
@@ -67,7 +67,7 @@ class TestDetectAndMapIntegration:
     
     def test_detect_then_map_abbreviations(self):
         """Should handle abbreviated column names"""
-        from src.charting.mapper import detect_columns, map_columns
+        from charting.mapper import detect_columns, map_columns
         
         dates = pd.date_range('2024-01-01', periods=10, freq='1h')
         df = pd.DataFrame({
@@ -99,7 +99,7 @@ class TestRealWorldDataFormats:
     ])
     def test_common_data_source_formats(self, naming_style, columns):
         """Should handle common data source naming conventions"""
-        from src.charting.mapper import map_columns
+        from charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         data = {
@@ -132,7 +132,7 @@ class TestEdgeCasesIntegration:
     
     def test_dataframe_with_extra_indicator_columns(self):
         """Should preserve extra indicator columns"""
-        from src.charting.mapper import map_columns
+        from charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=10, freq='1h')
         df = pd.DataFrame({
@@ -162,7 +162,7 @@ class TestEdgeCasesIntegration:
     
     def test_dataframe_with_nan_values(self):
         """Should handle NaN values gracefully"""
-        from src.charting.mapper import map_columns
+        from charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=10, freq='1h')
         df = pd.DataFrame({
@@ -184,7 +184,7 @@ class TestEdgeCasesIntegration:
     
     def test_dataframe_with_different_numeric_types(self):
         """Should handle int, float, float32, float64"""
-        from src.charting.mapper import map_columns
+        from charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({
@@ -208,7 +208,7 @@ class TestPerformance:
     
     def test_large_dataframe_10k_rows(self):
         """Should handle 10k rows efficiently"""
-        from src.charting.mapper import map_columns
+        from charting.mapper import map_columns
         import time
         
         dates = pd.date_range('2024-01-01', periods=10000, freq='1min')
@@ -231,7 +231,7 @@ class TestPerformance:
     
     def test_large_dataframe_100k_rows(self):
         """Should handle 100k rows efficiently"""
-        from src.charting.mapper import map_columns
+        from charting.mapper import map_columns
         import time
         
         dates = pd.date_range('2024-01-01', periods=100000, freq='1min')
@@ -253,7 +253,7 @@ class TestPerformance:
     
     def test_detect_columns_performance(self):
         """detect_columns() should be fast even with many columns"""
-        from src.charting.mapper import detect_columns
+        from charting.mapper import detect_columns
         import time
         
         dates = pd.date_range('2024-01-01', periods=1000, freq='1min')
@@ -287,7 +287,7 @@ class TestParametricNaming:
     @pytest.mark.parametrize("high_name", ['high', 'High', 'HIGH', 'h', 'H'])
     def test_various_naming_combinations(self, open_name, high_name):
         """Should handle any combination of naming styles"""
-        from src.charting.mapper import map_columns
+        from charting.mapper import map_columns
         
         dates = pd.date_range('2024-01-01', periods=5, freq='1h')
         df = pd.DataFrame({

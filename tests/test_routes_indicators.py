@@ -6,7 +6,7 @@ Testing overlay and subplot parameter parsing and handling.
 import pytest
 import os
 from fastapi.testclient import TestClient
-from src.api.main import app
+from charting.api.main import app
 
 client = TestClient(app)
 

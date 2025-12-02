@@ -1,8 +1,8 @@
 """Tests for API error handling and response formatting."""
 import pytest
 from fastapi.testclient import TestClient
-from src.api.main import app
-from src.api.exceptions import (
+from charting.api.main import app
+from charting.api.exceptions import (
     FileNotFoundError as APIFileNotFoundError,
     ValidationError as APIValidationError,
     ProcessingError
