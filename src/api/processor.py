@@ -102,6 +102,40 @@ def get_data_directory() -> Path:
     return Path("data")
 
 
+def detect_indicator_columns(df: pd.DataFrame) -> List[str]:
+    """
+    Detect indicator columns in DataFrame by excluding standard OHLCV columns.
+    
+    Identifies columns that are not part of the standard OHLCV dataset
+    (timestamp, open, high, low, close, volume). These are assumed to be
+    pre-calculated indicators or other data columns.
+    
+    Args:
+        df: pandas DataFrame to analyze
+        
+    Returns:
+        List of indicator column names in original order
+        
+    Examples:
+        >>> df = pd.DataFrame({'timestamp': [...], 'open': [...], 'rsi_14': [...]})
+        >>> detect_indicator_columns(df)
+        ['rsi_14']
+    """
+    # Standard OHLCV columns (case-insensitive matching)
+    standard_columns = {'timestamp', 'open', 'high', 'low', 'close', 'volume'}
+    
+    # Get all column names
+    all_columns = df.columns.tolist()
+    
+    # Filter out standard OHLCV columns (case-insensitive)
+    indicator_columns = [
+        col for col in all_columns
+        if col.lower() not in standard_columns
+    ]
+    
+    return indicator_columns
+
+
 def parse_indicator_string(indicator_str: str) -> tuple[str, Dict[str, Any]]:
     """
     Parse indicator string into type and parameters.
