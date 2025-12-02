@@ -208,7 +208,9 @@ class ChartApplication {
         
         // Build options
         const options = {
-            indicators: this.activeIndicators
+            indicators: this.activeIndicators,
+            overlays: this.chartManager.config?.overlays || [],
+            subplots: this.chartManager.config?.subplots || []
         };
         
         if (this.currentTimeframe) {
