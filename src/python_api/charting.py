@@ -15,6 +15,10 @@ from .detector import (
     detect_indicator_columns,
     classify_indicators
 )
+from .transformer import transform_dataframe_to_csv
+from .server import ServerManager
+from .browser import launch_browser
+from src.api.main import app
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +189,7 @@ class Charting:
         """
         Start chart server and display in browser.
         
-        Task 29: Load orchestration (stub for now)
+        Task 29: Complete load orchestration
         
         Args:
             df: Validated DataFrame
@@ -195,9 +199,48 @@ class Charting:
             
         Returns:
             Chart URL
+            
+        Raises:
+            RuntimeError: If chart startup fails
         """
-        # Stub - will be implemented in Task 29
-        raise NotImplementedError("_start_chart() will be implemented in Task 29")
+        try:
+            # Task 29.1: Transform DataFrame to CSV
+            logger.info("Transforming DataFrame to CSV...")
+            indicator_columns = overlays + subplots
+            csv_path = transform_dataframe_to_csv(
+                df,
+                ohlc_mapping,
+                indicator_columns
+            )
+            
+            # Task 29.5: Track temp file for cleanup
+            self.temp_files.append(csv_path)
+            logger.info(f"CSV created: {csv_path}")
+            
+            # Task 29.2: Start server
+            logger.info("Starting FastAPI server...")
+            self.server_manager = ServerManager(app, self.port)
+            chart_url = self.server_manager.start(
+                csv_path,
+                overlays=overlays,
+                subplots=subplots
+            )
+            logger.info(f"Server started: {chart_url}")
+            
+            # Task 29.3: Launch browser
+            if self.auto_open:
+                logger.info("Launching browser...")
+                launch_browser(chart_url)
+            else:
+                print(f"\nChart available at: {chart_url}\n")
+            
+            return chart_url
+            
+        except Exception as e:
+            # Task 29.4: Error handling and cleanup
+            logger.error(f"Failed to start chart: {e}")
+            self.close()
+            raise RuntimeError(f"Failed to start chart: {e}") from e
     
     def _cleanup_temp_files(self) -> None:
         """
