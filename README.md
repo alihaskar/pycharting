@@ -8,6 +8,8 @@
 
 A high-performance, open-source Python charting library for visualizing OHLC (Open, High, Low, Close) financial data with technical indicators. Built with FastAPI, uPlot, and modern web technologies.
 
+![pyCharting Demo](examples/image.png)
+
 ## Table of Contents
 
 - [Installation](#installation)
