@@ -108,3 +108,38 @@ def launch_browser(url: str, new_window: int = 2) -> bool:
         # Fallback is handled by caller
         return False
 
+
+def launch_browser_with_fallback(url: str, new_window: int = 2) -> bool:
+    """
+    Launch browser with automatic fallback to printing URL.
+    
+    Attempts to open the browser automatically, and if that fails,
+    prints the URL to the console for manual opening.
+    
+    Args:
+        url: URL to open in browser
+        new_window: Browser window behavior (0=same, 1=new window, 2=new tab)
+        
+    Returns:
+        True if browser launched successfully, False if fallback was used
+        
+    Raises:
+        ValueError: If URL is invalid
+        
+    Examples:
+        >>> launch_browser_with_fallback("http://localhost:3000")
+        True
+        >>> # If browser fails, prints: "Please open your browser to: http://localhost:3000"
+    """
+    # Validate URL first (raises ValueError if invalid)
+    url = validate_url(url)
+    
+    # Try to launch browser
+    success = launch_browser(url, new_window)
+    
+    # If launch failed, print URL as fallback
+    if not success:
+        print(f"\n📊 Please open your browser to: {url}\n")
+    
+    return success
+
