@@ -16,7 +16,7 @@ class TestIndicatorClassificationWithOverrides:
     
     def test_classify_with_user_override_overlay(self):
         """Should use user-provided mapping for overlay indicators"""
-        from src.python_api.detector import classify_indicators_enhanced
+        from src.charting.detector import classify_indicators_enhanced
         
         indicators = ['custom_ind_1', 'custom_ind_2', 'rsi_14']
         user_mapping = {
@@ -32,7 +32,7 @@ class TestIndicatorClassificationWithOverrides:
     
     def test_classify_with_user_override_subplot(self):
         """Should use user-provided mapping for subplot indicators"""
-        from src.python_api.detector import classify_indicators_enhanced
+        from src.charting.detector import classify_indicators_enhanced
         
         indicators = ['custom_oscillator', 'sma_20']
         user_mapping = {
@@ -46,7 +46,7 @@ class TestIndicatorClassificationWithOverrides:
     
     def test_classify_all_user_provided_no_fallback(self):
         """Should handle all indicators explicitly mapped"""
-        from src.python_api.detector import classify_indicators_enhanced
+        from src.charting.detector import classify_indicators_enhanced
         
         indicators = ['ind_1', 'ind_2', 'ind_3']
         user_mapping = {
@@ -62,7 +62,7 @@ class TestIndicatorClassificationWithOverrides:
     
     def test_classify_user_override_takes_precedence(self):
         """User mapping should override pattern matching"""
-        from src.python_api.detector import classify_indicators_enhanced
+        from src.charting.detector import classify_indicators_enhanced
         
         # RSI normally auto-classified as subplot
         indicators = ['rsi_14', 'sma_20']
@@ -78,7 +78,7 @@ class TestIndicatorClassificationWithOverrides:
     
     def test_classify_with_empty_user_mapping(self):
         """Should fallback to pattern matching with empty user mapping"""
-        from src.python_api.detector import classify_indicators_enhanced
+        from src.charting.detector import classify_indicators_enhanced
         
         indicators = ['sma_20', 'rsi_14']
         user_mapping = {}
@@ -90,7 +90,7 @@ class TestIndicatorClassificationWithOverrides:
     
     def test_classify_with_none_user_mapping(self):
         """Should handle None user mapping gracefully"""
-        from src.python_api.detector import classify_indicators_enhanced
+        from src.charting.detector import classify_indicators_enhanced
         
         indicators = ['sma_20', 'rsi_14']
         
@@ -105,7 +105,7 @@ class TestIndicatorClassificationValidation:
     
     def test_warns_on_unknown_indicator_in_mapping(self):
         """Should warn if user mapping includes indicators not in list"""
-        from src.python_api.detector import classify_indicators_enhanced
+        from src.charting.detector import classify_indicators_enhanced
         
         indicators = ['rsi_14']
         user_mapping = {
@@ -122,7 +122,7 @@ class TestIndicatorClassificationValidation:
     
     def test_handles_indicator_name_case_sensitivity(self):
         """User mapping keys should match indicator names exactly"""
-        from src.python_api.detector import classify_indicators_enhanced
+        from src.charting.detector import classify_indicators_enhanced
         
         indicators = ['RSI_14', 'sma_20']
         user_mapping = {
@@ -136,7 +136,7 @@ class TestIndicatorClassificationValidation:
     
     def test_handles_empty_indicator_list(self):
         """Should handle empty indicator list gracefully"""
-        from src.python_api.detector import classify_indicators_enhanced
+        from src.charting.detector import classify_indicators_enhanced
         
         indicators = []
         user_mapping = {'ind': True}
@@ -152,7 +152,7 @@ class TestMixedClassification:
     
     def test_partial_override_with_fallback(self):
         """Some indicators explicit, others auto-classified"""
-        from src.python_api.detector import classify_indicators_enhanced
+        from src.charting.detector import classify_indicators_enhanced
         
         indicators = ['custom_1', 'sma_20', 'rsi_14', 'custom_2', 'ema_12']
         user_mapping = {
@@ -173,7 +173,7 @@ class TestMixedClassification:
     
     def test_unknown_indicator_defaults_to_subplot(self):
         """Unknown indicators without mapping should default to subplot"""
-        from src.python_api.detector import classify_indicators_enhanced
+        from src.charting.detector import classify_indicators_enhanced
         
         indicators = ['totally_unknown_indicator']
         

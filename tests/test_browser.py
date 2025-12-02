@@ -5,7 +5,7 @@ Testing cross-platform browser launching and error handling.
 
 import pytest
 from unittest.mock import patch, MagicMock
-from src.python_api.browser import (
+from src.charting.browser import (
     launch_browser,
     validate_url,
     is_valid_url,
@@ -112,7 +112,7 @@ class TestCrossPlatformBrowserLaunch:
         assert result is True
     
     @patch('webbrowser.open')
-    @patch('src.python_api.browser.logger')
+    @patch('src.charting.browser.logger')
     def test_launch_browser_logs_success(self, mock_logger, mock_open):
         """Test that successful launch is logged."""
         mock_open.return_value = True
@@ -150,7 +150,7 @@ class TestErrorHandlingAndFallback:
     """Test error handling and fallback mechanisms."""
     
     @patch('webbrowser.open', side_effect=Exception("Browser not available"))
-    @patch('src.python_api.browser.logger')
+    @patch('src.charting.browser.logger')
     def test_launch_browser_handles_exception(self, mock_logger, mock_open):
         """Test that exceptions during browser launch are handled."""
         url = "http://localhost:3000"
@@ -181,7 +181,7 @@ class TestErrorHandlingAndFallback:
         assert result is False
     
     @patch('webbrowser.open', side_effect=Exception("Generic error"))
-    @patch('src.python_api.browser.logger')
+    @patch('src.charting.browser.logger')
     def test_launch_browser_logs_specific_error_message(self, mock_logger, mock_open):
         """Test that specific error message is logged."""
         url = "http://localhost:3000"
