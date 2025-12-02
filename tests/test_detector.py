@@ -860,3 +860,150 @@ class TestDefaultClassification:
         assert len(overlays) == 0
         assert all(ind in subplots for ind in indicators)
 
+
+class TestIntegrationWorkflow:
+    """Test complete workflow from DataFrame to classified indicators."""
+    
+    def test_complete_pipeline_standard_data(self):
+        """Test end-to-end workflow with standard OHLC + indicators."""
+        df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=5, freq='1min'),
+            'open': [100.0, 101.0, 102.0, 103.0, 104.0],
+            'high': [101.0, 102.0, 103.0, 104.0, 105.0],
+            'low': [99.0, 100.0, 101.0, 102.0, 103.0],
+            'close': [100.5, 101.5, 102.5, 103.5, 104.5],
+            'volume': [1000, 1100, 1200, 1300, 1400],
+            'sma_20': [100.2, 100.8, 101.2, 101.8, 102.2],
+            'ema_12': [100.3, 100.9, 101.3, 101.9, 102.3],
+            'rsi_14': [45.0, 46.0, 47.0, 48.0, 49.0],
+            'macd': [0.5, 0.6, 0.7, 0.8, 0.9]
+        })
+        
+        # Step 1: Detect OHLC columns
+        ohlc_cols = detect_ohlc_columns(df)
+        assert len(ohlc_cols) == 5  # open, high, low, close, volume
+        
+        # Step 2: Detect indicator columns
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        assert len(indicators) == 4
+        assert 'sma_20' in indicators
+        assert 'ema_12' in indicators
+        assert 'rsi_14' in indicators
+        assert 'macd' in indicators
+        
+        # Step 3: Classify indicators
+        overlays, subplots = classify_indicators(indicators)
+        assert 'sma_20' in overlays
+        assert 'ema_12' in overlays
+        assert 'rsi_14' in subplots
+        assert 'macd' in subplots
+    
+    def test_complete_pipeline_mixed_case(self):
+        """Test workflow with mixed case column names."""
+        df = pd.DataFrame({
+            'Open': [100.0], 'High': [101.0], 'Low': [99.0], 'Close': [100.5],
+            'Volume': [1000],
+            'SMA_20': [100.2], 'RSI_14': [45.0]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'SMA_20' in overlays
+        assert 'RSI_14' in subplots
+    
+    def test_complete_pipeline_custom_indicators(self):
+        """Test workflow with custom/unknown indicators."""
+        df = pd.DataFrame({
+            'open': [100.0], 'high': [101.0], 'low': [99.0], 'close': [100.5],
+            'sma_20': [100.2],
+            'my_custom_signal': [45.0],
+            'another_metric': [0.5]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        overlays, subplots = classify_indicators(indicators)
+        
+        # Known overlay
+        assert 'sma_20' in overlays
+        # Unknown indicators should default to subplot
+        assert 'my_custom_signal' in subplots
+        assert 'another_metric' in subplots
+    
+    def test_complete_pipeline_no_indicators(self):
+        """Test workflow with DataFrame containing only OHLC."""
+        df = pd.DataFrame({
+            'open': [100.0], 'high': [101.0], 'low': [99.0], 'close': [100.5]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert len(indicators) == 0
+        assert len(overlays) == 0
+        assert len(subplots) == 0
+    
+    def test_complete_pipeline_abbreviated_ohlc(self):
+        """Test workflow with abbreviated OHLC column names."""
+        df = pd.DataFrame({
+            'o': [100.0], 'h': [101.0], 'l': [99.0], 'c': [100.5], 'v': [1000],
+            'sma': [100.2], 'rsi': [45.0]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        overlays, subplots = classify_indicators(indicators)
+        
+        # Verify OHLC detected
+        assert len(ohlc_cols) == 5
+        # Verify indicators detected
+        assert 'sma' in indicators
+        assert 'rsi' in indicators
+        # Verify classification
+        assert 'sma' in overlays
+        assert 'rsi' in subplots
+    
+    def test_complete_pipeline_validates_data(self):
+        """Test that complete pipeline includes validation."""
+        df = pd.DataFrame({
+            'open': [100.0, 101.0, 102.0],
+            'high': [101.0, 102.0, 103.0],
+            'low': [99.0, 100.0, 101.0],
+            'close': [100.5, 101.5, 102.5],
+            'sma_20': [100.2, 100.8, 101.2]
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        
+        # Should be able to validate OHLC columns
+        is_valid = validate_ohlc_columns(df, ohlc_cols)
+        assert is_valid is True
+        
+        # Then proceed with indicator detection
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'sma_20' in overlays
+    
+    def test_complete_pipeline_preserves_column_names(self):
+        """Test that original column names are preserved throughout pipeline."""
+        df = pd.DataFrame({
+            'Open_Price': [100.0],  # Will not match pattern
+            'open': [100.0], 'high': [101.0], 'low': [99.0], 'close': [100.5],
+            'My_SMA_20': [100.2],  # Contains 'sma'
+            'RSI_Custom_14': [45.0]  # Contains 'rsi'
+        })
+        
+        ohlc_cols = detect_ohlc_columns(df)
+        indicators = detect_indicator_columns(df, ohlc_cols)
+        overlays, subplots = classify_indicators(indicators)
+        
+        # Original names should be preserved
+        assert 'My_SMA_20' in overlays
+        assert 'RSI_Custom_14' in subplots
+        # Non-matching column should be in indicators
+        assert 'Open_Price' in indicators
+
