@@ -121,16 +121,21 @@ class ChartManager {
                 drag: {
                     x: true,
                     y: false
+                }
+            },
+            scales: {
+                x: {
+                    time: true
                 },
-                bind: {
-                    dblclick: u => {
-                        // Double-click to reset zoom
-                        u.setScale('x', { min: null, max: null });
-                        return null;
-                    },
-                    wheel: (u, target, handler) => {
-                        // Mouse wheel zoom
-                        return e => {
+                y: {
+                    auto: true
+                }
+            },
+            hooks: {
+                ready: [
+                    u => {
+                        // Add mouse wheel zoom after chart is ready
+                        u.over.addEventListener('wheel', e => {
                             e.preventDefault();
                             
                             const { left, width } = u.over.getBoundingClientRect();
@@ -142,38 +147,22 @@ class ChartManager {
                             const xMax = xScale.max;
                             const xRange = xMax - xMin;
                             
-                            // Zoom factor (0.1 = 10% zoom per scroll)
-                            const factor = e.deltaY < 0 ? 0.9 : 1.1;  // Zoom in/out
+                            // Zoom factor: scroll up = zoom in, scroll down = zoom out
+                            const factor = e.deltaY < 0 ? 0.9 : 1.1;
                             
                             const newRange = xRange * factor;
                             const newMin = xMin - (newRange - xRange) * xPct;
                             const newMax = xMax + (newRange - xRange) * (1 - xPct);
                             
-                            u.setScale('x', {
-                                min: newMin,
-                                max: newMax
-                            });
-                        };
-                    }
-                }
-            },
-            hooks: {
-                setSelect: [
-                    u => {
-                        // Handle zoom on drag selection
-                        const min = u.posToVal(u.select.left, 'x');
-                        const max = u.posToVal(u.select.left + u.select.width, 'x');
-                        u.setScale('x', { min, max });
+                            u.setScale('x', { min: newMin, max: newMax });
+                        });
+                        
+                        // Add double-click to reset zoom
+                        u.over.addEventListener('dblclick', () => {
+                            u.setScale('x', { min: null, max: null });
+                        });
                     }
                 ]
-            },
-            scales: {
-                x: {
-                    time: true
-                },
-                y: {
-                    auto: true
-                }
             },
             axes: [
                 {
