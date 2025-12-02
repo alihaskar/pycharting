@@ -13,7 +13,9 @@ from src.python_api.transformer import (
     transform_dataframe_to_csv,
     standardize_column_names,
     prepare_dataframe_for_csv,
-    handle_datetime_index
+    handle_datetime_index,
+    generate_temp_filepath,
+    create_temp_csv
 )
 
 
@@ -305,4 +307,136 @@ class TestDateTimeIndexHandling:
         assert 'timestamp' in result.columns
         # Verify it's a valid timestamp representation
         assert result['timestamp'].notna().all()
+
+
+class TestTemporaryFileCreation:
+    """Test temporary file creation and management."""
+    
+    def test_generate_temp_filepath_creates_unique_filename(self):
+        """Test that generate_temp_filepath creates unique filenames."""
+        filepath1 = generate_temp_filepath()
+        filepath2 = generate_temp_filepath()
+        
+        # Filenames should be different due to timestamp
+        assert filepath1 != filepath2
+        assert os.path.basename(filepath1) != os.path.basename(filepath2)
+    
+    def test_generate_temp_filepath_uses_system_temp_dir(self):
+        """Test that files are created in system temp directory."""
+        filepath = generate_temp_filepath()
+        
+        # Should be in temp directory
+        temp_dir = tempfile.gettempdir()
+        assert filepath.startswith(temp_dir)
+    
+    def test_generate_temp_filepath_has_correct_extension(self):
+        """Test that generated files have .csv extension."""
+        filepath = generate_temp_filepath()
+        
+        assert filepath.endswith('.csv')
+    
+    def test_generate_temp_filepath_format(self):
+        """Test filename format matches expected pattern."""
+        filepath = generate_temp_filepath()
+        filename = os.path.basename(filepath)
+        
+        # Should match pattern: chart_data_{timestamp}.csv
+        assert filename.startswith('chart_data_')
+        assert filename.endswith('.csv')
+    
+    def test_create_temp_csv_creates_file(self):
+        """Test that create_temp_csv actually creates a file."""
+        df = pd.DataFrame({
+            'open': [100, 101, 102],
+            'close': [101, 102, 103]
+        })
+        
+        filepath = create_temp_csv(df)
+        
+        try:
+            # File should exist
+            assert os.path.exists(filepath)
+            assert os.path.isfile(filepath)
+        finally:
+            # Cleanup
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_create_temp_csv_writes_valid_csv(self):
+        """Test that created CSV file is valid and readable."""
+        df = pd.DataFrame({
+            'open': [100, 101, 102],
+            'high': [102, 103, 104],
+            'low': [99, 100, 101],
+            'close': [101, 102, 103]
+        })
+        
+        filepath = create_temp_csv(df)
+        
+        try:
+            # Should be readable by pandas
+            df_read = pd.read_csv(filepath)
+            assert len(df_read) == 3
+            assert 'open' in df_read.columns
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_create_temp_csv_preserves_data(self):
+        """Test that CSV file contains correct data."""
+        df = pd.DataFrame({
+            'open': [100, 101, 102],
+            'close': [101, 102, 103]
+        })
+        
+        filepath = create_temp_csv(df)
+        
+        try:
+            df_read = pd.read_csv(filepath)
+            assert df_read['open'].tolist() == [100, 101, 102]
+            assert df_read['close'].tolist() == [101, 102, 103]
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_create_temp_csv_no_index_column(self):
+        """Test that CSV doesn't include pandas index column."""
+        df = pd.DataFrame({
+            'open': [100, 101, 102],
+            'close': [101, 102, 103]
+        })
+        
+        filepath = create_temp_csv(df)
+        
+        try:
+            df_read = pd.read_csv(filepath)
+            # Should have same number of columns
+            assert len(df_read.columns) == len(df.columns)
+            # Should not have 'Unnamed: 0' or similar index columns
+            assert not any('unnamed' in col.lower() for col in df_read.columns)
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
+    def test_create_temp_csv_with_large_dataframe(self):
+        """Test creating CSV with larger DataFrame."""
+        df = pd.DataFrame({
+            'open': range(1000),
+            'high': range(1, 1001),
+            'low': range(0, 1000),
+            'close': range(1, 1001)
+        })
+        
+        filepath = create_temp_csv(df)
+        
+        try:
+            assert os.path.exists(filepath)
+            # Check file size is reasonable (should be > 0)
+            assert os.path.getsize(filepath) > 0
+            # Verify data integrity
+            df_read = pd.read_csv(filepath)
+            assert len(df_read) == 1000
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
 
