@@ -766,3 +766,97 @@ class TestIndicatorClassification:
         assert isinstance(overlays, list)
         assert isinstance(subplots, list)
 
+
+class TestDefaultClassification:
+    """Test default classification behavior for unknown indicators."""
+    
+    def test_unknown_indicator_defaults_to_subplot(self):
+        """Test that unknown indicators are classified as subplot by default."""
+        indicators = ['my_custom_indicator', 'unknown_signal', 'weird_metric']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        # All unknown indicators should be in subplots
+        assert len(overlays) == 0
+        assert len(subplots) == 3
+        assert 'my_custom_indicator' in subplots
+        assert 'unknown_signal' in subplots
+        assert 'weird_metric' in subplots
+    
+    def test_mixed_known_and_unknown_indicators(self):
+        """Test classification with mix of known and unknown indicators."""
+        indicators = [
+            'sma_20',  # Known overlay
+            'custom_indicator',  # Unknown -> subplot
+            'rsi_14',  # Known subplot
+            'my_signal'  # Unknown -> subplot
+        ]
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        # Check overlay
+        assert 'sma_20' in overlays
+        assert len(overlays) == 1
+        
+        # Check subplots (known + unknown)
+        assert 'rsi_14' in subplots
+        assert 'custom_indicator' in subplots
+        assert 'my_signal' in subplots
+        assert len(subplots) == 3
+    
+    def test_numbers_in_unknown_indicator_names(self):
+        """Test unknown indicators with numbers default to subplot."""
+        indicators = ['indicator_1', 'signal_2', 'metric_3']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert len(overlays) == 0
+        assert len(subplots) == 3
+        assert all(ind in subplots for ind in indicators)
+    
+    def test_special_characters_in_unknown_indicators(self):
+        """Test unknown indicators with special characters."""
+        indicators = ['custom-indicator', 'signal.value', 'metric_test']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        # All should default to subplot
+        assert len(overlays) == 0
+        assert len(subplots) == 3
+    
+    def test_default_classification_safety(self):
+        """Test that defaulting to subplot is safer than overlay."""
+        # This is a design decision test: unknown indicators go to subplot
+        # to avoid accidentally overlaying on price chart
+        indicators = ['could_be_anything', 'totally_unknown']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        # Verify they're NOT in overlays (safety)
+        assert len(overlays) == 0
+        # Verify they ARE in subplots
+        assert 'could_be_anything' in subplots
+        assert 'totally_unknown' in subplots
+    
+    def test_partial_match_still_requires_full_pattern(self):
+        """Test that partial keyword matches don't classify as overlay."""
+        # These contain 'ma' but not as part of moving average
+        indicators = ['max_value', 'image_data', 'format_string']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        # These should NOT match 'ma' pattern and default to subplot
+        assert 'image_data' in subplots
+        assert 'format_string' in subplots
+        # 'max_value' might match 'ma' pattern depending on implementation
+    
+    def test_single_letter_indicators(self):
+        """Test single letter indicator names default to subplot."""
+        indicators = ['x', 'y', 'z']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        # Single letters don't match any known pattern -> subplot
+        assert len(overlays) == 0
+        assert all(ind in subplots for ind in indicators)
+
