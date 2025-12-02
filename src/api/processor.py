@@ -217,7 +217,12 @@ def load_and_process_data(
     subplots: Optional[List[str]] = None,
     timeframe: Optional[str] = None,
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
+    column_open: Optional[str] = None,
+    column_high: Optional[str] = None,
+    column_low: Optional[str] = None,
+    column_close: Optional[str] = None,
+    column_volume: Optional[str] = None
 ) -> tuple[List[List], Dict[str, Any]]:
     """
     Load CSV file and process data with indicators and resampling.
@@ -230,6 +235,11 @@ def load_and_process_data(
         timeframe: Optional timeframe for resampling
         start_date: Optional start date for filtering
         end_date: Optional end date for filtering
+        column_open: Optional custom column name for open prices
+        column_high: Optional custom column name for high prices
+        column_low: Optional custom column name for low prices
+        column_close: Optional custom column name for close prices
+        column_volume: Optional custom column name for volume
         
     Returns:
         Tuple of (uplot_data, metadata)
@@ -237,6 +247,10 @@ def load_and_process_data(
     Raises:
         FileNotFoundError: If file doesn't exist
         ValueError: If data processing fails or filename is invalid
+        
+    Note:
+        Column mapping parameters (column_*) will be integrated with
+        mapper/detector modules in future updates.
     """
     # Validate filename for security
     validate_filename(filename)
