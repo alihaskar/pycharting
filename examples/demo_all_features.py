@@ -17,6 +17,13 @@ Usage:
 Press Ctrl+C to stop the server when done.
 """
 
+import sys
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 import numpy as np
 import pandas as pd
 from src.python_api.charting import Charting

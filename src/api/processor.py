@@ -46,7 +46,20 @@ def sanitize_filename(filename: str) -> str:
     return sanitized.strip()
 
 
-def validate_filename(filename: str) -> None:
+def is_safe_absolute_path(filepath: str) -> bool:
+    """
+    Check if an absolute path is safe (e.g., in temp directory).
+    """
+    import tempfile
+    temp_dir = tempfile.gettempdir()
+    try:
+        resolved = str(Path(filepath).resolve())
+        return resolved.startswith(temp_dir) and filepath.endswith('.csv')
+    except Exception:
+        return False
+
+
+def validate_filename(filename: str, allow_temp: bool = True) -> None:
     """
     Validate filename for security.
     
@@ -81,8 +94,10 @@ def validate_filename(filename: str) -> None:
     if '..' in filename:
         raise ValueError("Invalid filename: directory traversal not allowed")
     
-    # Check for absolute paths
+    # Check for absolute paths (allow temp directory paths)
     if filename.startswith('/') or (len(filename) > 1 and filename[1] == ':'):
+        if allow_temp and is_safe_absolute_path(filename):
+            return  # Safe temp path, skip remaining validation
         raise ValueError("Invalid filename: absolute paths not allowed")
     
     # Check for path separators (only basename allowed)
@@ -272,12 +287,15 @@ def load_and_process_data(
     # Validate filename for security
     validate_filename(filename)
     
-    # Sanitize filename
-    filename = sanitize_filename(filename)
-    
-    # Get data directory and construct file path
-    data_dir = get_data_directory()
-    file_path = data_dir / filename
+    # Handle absolute paths (temp files) vs relative paths (data dir)
+    if filename.startswith('/') or (len(filename) > 1 and filename[1] == ':'):
+        # Absolute path - use directly (already validated as safe temp path)
+        file_path = Path(filename)
+    else:
+        # Relative path - look in data directory
+        filename = sanitize_filename(filename)
+        data_dir = get_data_directory()
+        file_path = data_dir / filename
     
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {filename}")
