@@ -715,6 +715,91 @@ test('MultiChartManager has proper sync configuration', () => {
     assertTrue(manager.config.sync.zoom);
 });
 
+// === Test 25: Zoom and Pan Synchronization ===
+
+test('MultiChartManager has setupZoomPanSync method', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.setupZoomPanSync === 'function');
+});
+
+test('MultiChartManager propagates zoom scale to all charts', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    let chart2Updated = false;
+    let chart3Updated = false;
+    
+    const chart1 = { 
+        id: 'chart1',
+        scales: { x: { min: 100, max: 200 } }
+    };
+    const chart2 = { 
+        id: 'chart2',
+        setScale: (axis, range) => { chart2Updated = true; }
+    };
+    const chart3 = { 
+        id: 'chart3',
+        setScale: (axis, range) => { chart3Updated = true; }
+    };
+    
+    manager.syncedCharts = [chart1, chart2, chart3];
+    
+    // Propagate zoom from chart1
+    manager.propagateZoomScale(chart1, 'x', { min: 100, max: 200 });
+    
+    // chart2 and chart3 should update, chart1 should not
+    assertTrue(chart2Updated);
+    assertTrue(chart3Updated);
+});
+
+test('MultiChartManager filters x-axis events only', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    // Should return true for x-axis
+    assertTrue(manager.shouldSyncAxis('x'));
+    
+    // Should return false for y-axis
+    assertFalse(manager.shouldSyncAxis('y'));
+    assertFalse(manager.shouldSyncAxis('price'));
+});
+
+test('MultiChartManager prevents infinite loops in zoom sync', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    let updateCount = 0;
+    
+    const chart1 = { 
+        id: 'chart1',
+        scales: { x: { min: 100, max: 200 } },
+        setScale: () => { updateCount++; }
+    };
+    const chart2 = { 
+        id: 'chart2',
+        scales: { x: { min: 100, max: 200 } },
+        setScale: () => { updateCount++; }
+    };
+    
+    manager.syncedCharts = [chart1, chart2];
+    manager._syncInProgress = false;
+    
+    // Propagate zoom
+    manager.propagateZoomScale(chart1, 'x', { min: 150, max: 250 });
+    
+    // Should only update chart2, not trigger additional updates
+    assertEqual(updateCount, 1);
+});
+
+test('MultiChartManager has hook registration method', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.registerScaleHooks === 'function');
+});
+
 // Print results
 console.log('\n' + '='.repeat(50));
 console.log(`Total: ${passed + failed}`);
