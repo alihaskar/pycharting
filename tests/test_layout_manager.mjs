@@ -541,6 +541,149 @@ test('multiple resize events only trigger one handleResize', async () => {
 });
 
 // ============================================================================
+// Test Suite: Height Calculation Algorithms
+// ============================================================================
+
+test('calculateHeights method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    assertTrue(typeof manager.calculateHeights === 'function',
+        'Should have calculateHeights method');
+});
+
+test('validateConstraints method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new LayoutManager(container);
+    assertTrue(typeof manager.validateConstraints === 'function',
+        'Should have validateConstraints method');
+});
+
+test('calculateHeights enforces minMainHeight constraint', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 1000;
+    const manager = new LayoutManager(container, {
+        minMainHeight: 0.3  // 30% minimum
+    });
+    
+    const result = manager.calculateHeights({ mainHeight: 0.1 }); // Try 10%
+    
+    assertTrue(result.mainHeight >= 0.3, 'Should enforce minMainHeight constraint');
+});
+
+test('calculateHeights enforces maxMainHeight constraint', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 1000;
+    const manager = new LayoutManager(container, {
+        maxMainHeight: 0.7  // 70% maximum
+    });
+    
+    const result = manager.calculateHeights({ mainHeight: 0.9 }); // Try 90%
+    
+    assertTrue(result.mainHeight <= 0.7, 'Should enforce maxMainHeight constraint');
+});
+
+test('calculateHeights enforces minSubplotHeight in pixels', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 500;
+    const manager = new LayoutManager(container, {
+        minSubplotHeight: 100  // 100px minimum
+    });
+    
+    const result = manager.calculateHeights({
+        mainHeight: 0.9,  // Would leave only 50px for subplot
+        subplotCount: 1
+    });
+    
+    // Use the calculated pixel value from result, not recalculated to avoid floating point issues
+    const subplotHeight = result.subplotHeights[0];
+    
+    assertTrue(subplotHeight >= 100, `Should enforce minSubplotHeight constraint, got ${subplotHeight}px`);
+});
+
+test('calculateHeights converts percentages to pixels', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 1000;
+    const manager = new LayoutManager(container);
+    
+    const result = manager.calculateHeights({ mainHeight: 0.6 });
+    
+    assertTrue(result.mainHeightPx !== undefined, 'Should include pixel value');
+    assertEqual(result.mainHeightPx, 600, 'Should correctly convert to pixels');
+});
+
+test('calculateHeights handles multiple subplots', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 1000;
+    const manager = new LayoutManager(container);
+    
+    const result = manager.calculateHeights({
+        mainHeight: 0.6,
+        subplotCount: 3
+    });
+    
+    assertTrue(Array.isArray(result.subplotHeights), 'Should return subplot heights array');
+    assertEqual(result.subplotHeights.length, 3, 'Should have 3 subplot heights');
+});
+
+test('validateConstraints returns true for valid layout', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 1000;
+    const manager = new LayoutManager(container);
+    
+    const valid = manager.validateConstraints({
+        mainHeight: 0.6,
+        subplotCount: 2
+    });
+    
+    assertTrue(valid, 'Should validate valid layout');
+});
+
+test('validateConstraints returns false when constraints violated', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 100;  // Very small container
+    const manager = new LayoutManager(container, {
+        minMainHeight: 0.5,
+        minSubplotHeight: 100
+    });
+    
+    const valid = manager.validateConstraints({
+        mainHeight: 0.5,  // Would leave 50px for subplot, but min is 100px
+        subplotCount: 1
+    });
+    
+    assertFalse(valid, 'Should invalidate when constraints conflict');
+});
+
+test('calculateHeights distributes subplot space evenly', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 1000;
+    const manager = new LayoutManager(container);
+    
+    const result = manager.calculateHeights({
+        mainHeight: 0.6,  // 600px for main
+        subplotCount: 2   // 400px split between 2 subplots
+    });
+    
+    // Each subplot should get ~200px
+    assertEqual(result.subplotHeights[0], result.subplotHeights[1],
+        'Subplots should have equal height');
+});
+
+test('calculateHeights handles edge case with zero subplots', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 1000;
+    const manager = new LayoutManager(container);
+    
+    const result = manager.calculateHeights({
+        mainHeight: 0.8,
+        subplotCount: 0
+    });
+    
+    assertTrue(result.mainHeight <= 1.0, 'Main height should not exceed 100%');
+    assertEqual(result.subplotHeights.length, 0, 'Should have empty subplot array');
+});
+
+// ============================================================================
 // Run Tests
 // ============================================================================
 

@@ -318,5 +318,134 @@ export class LayoutManager {
     isInitialized() {
         return this.layoutState.initialized && !this.isDestroyed;
     }
+    
+    /**
+     * Calculate panel heights with constraints
+     * 
+     * Applies min/max constraints and converts between percentages
+     * and pixel values. Ensures layout is valid and feasible.
+     * 
+     * @param {Object} layout - Layout configuration
+     * @param {number} layout.mainHeight - Main chart height as ratio (0-1)
+     * @param {number} layout.subplotCount - Number of subplot panels
+     * @returns {Object} Calculated layout with pixel values
+     * 
+     * @example
+     * const result = manager.calculateHeights({
+     *     mainHeight: 0.6,
+     *     subplotCount: 2
+     * });
+     * // Returns: { mainHeight: 0.6, mainHeightPx: 600, subplotHeights: [200, 200], ... }
+     */
+    calculateHeights(layout) {
+        const containerHeight = this.container.offsetHeight || this.layoutState.containerHeight || 600;
+        const subplotCount = layout.subplotCount || 0;
+        
+        // Start with requested main height
+        let mainHeight = layout.mainHeight || 0.6;
+        
+        // Enforce min/max constraints for main height
+        mainHeight = Math.max(mainHeight, this.config.minMainHeight);
+        mainHeight = Math.min(mainHeight, this.config.maxMainHeight);
+        
+        // Calculate remaining space for subplots
+        let subplotSpace = 1.0 - mainHeight;
+        let subplotSpacePx = containerHeight * subplotSpace;
+        
+        // Check if subplots meet minimum height requirement
+        if (subplotCount > 0) {
+            const minTotalSubplotPx = subplotCount * this.config.minSubplotHeight;
+            
+            if (subplotSpacePx < minTotalSubplotPx) {
+                // Adjust main height to accommodate subplot minimum
+                subplotSpacePx = minTotalSubplotPx;
+                subplotSpace = subplotSpacePx / containerHeight;
+                mainHeight = 1.0 - subplotSpace;
+                
+                // Ensure main height still meets minimum
+                if (mainHeight < this.config.minMainHeight) {
+                    mainHeight = this.config.minMainHeight;
+                    subplotSpace = 1.0 - mainHeight;
+                    subplotSpacePx = containerHeight * subplotSpace;
+                }
+            }
+        }
+        
+        // Calculate individual subplot heights (evenly distributed)
+        const subplotHeights = [];
+        if (subplotCount > 0) {
+            const heightPerSubplot = subplotSpacePx / subplotCount;
+            for (let i = 0; i < subplotCount; i++) {
+                subplotHeights.push(heightPerSubplot);
+            }
+        }
+        
+        // Convert to pixels
+        const mainHeightPx = containerHeight * mainHeight;
+        
+        return {
+            mainHeight,
+            mainHeightPx,
+            subplotSpace,
+            subplotSpacePx,
+            subplotHeights,
+            containerHeight,
+            valid: this.validateConstraints({
+                mainHeight,
+                subplotCount,
+                containerHeight
+            })
+        };
+    }
+    
+    /**
+     * Validate layout constraints
+     * 
+     * Checks if the requested layout configuration is feasible
+     * given the current constraints and container size.
+     * 
+     * @param {Object} layout - Layout to validate
+     * @param {number} layout.mainHeight - Main chart height ratio
+     * @param {number} layout.subplotCount - Number of subplots
+     * @param {number} [layout.containerHeight] - Container height in pixels
+     * @returns {boolean} True if layout is valid
+     * 
+     * @example
+     * const valid = manager.validateConstraints({
+     *     mainHeight: 0.6,
+     *     subplotCount: 2
+     * });
+     */
+    validateConstraints(layout) {
+        const containerHeight = layout.containerHeight || this.container.offsetHeight || this.layoutState.containerHeight || 600;
+        const mainHeight = layout.mainHeight || 0.6;
+        const subplotCount = layout.subplotCount || 0;
+        
+        // Check main height constraints
+        if (mainHeight < this.config.minMainHeight) {
+            return false;
+        }
+        if (mainHeight > this.config.maxMainHeight) {
+            return false;
+        }
+        
+        // Check subplot minimum height
+        if (subplotCount > 0) {
+            const subplotSpacePx = containerHeight * (1.0 - mainHeight);
+            const heightPerSubplot = subplotSpacePx / subplotCount;
+            
+            if (heightPerSubplot < this.config.minSubplotHeight) {
+                // Check if it's even possible to fit all subplots
+                const minRequiredSpace = subplotCount * this.config.minSubplotHeight;
+                const maxAvailableSpace = containerHeight * (1.0 - this.config.minMainHeight);
+                
+                if (minRequiredSpace > maxAvailableSpace) {
+                    return false;  // Impossible configuration
+                }
+            }
+        }
+        
+        return true;
+    }
 }
 
