@@ -573,13 +573,143 @@ export class MultiChartManager {
     }
     
     /**
+     * Throttle function calls for performance optimization
+     * 
+     * Task 24.4: Performance optimization
+     * @param {Function} func - Function to throttle
+     * @param {number} delay - Delay in milliseconds
+     * @returns {Function} Throttled function
+     */
+    throttle(func, delay) {
+        let lastCall = 0;
+        return function(...args) {
+            const now = Date.now();
+            if (now - lastCall >= delay) {
+                lastCall = now;
+                return func.apply(this, args);
+            }
+        };
+    }
+    
+    /**
+     * Propagate cursor position to all charts
+     * 
+     * Task 24.3: Event propagation logic
+     * @param {Object} sourceChart - Chart that triggered the cursor update
+     * @param {Object} position - Cursor position {left, top}
+     */
+    propagateCursorPosition(sourceChart, position) {
+        if (!this.config.sync.cursor) {
+            return;
+        }
+        
+        // Update all charts except the source
+        this.syncedCharts.forEach(chart => {
+            if (chart !== sourceChart && chart.setCursor) {
+                try {
+                    // Update cursor position (false = don't trigger event)
+                    chart.setCursor(position, false);
+                } catch (e) {
+                    console.warn('Failed to update cursor on chart:', e);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Setup cursor event handlers for all charts
+     * 
+     * Task 24.2: Cursor event handling
+     */
+    setupCursorHandlers() {
+        // Create throttled cursor update function (Task 24.4)
+        const throttledUpdate = this.throttle(
+            (sourceChart, position) => {
+                this.propagateCursorPosition(sourceChart, position);
+            },
+            16 // ~60fps
+        );
+        
+        // Setup cursor handlers for each chart
+        this.syncedCharts.forEach(chart => {
+            if (!chart || !chart.over) {
+                return;
+            }
+            
+            // Listen to cursor move events
+            const handleMouseMove = (e) => {
+                if (!e || !chart.over) return;
+                
+                // Calculate cursor position relative to chart
+                const rect = chart.over.getBoundingClientRect?.() || { left: 0, top: 0 };
+                const position = {
+                    left: e.clientX - rect.left,
+                    top: e.clientY - rect.top
+                };
+                
+                // Propagate to other charts (throttled)
+                throttledUpdate(chart, position);
+            };
+            
+            // Bind event listener
+            if (chart.over.addEventListener) {
+                chart.over.addEventListener('mousemove', handleMouseMove);
+            }
+        });
+    }
+    
+    /**
      * Setup synchronization between charts
      * 
-     * Implements cursor and zoom sync
+     * Task 24: Complete cursor synchronization implementation
      */
     setupSynchronization() {
-        // Stub implementation - will be filled in later tasks
-        console.log('Setting up synchronization...');
+        console.log('Setting up cursor and zoom synchronization...');
+        
+        if (!this.config.sync.cursor && !this.config.sync.zoom) {
+            console.log('Synchronization disabled in config');
+            return;
+        }
+        
+        // Task 24.1: Collect all chart instances
+        this.syncedCharts = [];
+        
+        if (this.mainChart) {
+            this.syncedCharts.push(this.mainChart);
+        }
+        
+        if (this.subplots && this.subplots.length > 0) {
+            this.syncedCharts.push(...this.subplots);
+        }
+        
+        console.log(`Collected ${this.syncedCharts.length} charts for synchronization`);
+        
+        if (this.syncedCharts.length === 0) {
+            console.warn('No charts available for synchronization');
+            return;
+        }
+        
+        // Task 24.1: Create sync group (simplified for testing)
+        this.syncGroup = {
+            id: 'charts',
+            charts: this.syncedCharts,
+            cursor: this.config.sync.cursor,
+            zoom: this.config.sync.zoom
+        };
+        
+        // Task 24.2 & 24.3: Setup cursor event handlers with propagation
+        if (this.config.sync.cursor) {
+            this.setupCursorHandlers();
+            console.log('Cursor synchronization enabled');
+        }
+        
+        // Zoom synchronization would be implemented similarly
+        if (this.config.sync.zoom) {
+            console.log('Zoom synchronization enabled (stub)');
+            // Would implement setupZoomHandlers() here
+        }
+        
+        console.log('Synchronization setup complete');
     }
     
     // === Chart Instance Management (Task 20.2) ===
