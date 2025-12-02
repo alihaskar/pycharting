@@ -406,10 +406,119 @@ export class MultiChartManager {
             scales: {
                 x: { time: true },
                 price: { auto: true } // Auto-scale based on data
+            },
+            cursor: {
+                drag: {
+                    x: false,  // Disable select-box zoom
+                    y: false
+                }
+            },
+            hooks: {
+                ready: [
+                    (u) => {
+                        // Add mouse wheel zoom
+                        u.over.addEventListener('wheel', (e) => {
+                            e.preventDefault();
+                            const { left } = u.cursor;
+                            const xVal = u.posToVal(left, 'x');
+                            const [min, max] = u.scales.x;
+                            const range = max - min;
+                            
+                            const zoomFactor = e.deltaY < 0 ? 0.9 : 1.1;
+                            const newRange = range * zoomFactor;
+                            const leftRatio = (xVal - min) / range;
+                            
+                            u.setScale('x', {
+                                min: xVal - newRange * leftRatio,
+                                max: xVal + newRange * (1 - leftRatio)
+                            });
+                        });
+                        
+                        // Add drag-to-pan functionality
+                        let isDragging = false;
+                        let startX = 0;
+                        let startScale = { min: 0, max: 0 };
+                        
+                        u.over.addEventListener('mousedown', (e) => {
+                            isDragging = true;
+                            startX = e.clientX;
+                            startScale = { ...u.scales.x };
+                            u.over.style.cursor = 'grabbing';
+                        });
+                        
+                        u.over.addEventListener('mousemove', (e) => {
+                            if (!isDragging) return;
+                            
+                            const dx = e.clientX - startX;
+                            const range = startScale.max - startScale.min;
+                            const pxToVal = range / u.bbox.width;
+                            const shift = -dx * pxToVal;
+                            
+                            u.setScale('x', {
+                                min: startScale.min + shift,
+                                max: startScale.max + shift
+                            });
+                        });
+                        
+                        u.over.addEventListener('mouseup', () => {
+                            isDragging = false;
+                            u.over.style.cursor = 'grab';
+                        });
+                        
+                        u.over.addEventListener('mouseleave', () => {
+                            isDragging = false;
+                            u.over.style.cursor = 'grab';
+                        });
+                        
+                        u.over.style.cursor = 'grab';
+                    }
+                ],
+                setCursor: [
+                    (u) => {
+                        // Display OHLC values on hover
+                        const idx = u.cursor.idx;
+                        if (idx === null) return;
+                        
+                        const timestamp = data[0][idx];
+                        const open = data[1][idx];
+                        const high = data[2][idx];
+                        const low = data[3][idx];
+                        const close = data[4][idx];
+                        
+                        // Create or update OHLC display element
+                        let ohlcDisplay = document.getElementById('ohlc-display');
+                        if (!ohlcDisplay) {
+                            ohlcDisplay = document.createElement('div');
+                            ohlcDisplay.id = 'ohlc-display';
+                            ohlcDisplay.style.position = 'absolute';
+                            ohlcDisplay.style.top = '10px';
+                            ohlcDisplay.style.left = '10px';
+                            ohlcDisplay.style.background = 'rgba(0,0,0,0.75)';
+                            ohlcDisplay.style.color = 'white';
+                            ohlcDisplay.style.padding = '8px 12px';
+                            ohlcDisplay.style.borderRadius = '4px';
+                            ohlcDisplay.style.fontSize = '12px';
+                            ohlcDisplay.style.fontFamily = 'monospace';
+                            ohlcDisplay.style.pointerEvents = 'none';
+                            ohlcDisplay.style.zIndex = '1000';
+                            mainContainer.appendChild(ohlcDisplay);
+                        }
+                        
+                        const date = new Date(timestamp).toLocaleString();
+                        const color = close >= open ? '#26a69a' : '#ef5350';
+                        
+                        ohlcDisplay.innerHTML = `
+                            <div style="font-weight: bold; margin-bottom: 4px;">${date}</div>
+                            <div>O: <span style="color: ${color}">${open?.toFixed(2)}</span></div>
+                            <div>H: <span style="color: ${color}">${high?.toFixed(2)}</span></div>
+                            <div>L: <span style="color: ${color}">${low?.toFixed(2)}</span></div>
+                            <div>C: <span style="color: ${color}">${close?.toFixed(2)}</span></div>
+                        `;
+                    }
+                ]
             }
         };
         
-        // Store configuration for testing
         // Create the actual uPlot chart instance
         this.mainChart = new uPlot(opts, data, mainContainer);
         
