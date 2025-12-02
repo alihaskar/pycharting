@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Query, HTTPException, status
 from typing import Optional, List
 from src.api.models import ChartDataResponse, ErrorResponse
+from src.api.processor import load_and_process_data
 import logging
 
 logger = logging.getLogger(__name__)
@@ -60,24 +61,18 @@ async def get_chart_data(
     try:
         logger.info(f"Request for chart data: filename={filename}")
         
-        # TODO: Implement data loading and processing (subtask 6.3)
-        # For now, return mock response
+        # Load and process data
+        uplot_data, metadata = load_and_process_data(
+            filename=filename,
+            indicators=indicators,
+            timeframe=timeframe,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
         return ChartDataResponse(
-            data=[
-                [1704067200000, 1704070800000],  # timestamps
-                [100.0, 101.0],  # open
-                [105.0, 106.0],  # high
-                [95.0, 96.0],    # low
-                [102.0, 103.0],  # close
-                [1000, 1100]     # volume
-            ],
-            metadata={
-                "filename": filename,
-                "rows": 2,
-                "columns": 6,
-                "timeframe": timeframe,
-                "indicators": indicators or []
-            }
+            data=uplot_data,
+            metadata=metadata
         )
         
     except FileNotFoundError as e:

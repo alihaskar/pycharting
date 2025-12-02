@@ -1,0 +1,149 @@
+"""Data processing logic for API endpoints."""
+import pandas as pd
+from pathlib import Path
+from typing import Optional, List, Dict, Any
+import os
+import logging
+
+from src.ingestion.loader import load_csv, parse_datetime, clean_missing_values, optimize_dataframe
+from src.processing.indicators import calculate_indicator
+from src.processing.resampler import resample_ohlc
+from src.processing.pivot import to_uplot_format
+
+logger = logging.getLogger(__name__)
+
+
+def get_data_directory() -> Path:
+    """
+    Get the data directory path.
+    
+    Returns:
+        Path to data directory
+    """
+    # Check for environment variable first (for testing)
+    data_dir = os.getenv("DATA_DIR")
+    if data_dir:
+        return Path(data_dir)
+    
+    # Default to data/ directory in project root
+    return Path("data")
+
+
+def parse_indicator_string(indicator_str: str) -> tuple[str, Dict[str, Any]]:
+    """
+    Parse indicator string into type and parameters.
+    
+    Args:
+        indicator_str: String like "RSI:14" or "SMA:20"
+        
+    Returns:
+        Tuple of (indicator_type, params_dict)
+        
+    Example:
+        >>> parse_indicator_string("RSI:14")
+        ('RSI', {'period': 14})
+    """
+    parts = indicator_str.split(":")
+    indicator_type = parts[0].upper()
+    
+    params = {}
+    if len(parts) > 1:
+        try:
+            params["period"] = int(parts[1])
+        except ValueError:
+            logger.warning(f"Invalid period in indicator: {indicator_str}")
+    
+    return indicator_type, params
+
+
+def load_and_process_data(
+    filename: str,
+    indicators: Optional[List[str]] = None,
+    timeframe: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+) -> tuple[List[List], Dict[str, Any]]:
+    """
+    Load CSV file and process data with indicators and resampling.
+    
+    Args:
+        filename: CSV filename to load
+        indicators: Optional list of indicator strings
+        timeframe: Optional timeframe for resampling
+        start_date: Optional start date for filtering
+        end_date: Optional end date for filtering
+        
+    Returns:
+        Tuple of (uplot_data, metadata)
+        
+    Raises:
+        FileNotFoundError: If file doesn't exist
+        ValueError: If data processing fails
+    """
+    # Get data directory and construct file path
+    data_dir = get_data_directory()
+    file_path = data_dir / filename
+    
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {filename}")
+    
+    logger.info(f"Loading file: {file_path}")
+    
+    # Load CSV
+    df = load_csv(str(file_path))
+    
+    # Parse datetime (automatically detects timestamp column)
+    df = parse_datetime(df)
+    
+    # Clean missing values
+    df = clean_missing_values(df)
+    
+    # Optimize DataFrame
+    df = optimize_dataframe(df)
+    
+    # Apply time filtering if specified
+    if start_date:
+        df = df[df.index >= pd.to_datetime(start_date)]
+    if end_date:
+        df = df[df.index <= pd.to_datetime(end_date)]
+    
+    # Apply resampling if specified
+    if timeframe:
+        logger.info(f"Resampling to timeframe: {timeframe}")
+        df = resample_ohlc(df, timeframe)
+    
+    # Calculate indicators if specified
+    indicator_names = []
+    if indicators:
+        for indicator_str in indicators:
+            indicator_type, params = parse_indicator_string(indicator_str)
+            logger.info(f"Calculating indicator: {indicator_type} with params {params}")
+            
+            try:
+                # Calculate indicator on close prices
+                result = calculate_indicator(df["close"], indicator_type, params)
+                
+                # Add to DataFrame with descriptive name
+                period = params.get("period", "")
+                col_name = f"{indicator_type.lower()}_{period}" if period else indicator_type.lower()
+                df[col_name] = result
+                indicator_names.append(col_name)
+                
+            except Exception as e:
+                logger.warning(f"Failed to calculate {indicator_type}: {e}")
+                # Continue processing other indicators
+    
+    # Convert to uPlot format
+    uplot_data = to_uplot_format(df, timestamp_unit="ms")
+    
+    # Create metadata
+    metadata = {
+        "filename": filename,
+        "rows": len(df),
+        "columns": len(uplot_data),
+        "timeframe": timeframe,
+        "indicators": indicator_names
+    }
+    
+    return uplot_data, metadata
+
