@@ -97,27 +97,65 @@ export class MultiChartManager {
     }
     
     /**
+     * Calculate heights for main chart and subplots
+     * 
+     * Task 21.1: Dynamic height allocation based on subplot count
+     * - Main chart: 60% when subplots exist, 100% otherwise
+     * - Subplots: Split remaining 40% equally
+     * 
+     * @returns {Object} Heights object with main and subplot percentages
+     */
+    calculateHeights() {
+        const subplotCount = this.config.subplots.length;
+        
+        if (subplotCount === 0) {
+            return {
+                main: '100%',
+                subplot: '0%'
+            };
+        }
+        
+        const mainHeight = '60%';
+        const subplotHeight = `${40 / subplotCount}%`;
+        
+        return {
+            main: mainHeight,
+            subplot: subplotHeight
+        };
+    }
+    
+    /**
      * Create container elements for charts
      * 
-     * Creates main chart container and subplot containers
+     * Task 21: Creates main chart container and subplot containers with
+     * proper height calculations, IDs, and responsive styling
      */
     createContainers() {
         // Clear existing content
         this.container.innerHTML = '';
         
-        // Create main chart container
+        // Calculate dynamic heights
+        const heights = this.calculateHeights();
+        
+        // Task 21.2 & 21.3: Create main chart container with proper ID and styling
         const mainContainer = document.createElement('div');
         mainContainer.id = 'main-chart-container';
+        mainContainer.style.height = heights.main;
         mainContainer.style.marginBottom = `${this.config.layout.spacing}px`;
+        mainContainer.style.position = 'relative'; // For responsive behavior
         this.container.appendChild(mainContainer);
         
-        // Create subplot containers
+        // Task 21.2 & 21.3: Create subplot containers with unique IDs
         this.config.subplots.forEach((subplot, index) => {
             const subplotContainer = document.createElement('div');
             subplotContainer.id = `subplot-${index}-container`;
+            subplotContainer.style.height = heights.subplot;
             subplotContainer.style.marginBottom = `${this.config.layout.spacing}px`;
+            subplotContainer.style.position = 'relative'; // For responsive behavior
             this.container.appendChild(subplotContainer);
         });
+        
+        console.log(`Created ${1 + this.config.subplots.length} chart containers`);
     }
     
     /**
