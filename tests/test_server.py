@@ -6,7 +6,7 @@ Testing port availability checking and conflict resolution.
 import pytest
 import socket
 from unittest.mock import patch, MagicMock
-from src.python_api.server import find_available_port
+from src.python_api.server import find_available_port, ServerManager
 
 
 class TestSocketBindingAndAvailability:
@@ -135,4 +135,67 @@ class TestErrorHandling:
         
         # Should handle the error and return next available port
         assert port == 8001
+
+
+class TestServerManagerClassStructure:
+    """Test ServerManager class initialization and structure."""
+    
+    def test_server_manager_initialization_default_port(self):
+        """Test ServerManager initialization with default port."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        
+        manager = ServerManager(app)
+        
+        assert manager.app is app
+        assert isinstance(manager.port, int)
+        assert manager.port >= 8000
+        assert manager.server is None
+        assert manager.thread is None
+    
+    def test_server_manager_initialization_custom_port(self):
+        """Test ServerManager initialization with custom port."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        
+        manager = ServerManager(app, port=9000)
+        
+        assert manager.app is app
+        assert manager.port == 9000
+    
+    def test_server_manager_uses_port_finder(self):
+        """Test that ServerManager uses find_available_port when port is None."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        
+        manager = ServerManager(app, port=None)
+        
+        # Should have found a port
+        assert isinstance(manager.port, int)
+        assert manager.port >= 8000
+    
+    def test_server_manager_has_required_attributes(self):
+        """Test that ServerManager has all required attributes."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        
+        manager = ServerManager(app)
+        
+        assert hasattr(manager, 'app')
+        assert hasattr(manager, 'port')
+        assert hasattr(manager, 'server')
+        assert hasattr(manager, 'thread')
+    
+    def test_server_manager_initial_state(self):
+        """Test ServerManager initial state."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        
+        manager = ServerManager(app)
+        
+        # Server and thread should be None initially
+        assert manager.server is None
+        assert manager.thread is None
+        # Port should be assigned
+        assert manager.port is not None
 
