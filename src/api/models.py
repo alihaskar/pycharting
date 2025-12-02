@@ -87,21 +87,29 @@ class ChartDataResponse(BaseModel):
                     [105.0, 106.0],  # high
                     [95.0, 96.0],    # low
                     [102.0, 103.0],  # close
-                    [1000, 1100]     # volume
+                    [1000, 1100],    # volume
+                    [45.0, 46.0],    # rsi_14
+                    [100.5, 101.5]   # sma_20
                 ],
                 "metadata": {
                     "filename": "sample.csv",
                     "rows": 2,
-                    "columns": 6,
+                    "columns": 8,
                     "timeframe": "1h",
-                    "indicators": []
+                    "indicators": [],
+                    "available_indicators": ["rsi_14", "sma_20"],
+                    "overlays": ["sma_20"],
+                    "subplots": ["rsi_14"]
                 }
             }
         }
     )
     
     data: List[List] = Field(..., description="Columnar array data for uPlot")
-    metadata: dict = Field(..., description="Metadata about the data")
+    metadata: dict = Field(
+        ...,
+        description="Metadata about the data including indicator classifications"
+    )
 
 
 class ErrorResponse(BaseModel):
