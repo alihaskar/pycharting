@@ -176,3 +176,73 @@ def calculate_ema(prices: pd.Series, period: int) -> pd.Series:
     
     return ema
 
+
+def calculate_indicator(
+    prices: pd.Series,
+    indicator_type: str,
+    params: dict = None
+) -> pd.Series:
+    """
+    Main API function to calculate technical indicators.
+    
+    Routes to specific indicator implementations based on type.
+    
+    Args:
+        prices: Series of price data (typically close prices)
+        indicator_type: Type of indicator ('sma', 'ema', 'rsi')
+        params: Dictionary of parameters for the indicator
+                - For SMA/EMA/RSI: 'period' (int)
+    
+    Returns:
+        Series of indicator values with same index as input
+    
+    Raises:
+        IndicatorValidationError: If validation fails or indicator type is unknown
+    
+    Examples:
+        >>> prices = pd.Series([100, 102, 101, 103, 105])
+        >>> sma = calculate_indicator(prices, 'sma', {'period': 3})
+        >>> rsi = calculate_indicator(prices, 'rsi', {'period': 14})
+    """
+    # Normalize params
+    if params is None:
+        params = {}
+    
+    # Normalize indicator type to lowercase
+    indicator_type = indicator_type.lower()
+    
+    # Default periods for indicators
+    default_periods = {
+        'sma': 20,
+        'ema': 20,
+        'rsi': 14
+    }
+    
+    # Get period from params or use default
+    period = params.get('period', default_periods.get(indicator_type))
+    
+    # Validate period exists
+    if period is None:
+        raise IndicatorValidationError(
+            f"{indicator_type.upper()}: 'period' parameter is required"
+        )
+    
+    # Route to specific indicator function
+    if indicator_type == 'sma':
+        validate_indicator_input(prices, period, 'SMA')
+        return calculate_sma(prices, period)
+    
+    elif indicator_type == 'ema':
+        validate_indicator_input(prices, period, 'EMA')
+        return calculate_ema(prices, period)
+    
+    elif indicator_type == 'rsi':
+        validate_indicator_input(prices, period, 'RSI')
+        return calculate_rsi(prices, period)
+    
+    else:
+        raise IndicatorValidationError(
+            f"Unknown indicator type: '{indicator_type}'. "
+            f"Supported types: sma, ema, rsi"
+        )
+
