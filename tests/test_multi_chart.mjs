@@ -6,10 +6,22 @@
 // Mock DOM elements for Node.js
 class MockHTMLElement {
     constructor() {
-        this.innerHTML = '';
+        this._innerHTML = '';
         this.id = '';
         this.style = {};
         this.children = [];
+    }
+    
+    get innerHTML() {
+        return this._innerHTML;
+    }
+    
+    set innerHTML(value) {
+        this._innerHTML = value;
+        // Clear children when innerHTML is set
+        if (value === '') {
+            this.children = [];
+        }
     }
     
     appendChild(child) {
@@ -263,6 +275,159 @@ test('MultiChartManager methods have JSDoc documentation', () => {
     assertTrue(typeof manager.initialize === 'function');
     assertTrue(typeof manager.updateChart === 'function');
     assertTrue(typeof manager.destroyChart === 'function');
+});
+
+// === Test 21.1: Layout Height Calculations ===
+
+test('MultiChartManager calculates 100% height with no subplots', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { subplots: [] });
+    
+    const heights = manager.calculateHeights();
+    
+    assertEqual(heights.main, '100%');
+    assertEqual(heights.subplot, '0%');
+});
+
+test('MultiChartManager calculates 60/40 split with subplots', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { 
+        subplots: [{ name: 'RSI' }] 
+    });
+    
+    const heights = manager.calculateHeights();
+    
+    assertEqual(heights.main, '60%');
+    assertEqual(heights.subplot, '40%');
+});
+
+test('MultiChartManager splits subplot height evenly', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { 
+        subplots: [{ name: 'RSI' }, { name: 'MACD' }] 
+    });
+    
+    const heights = manager.calculateHeights();
+    
+    assertEqual(heights.main, '60%');
+    assertEqual(heights.subplot, '20%'); // 40% / 2
+});
+
+test('MultiChartManager handles 5 subplots correctly', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { 
+        subplots: [{}, {}, {}, {}, {}]
+    });
+    
+    const heights = manager.calculateHeights();
+    
+    assertEqual(heights.main, '60%');
+    assertEqual(heights.subplot, '8%'); // 40% / 5
+});
+
+// === Test 21.2: DOM Element Creation and Styling ===
+
+test('MultiChartManager creates main container with correct height', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { subplots: [] });
+    
+    manager.createContainers();
+    
+    assertTrue(container.children.length === 1);
+    assertEqual(container.children[0].style.height, '100%');
+});
+
+test('MultiChartManager creates subplot containers', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { 
+        subplots: [{ name: 'RSI' }, { name: 'MACD' }] 
+    });
+    
+    manager.createContainers();
+    
+    // 1 main + 2 subplots = 3 total
+    assertEqual(container.children.length, 3);
+});
+
+test('MultiChartManager applies correct styling to containers', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { 
+        subplots: [{ name: 'RSI' }] 
+    });
+    
+    manager.createContainers();
+    
+    // Check main container
+    assertEqual(container.children[0].style.height, '60%');
+    // Check subplot container
+    assertEqual(container.children[1].style.height, '40%');
+});
+
+// === Test 21.3: Container ID Generation ===
+
+test('MultiChartManager assigns main-chart ID', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { subplots: [] });
+    
+    manager.createContainers();
+    
+    assertEqual(container.children[0].id, 'main-chart-container');
+});
+
+test('MultiChartManager assigns subplot IDs with index', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { 
+        subplots: [{ name: 'RSI' }, { name: 'MACD' }] 
+    });
+    
+    manager.createContainers();
+    
+    assertEqual(container.children[1].id, 'subplot-0-container');
+    assertEqual(container.children[2].id, 'subplot-1-container');
+});
+
+test('MultiChartManager IDs are unique', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { 
+        subplots: [{}, {}, {}] 
+    });
+    
+    manager.createContainers();
+    
+    const ids = container.children.map(c => c.id);
+    const uniqueIds = new Set(ids);
+    
+    assertEqual(ids.length, uniqueIds.size);
+});
+
+// === Test 21.4: Responsive Design ===
+
+test('MultiChartManager containers clear previous content', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { subplots: [] });
+    
+    container.innerHTML = 'old content';
+    manager.createContainers();
+    
+    assertEqual(container.innerHTML, '');
+    assertTrue(container.children.length > 0);
+});
+
+test('MultiChartManager can recreate containers', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, { 
+        subplots: [{ name: 'RSI' }] 
+    });
+    
+    manager.createContainers();
+    const firstCount = container.children.length;
+    
+    manager.createContainers();
+    const secondCount = container.children.length;
+    
+    // Should have 2 containers (1 main + 1 subplot)
+    assertEqual(firstCount, 2);
+    assertEqual(secondCount, 2);
 });
 
 // Print results
