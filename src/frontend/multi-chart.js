@@ -434,6 +434,91 @@ export class MultiChartManager {
         return heights.reduce((sum, h) => sum + h, 0);
     }
     
+    // =========================================================================
+    // Task 6.4: Enhanced uPlot Synchronization for N Subplots
+    // =========================================================================
+    
+    /**
+     * Register a chart for cursor/zoom synchronization
+     * @param {Object} chart - uPlot chart instance
+     */
+    registerChartForSync(chart) {
+        if (!chart) return;
+        
+        if (!this.syncedCharts.includes(chart)) {
+            this.syncedCharts.push(chart);
+            console.log(`Chart registered for sync, total: ${this.syncedCharts.length}`);
+        }
+    }
+    
+    /**
+     * Unregister a chart from synchronization
+     * @param {Object} chart - uPlot chart instance to remove
+     */
+    unregisterChartFromSync(chart) {
+        const index = this.syncedCharts.indexOf(chart);
+        if (index > -1) {
+            this.syncedCharts.splice(index, 1);
+            console.log(`Chart unregistered from sync, remaining: ${this.syncedCharts.length}`);
+        }
+    }
+    
+    /**
+     * Broadcast cursor position to all synchronized charts
+     * @param {Object} position - Cursor position { left, top }
+     * @param {Object} sourceChart - Chart that triggered the event
+     */
+    broadcastCursorPosition(position, sourceChart) {
+        if (this._syncInProgress) return;
+        
+        this._syncInProgress = true;
+        
+        this.syncedCharts.forEach(chart => {
+            if (chart !== sourceChart && chart.setCursor) {
+                chart.setCursor(position);
+            }
+        });
+        
+        // Reset sync lock after brief delay
+        setTimeout(() => {
+            this._syncInProgress = false;
+        }, 10);
+    }
+    
+    /**
+     * Broadcast zoom range to all synchronized charts
+     * @param {Object} range - Zoom range { min, max }
+     * @param {Object} sourceChart - Chart that triggered the event
+     */
+    broadcastZoomRange(range, sourceChart) {
+        if (this._syncInProgress) return;
+        
+        this._syncInProgress = true;
+        
+        this.syncedCharts.forEach(chart => {
+            if (chart !== sourceChart && chart.setScale) {
+                chart.setScale('x', range);
+            }
+        });
+        
+        setTimeout(() => {
+            this._syncInProgress = false;
+        }, 10);
+    }
+    
+    /**
+     * Get synchronization status
+     * @returns {Object} Sync status info
+     */
+    getSyncStatus() {
+        return {
+            chartCount: this.syncedCharts.length,
+            cursorSyncEnabled: this.config.sync?.cursor !== false,
+            zoomSyncEnabled: this.config.sync?.zoom !== false,
+            syncInProgress: this._syncInProgress || false
+        };
+    }
+    
     /**
      * Calculate heights for main chart and subplots
      * 
