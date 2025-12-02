@@ -5,6 +5,46 @@ import math
 from typing import List, Any, Literal
 
 
+class DataAlignmentError(ValueError):
+    """Custom exception for data alignment errors."""
+    pass
+
+
+def verify_data_alignment(data: List[List[Any]]) -> None:
+    """
+    Verify that all arrays in the data structure have consistent length.
+    
+    Ensures all columnar arrays (timestamps, OHLC, indicators) have the
+    same number of data points, which is critical for uPlot rendering.
+    
+    Args:
+        data: List of columnar arrays (nested list structure)
+        
+    Raises:
+        DataAlignmentError: If arrays have inconsistent lengths
+        
+    Example:
+        >>> data = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+        >>> verify_data_alignment(data)  # OK
+        >>> bad_data = [[1, 2], [4, 5, 6]]
+        >>> verify_data_alignment(bad_data)  # Raises DataAlignmentError
+    """
+    if not data:
+        return  # Empty data is trivially aligned
+    
+    # Get length of first array as reference
+    expected_length = len(data[0])
+    
+    # Check all arrays have same length
+    for i, arr in enumerate(data):
+        if len(arr) != expected_length:
+            raise DataAlignmentError(
+                f"Data alignment error: Column {i} has length {len(arr)}, "
+                f"but expected {expected_length}. All columns must have "
+                f"the same number of data points."
+            )
+
+
 def sanitize_nan_values(values: List[Any]) -> List[Any]:
     """
     Convert NaN, Inf, and NA values to None for JSON compatibility.
@@ -170,6 +210,9 @@ def to_uplot_format(
         values = df[col].tolist()
         sanitized = sanitize_nan_values(values)
         result.append(sanitized)
+    
+    # Verify data alignment before returning
+    verify_data_alignment(result)
     
     return result
 
