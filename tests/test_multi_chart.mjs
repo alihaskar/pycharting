@@ -430,6 +430,87 @@ test('MultiChartManager can recreate containers', () => {
     assertEqual(secondCount, 2);
 });
 
+// === Test 22: Main Chart with Overlays ===
+
+test('MultiChartManager has createMainChart method', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.createMainChart === 'function');
+});
+
+test('MultiChartManager has fetchChartData method', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.fetchChartData === 'function');
+});
+
+test('MultiChartManager has getCandlestickFill function', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.getCandlestickFill === 'function');
+});
+
+test('MultiChartManager has getIndicatorColor function', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.getIndicatorColor === 'function');
+});
+
+test('MultiChartManager getCandlestickFill returns correct colors', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    // Bullish candle (close > open)
+    const bullishColor = manager.getCandlestickFill(null, 0, [0, 100, 110, 95, 108]);
+    assertTrue(typeof bullishColor === 'string');
+    
+    // Bearish candle (close < open)
+    const bearishColor = manager.getCandlestickFill(null, 0, [0, 100, 110, 95, 98]);
+    assertTrue(typeof bearishColor === 'string');
+    
+    // Different colors for bull/bear
+    assertTrue(bullishColor !== bearishColor);
+});
+
+test('MultiChartManager getIndicatorColor returns distinct colors', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    const color1 = manager.getIndicatorColor('sma_20');
+    const color2 = manager.getIndicatorColor('ema_50');
+    
+    assertTrue(typeof color1 === 'string');
+    assertTrue(typeof color2 === 'string');
+    assertTrue(color1 !== color2);
+});
+
+test('MultiChartManager creates series configuration for overlays', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {
+        overlays: ['sma_20', 'ema_50']
+    });
+    
+    const series = manager.createSeriesConfig(['sma_20', 'ema_50']);
+    
+    assertTrue(Array.isArray(series));
+    // Should have: time series + OHLC + 2 overlays = 4 series
+    assertTrue(series.length >= 3);
+});
+
+test('MultiChartManager creates axes configuration with shared scale', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    const axes = manager.createAxesConfig();
+    
+    assertTrue(Array.isArray(axes));
+    assertTrue(axes.length === 2); // x-axis and y-axis
+});
+
 // Print results
 console.log('\n' + '='.repeat(50));
 console.log(`Total: ${passed + failed}`);
