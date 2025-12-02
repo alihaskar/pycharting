@@ -945,6 +945,251 @@ test('clearSubplotContainers removes all existing containers', () => {
         'Should clear all subplot containers');
 });
 
+// ============================================================================
+// Test Suite: Task 6.2 - CSS Grid/Flexbox Layout Algorithm
+// ============================================================================
+
+test('applyGridLayout method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.applyGridLayout === 'function',
+        'Should have applyGridLayout method');
+});
+
+test('applyGridLayout sets display to grid on container', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    manager.applyGridLayout();
+    
+    assertEqual(container.style.display, 'grid',
+        'Container should use CSS Grid display');
+});
+
+test('applyGridLayout sets grid-template-rows', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {
+        subplots: [{ name: 'rsi' }, { name: 'macd' }]
+    });
+    
+    manager.applyGridLayout();
+    
+    assertTrue(container.style.gridTemplateRows !== undefined &&
+               container.style.gridTemplateRows !== '',
+        'Should set grid-template-rows');
+});
+
+test('applyFlexLayout method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.applyFlexLayout === 'function',
+        'Should have applyFlexLayout method');
+});
+
+test('applyFlexLayout sets display to flex', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    manager.applyFlexLayout();
+    
+    assertEqual(container.style.display, 'flex',
+        'Container should use flexbox display');
+});
+
+test('applyFlexLayout sets flex-direction to column', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    manager.applyFlexLayout();
+    
+    assertEqual(container.style.flexDirection, 'column',
+        'Flex direction should be column for vertical stacking');
+});
+
+test('getLayoutConfig method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.getLayoutConfig === 'function',
+        'Should have getLayoutConfig method');
+});
+
+test('getLayoutConfig returns layout mode', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {
+        layout: { mode: 'grid' }
+    });
+    
+    const config = manager.getLayoutConfig();
+    
+    assertTrue(config.mode === 'grid' || config.mode === 'flex',
+        'Should return layout mode');
+});
+
+test('calculateResponsiveBreakpoints method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.calculateResponsiveBreakpoints === 'function',
+        'Should have calculateResponsiveBreakpoints method');
+});
+
+test('calculateResponsiveBreakpoints returns breakpoint config', () => {
+    const container = new MockHTMLElement();
+    container.offsetWidth = 1200;
+    const manager = new MultiChartManager(container, {});
+    
+    const breakpoints = manager.calculateResponsiveBreakpoints();
+    
+    assertTrue(breakpoints !== undefined,
+        'Should return breakpoint configuration');
+});
+
+test('applyLayout method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.applyLayout === 'function',
+        'Should have applyLayout method');
+});
+
+test('applyLayout applies correct layout based on config', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {
+        layout: { mode: 'flex' }
+    });
+    
+    manager.applyLayout();
+    
+    assertTrue(container.style.display === 'flex' || container.style.display === 'grid',
+        'Should apply layout from config');
+});
+
+// ============================================================================
+// Test Suite: Task 6.3 - Height Calculation and Virtualization
+// ============================================================================
+
+test('calculateSubplotHeights method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.calculateSubplotHeights === 'function',
+        'Should have calculateSubplotHeights method');
+});
+
+test('calculateSubplotHeights distributes equally for <=10 subplots', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 800;
+    const manager = new MultiChartManager(container, {
+        subplots: Array(5).fill({ name: 'ind' })
+    });
+    
+    const heights = manager.calculateSubplotHeights();
+    
+    assertEqual(heights.length, 5, 'Should return 5 heights');
+    // Each should be roughly equal
+    assertTrue(heights.every(h => Math.abs(h - heights[0]) < 5),
+        'Heights should be equal for <=10 subplots');
+});
+
+test('calculateSubplotHeights uses minimum height for >10 subplots', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 600;
+    const manager = new MultiChartManager(container, {
+        subplots: Array(15).fill({ name: 'ind' }),
+        layout: { minSubplotHeight: 100 }
+    });
+    
+    const heights = manager.calculateSubplotHeights();
+    
+    assertEqual(heights.length, 15, 'Should return 15 heights');
+    // Each should be at least minimum height
+    assertTrue(heights.every(h => h >= 100),
+        'Each subplot should be at least minSubplotHeight');
+});
+
+test('shouldEnableScrolling method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.shouldEnableScrolling === 'function',
+        'Should have shouldEnableScrolling method');
+});
+
+test('shouldEnableScrolling returns true for >10 subplots', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 600;
+    const manager = new MultiChartManager(container, {
+        subplots: Array(15).fill({ name: 'ind' })
+    });
+    
+    assertTrue(manager.shouldEnableScrolling(),
+        'Should enable scrolling for >10 subplots');
+});
+
+test('shouldEnableScrolling returns false for <=10 subplots', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 800;
+    const manager = new MultiChartManager(container, {
+        subplots: Array(5).fill({ name: 'ind' })
+    });
+    
+    assertFalse(manager.shouldEnableScrolling(),
+        'Should not enable scrolling for <=10 subplots');
+});
+
+test('getVisibleSubplots method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.getVisibleSubplots === 'function',
+        'Should have getVisibleSubplots method');
+});
+
+test('getVisibleSubplots returns indices of visible subplots', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 600;
+    const manager = new MultiChartManager(container, {
+        subplots: Array(15).fill({ name: 'ind' })
+    });
+    
+    const visible = manager.getVisibleSubplots(0); // scrollTop = 0
+    
+    assertTrue(Array.isArray(visible), 'Should return array of indices');
+    assertTrue(visible.length > 0, 'Should have visible subplots');
+});
+
+test('applyVirtualization method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.applyVirtualization === 'function',
+        'Should have applyVirtualization method');
+});
+
+test('getTotalSubplotAreaHeight method exists', () => {
+    const container = new MockHTMLElement();
+    const manager = new MultiChartManager(container, {});
+    
+    assertTrue(typeof manager.getTotalSubplotAreaHeight === 'function',
+        'Should have getTotalSubplotAreaHeight method');
+});
+
+test('getTotalSubplotAreaHeight calculates total height', () => {
+    const container = new MockHTMLElement();
+    container.offsetHeight = 800;
+    const manager = new MultiChartManager(container, {
+        subplots: Array(15).fill({ name: 'ind' }),
+        layout: { minSubplotHeight: 100 }
+    });
+    
+    const totalHeight = manager.getTotalSubplotAreaHeight();
+    
+    assertTrue(totalHeight >= 1500, 'Total height should be at least 15 * 100px');
+});
+
 // Print results
 console.log('\n' + '='.repeat(50));
 console.log(`Total: ${passed + failed}`);

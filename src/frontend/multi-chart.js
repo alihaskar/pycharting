@@ -243,6 +243,197 @@ export class MultiChartManager {
         console.log('Container hierarchy created');
     }
     
+    // =========================================================================
+    // Task 6.2: CSS Grid/Flexbox Layout Algorithm
+    // =========================================================================
+    
+    /**
+     * Apply CSS Grid layout to container
+     */
+    applyGridLayout() {
+        this.container.style.display = 'grid';
+        
+        // Calculate grid rows based on subplots
+        const subplotCount = this.getSubplotCount();
+        const mainHeight = subplotCount > 0 ? '60%' : '100%';
+        
+        if (subplotCount > 0) {
+            const subplotHeight = `${40 / subplotCount}%`;
+            const rows = [mainHeight, ...Array(subplotCount).fill(subplotHeight)];
+            this.container.style.gridTemplateRows = rows.join(' ');
+        } else {
+            this.container.style.gridTemplateRows = mainHeight;
+        }
+        
+        this.container.style.gridTemplateColumns = '1fr';
+        this.container.style.gap = `${this.config.layout?.spacing || 4}px`;
+        
+        console.log('Grid layout applied');
+    }
+    
+    /**
+     * Apply CSS Flexbox layout to container
+     */
+    applyFlexLayout() {
+        this.container.style.display = 'flex';
+        this.container.style.flexDirection = 'column';
+        this.container.style.gap = `${this.config.layout?.spacing || 4}px`;
+        
+        console.log('Flex layout applied');
+    }
+    
+    /**
+     * Get layout configuration
+     * @returns {Object} Layout config with mode and settings
+     */
+    getLayoutConfig() {
+        return {
+            mode: this.config.layout?.mode || 'flex',
+            spacing: this.config.layout?.spacing || 4,
+            minSubplotHeight: this.config.layout?.minSubplotHeight || 100
+        };
+    }
+    
+    /**
+     * Calculate responsive breakpoints based on container width
+     * @returns {Object} Breakpoint configuration
+     */
+    calculateResponsiveBreakpoints() {
+        const width = this.container.offsetWidth || 800;
+        
+        if (width < 480) {
+            return { size: 'xs', columns: 1, minHeight: 80 };
+        } else if (width < 768) {
+            return { size: 'sm', columns: 1, minHeight: 100 };
+        } else if (width < 1024) {
+            return { size: 'md', columns: 1, minHeight: 120 };
+        } else {
+            return { size: 'lg', columns: 1, minHeight: 150 };
+        }
+    }
+    
+    /**
+     * Apply layout based on configuration
+     */
+    applyLayout() {
+        const layoutConfig = this.getLayoutConfig();
+        
+        if (layoutConfig.mode === 'grid') {
+            this.applyGridLayout();
+        } else {
+            this.applyFlexLayout();
+        }
+    }
+    
+    // =========================================================================
+    // Task 6.3: Height Calculation and Virtualization
+    // =========================================================================
+    
+    /**
+     * Calculate individual subplot heights
+     * 
+     * For <=10 subplots: Equal distribution
+     * For >10 subplots: Minimum height with scrolling
+     * 
+     * @returns {number[]} Array of heights in pixels
+     */
+    calculateSubplotHeights() {
+        const count = this.getSubplotCount();
+        if (count === 0) return [];
+        
+        const containerHeight = this.container.offsetHeight || 600;
+        const mainChartHeight = containerHeight * 0.6;
+        const availableHeight = containerHeight - mainChartHeight;
+        const minHeight = this.config.layout?.minSubplotHeight || 100;
+        
+        if (count <= 10) {
+            // Equal distribution
+            const heightPerSubplot = Math.max(minHeight, availableHeight / count);
+            return Array(count).fill(heightPerSubplot);
+        } else {
+            // Fixed minimum height with scrolling
+            return Array(count).fill(minHeight);
+        }
+    }
+    
+    /**
+     * Check if scrolling should be enabled for subplots
+     * @returns {boolean} True if scrolling needed
+     */
+    shouldEnableScrolling() {
+        const count = this.getSubplotCount();
+        if (count <= 10) return false;
+        
+        const containerHeight = this.container.offsetHeight || 600;
+        const mainChartHeight = containerHeight * 0.6;
+        const availableHeight = containerHeight - mainChartHeight;
+        const minHeight = this.config.layout?.minSubplotHeight || 100;
+        
+        return count * minHeight > availableHeight;
+    }
+    
+    /**
+     * Get indices of visible subplots based on scroll position
+     * 
+     * @param {number} scrollTop - Current scroll position
+     * @returns {number[]} Array of visible subplot indices
+     */
+    getVisibleSubplots(scrollTop = 0) {
+        const count = this.getSubplotCount();
+        if (count === 0) return [];
+        
+        const heights = this.calculateSubplotHeights();
+        const viewportHeight = (this.container.offsetHeight || 600) * 0.4;
+        const bufferZone = 50; // Extra pixels for smooth scrolling
+        
+        const visibleStart = scrollTop - bufferZone;
+        const visibleEnd = scrollTop + viewportHeight + bufferZone;
+        
+        const visible = [];
+        let currentTop = 0;
+        
+        for (let i = 0; i < count; i++) {
+            const height = heights[i];
+            const subplotBottom = currentTop + height;
+            
+            // Check if subplot is in visible range
+            if (subplotBottom >= visibleStart && currentTop <= visibleEnd) {
+                visible.push(i);
+            }
+            
+            currentTop = subplotBottom;
+        }
+        
+        return visible;
+    }
+    
+    /**
+     * Apply virtualization to render only visible subplots
+     */
+    applyVirtualization() {
+        if (!this.shouldEnableScrolling()) {
+            console.log('Virtualization not needed');
+            return;
+        }
+        
+        // Enable scrolling on subplot container
+        if (this.subplotsWrapper) {
+            this.subplotsWrapper.style.overflowY = 'auto';
+            this.subplotsWrapper.style.maxHeight = `${(this.container.offsetHeight || 600) * 0.4}px`;
+        }
+        
+        console.log('Virtualization applied');
+    }
+    
+    /**
+     * Get total height needed for all subplots
+     * @returns {number} Total height in pixels
+     */
+    getTotalSubplotAreaHeight() {
+        const heights = this.calculateSubplotHeights();
+        return heights.reduce((sum, h) => sum + h, 0);
+    }
+    
     /**
      * Calculate heights for main chart and subplots
      * 
