@@ -7,6 +7,64 @@
  */
 
 /**
+ * Draw candlestick paths for uPlot OHLC rendering
+ * @param {Object} u - uPlot instance
+ * @param {number} seriesIdx - Series index
+ * @param {number} idx0 - Start index
+ * @param {number} idx1 - End index
+ * @returns {Object} SVG path object with stroke and fill paths
+ */
+function candlestickPaths(u, seriesIdx, idx0, idx1) {
+    const data = u.data;
+    const timestamps = data[0];
+    const opens = data[1];
+    const highs = data[2];
+    const lows = data[3];
+    const closes = data[4];
+    
+    let pathUp = '';
+    let pathDown = '';
+    
+    const candleWidth = Math.max(2, (u.bbox.width / (idx1 - idx0)) * 0.6);
+    
+    for (let i = idx0; i <= idx1; i++) {
+        if (opens[i] == null || closes[i] == null) continue;
+        
+        const x = Math.round(u.valToPos(timestamps[i], 'x', true));
+        const open = u.valToPos(opens[i], 'price', true);
+        const high = u.valToPos(highs[i], 'price', true);
+        const low = u.valToPos(lows[i], 'price', true);
+        const close = u.valToPos(closes[i], 'price', true);
+        
+        const isUp = closes[i] >= opens[i];
+        const halfWidth = candleWidth / 2;
+        
+        // Draw wick (high-low line)
+        const wick = `M ${x} ${high} L ${x} ${low}`;
+        
+        // Draw body (open-close rectangle)
+        const bodyTop = Math.min(open, close);
+        const bodyBottom = Math.max(open, close);
+        const bodyHeight = Math.abs(bodyBottom - bodyTop);
+        
+        const body = bodyHeight > 0
+            ? `M ${x - halfWidth} ${bodyTop} L ${x + halfWidth} ${bodyTop} L ${x + halfWidth} ${bodyBottom} L ${x - halfWidth} ${bodyBottom} Z`
+            : `M ${x - halfWidth} ${bodyTop} L ${x + halfWidth} ${bodyTop}`;
+        
+        if (isUp) {
+            pathUp += wick + ' ' + body + ' ';
+        } else {
+            pathDown += wick + ' ' + body + ' ';
+        }
+    }
+    
+    return {
+        stroke: new Path2D(pathDown),
+        fill: new Path2D(pathUp)
+    };
+}
+
+/**
  * Default configuration for MultiChartManager
  */
 const DEFAULT_CONFIG = {
@@ -260,12 +318,12 @@ export class MultiChartManager {
             // OHLC Candlesticks (Task 22.1)
             {
                 label: 'OHLC',
-                // Note: In real implementation with uPlot, would use:
-                // paths: uPlot.paths.bars,
-                // For testing, we use a simple object
-                paths: 'bars',
-                stroke: 'transparent',
-                fill: this.getCandlestickFill.bind(this)
+                paths: candlestickPaths,
+                points: { show: false },
+                stroke: "#ef5350",  // Red for bearish candles  
+                fill: "#26a69a",    // Green for bullish candles
+                width: 1.5,
+                scale: 'price'
             }
         ];
         
