@@ -62,18 +62,21 @@ export class DraggableDivider {
      */
     createDividerElement() {
         const divider = document.createElement('div');
-        divider.className = 'chart-divider';
-        divider.style.cssText = `
-            height: 3px;
-            background: #ccc;
-            cursor: ns-resize;
-            position: relative;
-            z-index: 10;
-            user-select: none;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-        `;
+        divider.classList.add('chart-divider');
+        
+        // Set individual style properties (better for testing and debugging)
+        divider.style.height = '3px';
+        divider.style.background = '#ccc';
+        divider.style.cursor = 'ns-resize';
+        divider.style.position = 'relative';
+        divider.style.zIndex = '10';
+        divider.style.userSelect = 'none';
+        divider.style.webkitUserSelect = 'none';
+        divider.style.mozUserSelect = 'none';
+        divider.style.msUserSelect = 'none';
+        
+        // GPU acceleration hint
+        divider.style.willChange = 'transform';
         
         // Add hover effect
         divider.addEventListener('mouseenter', () => {

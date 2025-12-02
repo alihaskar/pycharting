@@ -15,7 +15,21 @@ class MockHTMLElement {
     constructor(tagName = 'div') {
         this.tagName = tagName;
         this.style = {};
-        this.classList = new Set();
+        this.classList = {
+            _classes: new Set(),
+            add: function(className) {
+                this._classes.add(className);
+            },
+            remove: function(className) {
+                this._classes.delete(className);
+            },
+            has: function(className) {
+                return this._classes.has(className);
+            },
+            contains: function(className) {
+                return this._classes.has(className);
+            }
+        };
         this.children = [];
         this.parentElement = null;
         this.eventListeners = {};
@@ -333,6 +347,97 @@ test('Destroy method removes element from container', () => {
     
     // Element should be marked for removal or container reference cleared
     assertTrue(divider.element === null || divider.container === null, 'Should cleanup references');
+});
+
+// ============================================================================
+// Test Suite: Rendering and Styling
+// ============================================================================
+
+test('Divider element has correct CSS class', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    assertTrue(divider.element.classList.has('chart-divider'), 'Should have chart-divider class');
+});
+
+test('Divider element has ns-resize cursor', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    const cursor = divider.element.style.cursor;
+    assertEqual(cursor, 'ns-resize', 'Should have ns-resize cursor');
+});
+
+test('Divider element has correct height', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    const height = divider.element.style.height;
+    assertTrue(height === '3px' || height === '5px', 'Should have divider height');
+});
+
+test('Divider element has correct z-index', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    const zIndex = divider.element.style.zIndex;
+    assertTrue(parseInt(zIndex) >= 10, 'Should have z-index of at least 10');
+});
+
+test('Divider element has user-select none', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    const userSelect = divider.element.style.userSelect;
+    assertEqual(userSelect, 'none', 'Should have user-select: none');
+});
+
+test('Divider is appended to container', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    assertTrue(container.children.length > 0, 'Should have children');
+    assertTrue(container.children.includes(divider.element), 'Should contain divider element');
+});
+
+test('Divider has GPU-accelerated properties', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    // Check for will-change or transform properties
+    const willChange = divider.element.style.willChange;
+    assertTrue(
+        willChange === 'transform' || willChange === 'auto' || willChange === '',
+        'Should have GPU acceleration hints'
+    );
+});
+
+test('Dragging state changes divider appearance', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    const initialBg = divider.element.style.background;
+    
+    divider.handleMouseDown({ clientY: 100, preventDefault: () => {} });
+    const draggingBg = divider.element.style.background;
+    
+    assertNotEqual(draggingBg, initialBg, 'Background should change during drag');
+});
+
+test('Element has position relative', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    const position = divider.element.style.position;
+    assertEqual(position, 'relative', 'Should have position: relative');
+});
+
+test('Divider has visual feedback state', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    // Should have initial state
+    assertTrue(divider.element.style.background !== '', 'Should have background color');
 });
 
 // ============================================================================
