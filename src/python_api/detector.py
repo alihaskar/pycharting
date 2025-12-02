@@ -3,11 +3,22 @@ DataFrame column detection and classification utilities.
 
 This module provides functions to automatically detect OHLC columns
 and classify technical indicators in pandas DataFrames.
+
+Integrates with mapper.py for enhanced column standardization and detection.
 """
 
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import pandas as pd
+
+# Import mapper functions for integration
+try:
+    from .mapper import detect_columns as mapper_detect_columns, map_columns, ColumnNotFoundError
+except ImportError:
+    # Fallback if mapper not available
+    mapper_detect_columns = None
+    map_columns = None
+    ColumnNotFoundError = ValueError
 
 
 class OHLCColumnsNotFoundError(Exception):
@@ -376,4 +387,96 @@ def require_ohlc_columns(ohlc_columns: Dict[str, str], required: List[str] = Non
     
     if missing:
         raise OHLCColumnsNotFoundError(missing)
+
+
+# =============================================================================
+# Mapper Integration Functions (New in v2)
+# =============================================================================
+
+def detect_ohlc_columns_via_mapper(df: pd.DataFrame) -> Dict[str, str]:
+    """
+    Detect OHLC columns using mapper.py's enhanced detection.
+    
+    This is the recommended way to detect columns as it leverages
+    the improved fuzzy matching and error handling from mapper.py.
+    
+    Args:
+        df: pandas DataFrame containing OHLC data
+        
+    Returns:
+        Dictionary mapping actual column names to standard names
+        Example: {'Open': 'open', 'High': 'high', ...}
+        
+    Raises:
+        ValueError: If mapper.py is not available or OHLC columns cannot be detected
+    """
+    if mapper_detect_columns is None:
+        raise ValueError(
+            "mapper.py is not available. Please use detect_ohlc_columns() instead."
+        )
+    
+    return mapper_detect_columns(df)
+
+
+def standardize_dataframe(
+    df: pd.DataFrame,
+    open: Optional[str] = None,
+    high: Optional[str] = None,
+    low: Optional[str] = None,
+    close: Optional[str] = None,
+    volume: Optional[str] = None
+) -> pd.DataFrame:
+    """
+    Standardize DataFrame column names using mapper.py.
+    
+    This function integrates detector with mapper for consistent column naming.
+    Columns are renamed to lowercase standard names: 'open', 'high', 'low', 'close', 'volume'.
+    Indicator columns are preserved with their original names.
+    
+    Args:
+        df: Input DataFrame with OHLC data
+        open: Name of open price column (optional, auto-detected if not provided)
+        high: Name of high price column (optional, auto-detected if not provided)
+        low: Name of low price column (optional, auto-detected if not provided)
+        close: Name of close price column (optional, auto-detected if not provided)
+        volume: Name of volume column (optional, auto-detected if not provided)
+        
+    Returns:
+        DataFrame with standardized column names
+        
+    Raises:
+        ValueError: If mapper.py is not available
+        ColumnNotFoundError: If required columns cannot be found
+        
+    Examples:
+        >>> df = pd.DataFrame({'Open': [100], 'High': [105], 'Low': [99], 'Close': [103]})
+        >>> standardized = standardize_dataframe(df)
+        >>> list(standardized.columns)
+        ['open', 'high', 'low', 'close']
+    """
+    if map_columns is None or mapper_detect_columns is None:
+        raise ValueError(
+            "mapper.py is not available. Cannot standardize DataFrame."
+        )
+    
+    # If no columns specified, auto-detect them using mapper's detect_columns
+    if all(col is None for col in [open, high, low, close, volume]):
+        # Use mapper's smart detection
+        detected = mapper_detect_columns(df)
+        
+        # Convert detected mapping to parameters for map_columns
+        # detected is {'col_name': 'standard_name'}, we need actual col names
+        col_mapping = {v: k for k, v in detected.items()}
+        
+        return map_columns(
+            df,
+            open=col_mapping.get('open'),
+            high=col_mapping.get('high'),
+            low=col_mapping.get('low'),
+            close=col_mapping.get('close'),
+            volume=col_mapping.get('volume')
+        )
+    
+    # Use provided column names
+    return map_columns(df, open=open, high=high, low=low, close=close, volume=volume)
 
