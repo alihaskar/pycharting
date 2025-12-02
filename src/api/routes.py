@@ -12,6 +12,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chart-data", tags=["chart-data"])
 
 
+def parse_comma_separated(value: Optional[str]) -> List[str]:
+    """
+    Parse comma-separated string into list.
+    
+    Handles empty strings, whitespace, and None values gracefully.
+    
+    Args:
+        value: Comma-separated string or None
+        
+    Returns:
+        List of non-empty strings with whitespace stripped
+    """
+    if not value or not value.strip():
+        return []
+    
+    # Split by comma and strip whitespace from each item
+    items = [item.strip() for item in value.split(',')]
+    
+    # Filter out empty strings
+    return [item for item in items if item]
+
+
 @router.get(
     "",
     response_model=ChartDataResponse,
@@ -28,6 +50,14 @@ async def get_chart_data(
     indicators: Optional[List[str]] = Query(
         None,
         description="List of indicators with parameters (e.g., RSI:14, SMA:20)"
+    ),
+    overlays: Optional[str] = Query(
+        None,
+        description="Comma-separated overlay indicator names from CSV (e.g., sma_20,ema_12)"
+    ),
+    subplots: Optional[str] = Query(
+        None,
+        description="Comma-separated subplot indicator names from CSV (e.g., rsi_14,macd)"
     ),
     start_date: Optional[str] = Query(
         None,
@@ -49,6 +79,8 @@ async def get_chart_data(
     Args:
         filename: Name of CSV file to load
         indicators: Optional list of indicators to calculate
+        overlays: Comma-separated overlay indicator names
+        subplots: Comma-separated subplot indicator names
         start_date: Optional start date for filtering
         end_date: Optional end date for filtering
         timeframe: Optional timeframe for resampling
@@ -62,7 +94,17 @@ async def get_chart_data(
     try:
         logger.info(f"Request for chart data: filename={filename}")
         
+        # Parse comma-separated indicator parameters
+        overlay_list = parse_comma_separated(overlays)
+        subplot_list = parse_comma_separated(subplots)
+        
+        if overlay_list:
+            logger.info(f"Requested overlays: {overlay_list}")
+        if subplot_list:
+            logger.info(f"Requested subplots: {subplot_list}")
+        
         # Load and process data
+        # TODO: Pass overlay_list and subplot_list to processor (Task 17.2)
         uplot_data, metadata = load_and_process_data(
             filename=filename,
             indicators=indicators,
