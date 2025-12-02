@@ -4,6 +4,68 @@ import numpy as np
 from typing import Union
 
 
+class IndicatorValidationError(Exception):
+    """Custom exception for indicator validation errors."""
+    pass
+
+
+def validate_indicator_input(
+    prices: pd.Series,
+    period: int,
+    indicator_name: str
+) -> None:
+    """
+    Validate input parameters for indicator calculations.
+    
+    Args:
+        prices: Input price series
+        period: Lookback period for calculation
+        indicator_name: Name of indicator for error messages
+    
+    Raises:
+        IndicatorValidationError: If validation fails
+    """
+    # Check if prices is None
+    if prices is None:
+        raise IndicatorValidationError(
+            f"{indicator_name}: Input prices cannot be None"
+        )
+    
+    # Check if prices is a pandas Series
+    if not isinstance(prices, pd.Series):
+        raise IndicatorValidationError(
+            f"{indicator_name}: Input must be a pandas Series, got {type(prices).__name__}"
+        )
+    
+    # Check if period is an integer
+    if not isinstance(period, (int, np.integer)):
+        raise IndicatorValidationError(
+            f"{indicator_name}: Period must be an integer, got {type(period).__name__}"
+        )
+    
+    # Check if period is positive
+    if period <= 0:
+        raise IndicatorValidationError(
+            f"{indicator_name}: Period must be positive, got {period}"
+        )
+
+
+def check_sufficient_data(prices: pd.Series, required: int) -> bool:
+    """
+    Check if there is sufficient data for calculation.
+    
+    Args:
+        prices: Input price series
+        required: Minimum number of data points required
+    
+    Returns:
+        True if sufficient data, False otherwise
+    """
+    if prices is None or len(prices) < required:
+        return False
+    return True
+
+
 def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
     """
     Calculate Relative Strength Index (RSI).
