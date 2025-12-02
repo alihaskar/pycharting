@@ -122,16 +122,16 @@ class ChartApplication {
         this.activeIndicatorsContainer.innerHTML = '';
         
         if (this.activeIndicators.length === 0) {
-            this.activeIndicatorsContainer.innerHTML = '<span style="color: #666; font-size: 0.875rem;">No indicators selected</span>';
+            this.activeIndicatorsContainer.innerHTML = '<span style="opacity: 0.7; font-size: 0.75rem;">No indicators</span>';
             return;
         }
         
         this.activeIndicators.forEach(indicator => {
             const badge = document.createElement('div');
-            badge.style.cssText = 'display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.75rem; background: #e8f5e9; color: #2e7d32; border-radius: 16px; font-size: 0.875rem;';
+            badge.className = 'indicator-badge';
             badge.innerHTML = `
                 <span>${indicator}</span>
-                <button onclick="app.removeIndicator('${indicator}')" style="background: none; border: none; color: #2e7d32; cursor: pointer; padding: 0; font-size: 1rem; line-height: 1;">&times;</button>
+                <button onclick="app.removeIndicator('${indicator}')">&times;</button>
             `;
             this.activeIndicatorsContainer.appendChild(badge);
         });

@@ -21,103 +21,187 @@
             line-height: 1.6;
             color: #333;
             background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
         }
         
         header {
             background-color: #2c3e50;
             color: white;
-            padding: 1rem 2rem;
+            padding: 0.75rem 1.5rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
         }
         
         header h1 {
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 600;
+            margin: 0;
+            flex-shrink: 0;
+        }
+        
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .control-group label {
+            font-size: 0.75rem;
+            opacity: 0.9;
+        }
+        
+        .control-group input,
+        .control-group select,
+        .control-group button {
+            padding: 0.4rem 0.75rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            font-size: 0.875rem;
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        
+        .control-group input::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+        
+        .control-group button {
+            background: #3498db;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .control-group button:hover {
+            background: #2980b9;
+        }
+        
+        #active-indicators {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+            font-size: 0.75rem;
+        }
+        
+        .indicator-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.2rem 0.6rem;
+            background: rgba(255,255,255,0.2);
+            border-radius: 12px;
+        }
+        
+        .indicator-badge button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 0;
+            font-size: 1rem;
+            line-height: 1;
         }
         
         main {
-            max-width: 1400px;
-            margin: 2rem auto;
-            padding: 0 2rem;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
         }
         
         #chart-container {
+            flex: 1;
             background: white;
-            border-radius: 8px;
-            padding: 2rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
+            padding: 1rem;
+            overflow: hidden;
         }
         
         footer {
             text-align: center;
-            padding: 2rem;
+            padding: 0.5rem;
             color: #666;
-            font-size: 0.875rem;
+            font-size: 0.75rem;
+            background: #f5f5f5;
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>Financial Charting Tool</h1>
-    </header>
-    
-    <main>
-        <!-- Controls Section -->
-        <section id="controls" style="background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: end;">
-                <!-- File Selection -->
-                <div>
-                    <label for="file-select" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">CSV File:</label>
-                    <input type="text" id="file-select" placeholder="sample.csv" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                </div>
-                
-                <!-- Timeframe Selection -->
-                <div>
-                    <label for="timeframe-select" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Timeframe:</label>
-                    <select id="timeframe-select" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Original</option>
-                        <option value="1min">1 Minute</option>
-                        <option value="5min">5 Minutes</option>
-                        <option value="15min">15 Minutes</option>
-                        <option value="1h">1 Hour</option>
-                        <option value="4h">4 Hours</option>
-                        <option value="1D">1 Day</option>
-                    </select>
-                </div>
-                
-                <!-- Indicator Selection -->
-                <div>
-                    <label for="indicator-select" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Add Indicator:</label>
-                    <select id="indicator-select" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Select Indicator...</option>
-                        <option value="RSI:14">RSI (14)</option>
-                        <option value="RSI:20">RSI (20)</option>
-                        <option value="SMA:20">SMA (20)</option>
-                        <option value="SMA:50">SMA (50)</option>
-                        <option value="SMA:200">SMA (200)</option>
-                        <option value="EMA:12">EMA (12)</option>
-                        <option value="EMA:26">EMA (26)</option>
-                    </select>
-                </div>
-                
-                <!-- Load Button -->
-                <div>
-                    <button id="load-btn" style="width: 100%; padding: 0.5rem 1rem; background: #2c3e50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
-                        Load Chart
-                    </button>
-                </div>
+        <h1>📈 Financial Chart</h1>
+        
+        <div class="controls">
+            <!-- File Selection -->
+            <div class="control-group">
+                <label for="file-select">CSV File</label>
+                <input type="text" id="file-select" placeholder="sample.csv" style="width: 140px;">
+            </div>
+            
+            <!-- Timeframe Selection -->
+            <div class="control-group">
+                <label for="timeframe-select">Timeframe</label>
+                <select id="timeframe-select" style="width: 100px;">
+                    <option value="">Original</option>
+                    <option value="1min">1min</option>
+                    <option value="5min">5min</option>
+                    <option value="15min">15min</option>
+                    <option value="1h">1h</option>
+                    <option value="4h">4h</option>
+                    <option value="1D">1D</option>
+                </select>
+            </div>
+            
+            <!-- Indicator Selection -->
+            <div class="control-group">
+                <label for="indicator-select">Indicators</label>
+                <select id="indicator-select" style="width: 120px;">
+                    <option value="">Add...</option>
+                    <option value="RSI:14">RSI (14)</option>
+                    <option value="RSI:20">RSI (20)</option>
+                    <option value="SMA:20">SMA (20)</option>
+                    <option value="SMA:50">SMA (50)</option>
+                    <option value="SMA:200">SMA (200)</option>
+                    <option value="EMA:12">EMA (12)</option>
+                    <option value="EMA:26">EMA (26)</option>
+                </select>
+            </div>
+            
+            <!-- Load Button -->
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button id="load-btn">Load Chart</button>
             </div>
             
             <!-- Active Indicators Display -->
-            <div id="active-indicators" style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <!-- Active indicators will appear here as badges -->
+            <div id="active-indicators">
+                <span style="opacity: 0.7; font-size: 0.75rem;">No indicators</span>
             </div>
-        </section>
-        
-        <!-- Chart Section -->
-        <section id="chart-container" style="min-height: 400px;">
-            <!-- uPlot chart will be rendered here -->
+        </div>
+    </header>
+    
+    <main>
+        <!-- Chart Section - Now takes full space -->
+        <section id="chart-container">
+            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #999;">
+                <p>Enter a filename and click "Load Chart" to begin</p>
+            </div>
         </section>
     </main>
     

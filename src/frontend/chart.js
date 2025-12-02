@@ -114,9 +114,9 @@ class ChartManager {
      */
     createChartOptions(metadata) {
         const opts = {
-            title: "Financial Chart - OHLC",
+            title: "",  // No title, we have it in header
             width: this.container.clientWidth,
-            height: 500,
+            height: this.container.clientHeight || window.innerHeight - 150,
             cursor: {
                 drag: {
                     x: true,

@@ -48,9 +48,9 @@ def test_has_load_button(html_content):
 
 
 def test_has_controls_section(html_content):
-    """Test that controls section exists."""
-    assert 'id="controls"' in html_content, \
-        "Should have controls section"
+    """Test that controls are present in header."""
+    assert 'class="controls"' in html_content or 'class="control-group"' in html_content, \
+        "Should have controls in header"
 
 
 def test_has_active_indicators_display(html_content):
