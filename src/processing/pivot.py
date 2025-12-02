@@ -1,7 +1,45 @@
 """Data pivoting module for converting DataFrames to uPlot format."""
 import pandas as pd
 import numpy as np
+import math
 from typing import List, Any, Literal
+
+
+def sanitize_nan_values(values: List[Any]) -> List[Any]:
+    """
+    Convert NaN, Inf, and NA values to None for JSON compatibility.
+    
+    Handles:
+    - np.nan (numpy NaN)
+    - float('nan') (Python NaN)
+    - pd.NA (pandas NA)
+    - np.inf and -np.inf (infinity)
+    
+    Args:
+        values: List of values that may contain NaN/Inf/NA
+        
+    Returns:
+        List with NaN/Inf/NA converted to None
+        
+    Example:
+        >>> sanitize_nan_values([1.0, np.nan, 3.0])
+        [1.0, None, 3.0]
+    """
+    result = []
+    for val in values:
+        # Check for various NaN/NA representations
+        if val is pd.NA:
+            result.append(None)
+        elif isinstance(val, float):
+            # Check for NaN or Inf
+            if math.isnan(val) or math.isinf(val):
+                result.append(None)
+            else:
+                result.append(val)
+        else:
+            result.append(val)
+    
+    return result
 
 
 def datetime_to_unix_ms(dt: pd.Timestamp) -> int:
@@ -120,14 +158,18 @@ def to_uplot_format(
         timestamps = [datetime_to_unix_seconds(ts) for ts in df.index]
     result.append(timestamps)
     
-    # Add OHLCV columns in order
+    # Add OHLCV columns in order with NaN sanitization
     for col in required_cols:
-        result.append(df[col].tolist())
+        values = df[col].tolist()
+        sanitized = sanitize_nan_values(values)
+        result.append(sanitized)
     
-    # Add any additional indicator columns
+    # Add any additional indicator columns with NaN sanitization
     indicator_cols = [col for col in df.columns if col not in required_cols]
     for col in sorted(indicator_cols):  # Sort for consistent ordering
-        result.append(df[col].tolist())
+        values = df[col].tolist()
+        sanitized = sanitize_nan_values(values)
+        result.append(sanitized)
     
     return result
 
