@@ -116,6 +116,11 @@ export class MultiChartManager {
         this.syncedCharts = [];
         this.chartData = null; // Stores data loaded via loadAndRender
         
+        // Task 6.1: Dynamic container management
+        this.subplotContainers = [];
+        this.mainChartWrapper = null;
+        this.subplotsWrapper = null;
+        
         console.log('MultiChartManager initialized');
     }
     
@@ -153,6 +158,365 @@ export class MultiChartManager {
         await this.createMainChart();
         await this.createSubplots();
         this.setupSynchronization();
+    }
+    
+    // =========================================================================
+    // Task 6.1: Dynamic Container Creation for N Subplots
+    // =========================================================================
+    
+    /**
+     * Get the count of subplots from config
+     * @returns {number} Number of subplots configured
+     */
+    getSubplotCount() {
+        return this.config.subplots ? this.config.subplots.length : 0;
+    }
+    
+    /**
+     * Create N subplot containers based on indicator count
+     * 
+     * @param {number} count - Number of subplot containers to create
+     */
+    createSubplotContainers(count) {
+        // Clear existing containers first
+        this.clearSubplotContainers();
+        
+        // Create N new containers
+        for (let i = 0; i < count; i++) {
+            const container = document.createElement('div');
+            container.id = `subplot-container-${i}`;
+            container.style.position = 'relative';
+            container.style.minHeight = '100px';
+            
+            // Add class for styling
+            if (container.classList) {
+                container.classList.add('subplot-container');
+            }
+            
+            // Add dataset for indicator mapping
+            container._dataset = container._dataset || {};
+            if (this.config.subplots && this.config.subplots[i]) {
+                container._dataset.indicator = this.config.subplots[i].name;
+                container._dataset.index = i;
+            }
+            
+            this.subplotContainers.push(container);
+        }
+        
+        console.log(`Created ${count} subplot containers`);
+    }
+    
+    /**
+     * Clear all existing subplot containers
+     */
+    clearSubplotContainers() {
+        // Remove from DOM
+        this.subplotContainers.forEach(container => {
+            if (container.parentElement) {
+                container.parentElement.removeChild(container);
+            }
+        });
+        
+        // Clear array
+        this.subplotContainers = [];
+    }
+    
+    /**
+     * Create the container hierarchy with main chart and subplots wrappers
+     */
+    createContainerHierarchy() {
+        // Clear existing content
+        this.container.innerHTML = '';
+        
+        // Create main chart wrapper
+        this.mainChartWrapper = document.createElement('div');
+        this.mainChartWrapper.id = 'main-chart-wrapper';
+        this.mainChartWrapper.style.position = 'relative';
+        this.container.appendChild(this.mainChartWrapper);
+        
+        // Create subplots wrapper
+        this.subplotsWrapper = document.createElement('div');
+        this.subplotsWrapper.id = 'subplots-wrapper';
+        this.subplotsWrapper.style.position = 'relative';
+        this.container.appendChild(this.subplotsWrapper);
+        
+        console.log('Container hierarchy created');
+    }
+    
+    // =========================================================================
+    // Task 6.2: CSS Grid/Flexbox Layout Algorithm
+    // =========================================================================
+    
+    /**
+     * Apply CSS Grid layout to container
+     */
+    applyGridLayout() {
+        this.container.style.display = 'grid';
+        
+        // Calculate grid rows based on subplots
+        const subplotCount = this.getSubplotCount();
+        const mainHeight = subplotCount > 0 ? '60%' : '100%';
+        
+        if (subplotCount > 0) {
+            const subplotHeight = `${40 / subplotCount}%`;
+            const rows = [mainHeight, ...Array(subplotCount).fill(subplotHeight)];
+            this.container.style.gridTemplateRows = rows.join(' ');
+        } else {
+            this.container.style.gridTemplateRows = mainHeight;
+        }
+        
+        this.container.style.gridTemplateColumns = '1fr';
+        this.container.style.gap = `${this.config.layout?.spacing || 4}px`;
+        
+        console.log('Grid layout applied');
+    }
+    
+    /**
+     * Apply CSS Flexbox layout to container
+     */
+    applyFlexLayout() {
+        this.container.style.display = 'flex';
+        this.container.style.flexDirection = 'column';
+        this.container.style.gap = `${this.config.layout?.spacing || 4}px`;
+        
+        console.log('Flex layout applied');
+    }
+    
+    /**
+     * Get layout configuration
+     * @returns {Object} Layout config with mode and settings
+     */
+    getLayoutConfig() {
+        return {
+            mode: this.config.layout?.mode || 'flex',
+            spacing: this.config.layout?.spacing || 4,
+            minSubplotHeight: this.config.layout?.minSubplotHeight || 100
+        };
+    }
+    
+    /**
+     * Calculate responsive breakpoints based on container width
+     * @returns {Object} Breakpoint configuration
+     */
+    calculateResponsiveBreakpoints() {
+        const width = this.container.offsetWidth || 800;
+        
+        if (width < 480) {
+            return { size: 'xs', columns: 1, minHeight: 80 };
+        } else if (width < 768) {
+            return { size: 'sm', columns: 1, minHeight: 100 };
+        } else if (width < 1024) {
+            return { size: 'md', columns: 1, minHeight: 120 };
+        } else {
+            return { size: 'lg', columns: 1, minHeight: 150 };
+        }
+    }
+    
+    /**
+     * Apply layout based on configuration
+     */
+    applyLayout() {
+        const layoutConfig = this.getLayoutConfig();
+        
+        if (layoutConfig.mode === 'grid') {
+            this.applyGridLayout();
+        } else {
+            this.applyFlexLayout();
+        }
+    }
+    
+    // =========================================================================
+    // Task 6.3: Height Calculation and Virtualization
+    // =========================================================================
+    
+    /**
+     * Calculate individual subplot heights
+     * 
+     * For <=10 subplots: Equal distribution
+     * For >10 subplots: Minimum height with scrolling
+     * 
+     * @returns {number[]} Array of heights in pixels
+     */
+    calculateSubplotHeights() {
+        const count = this.getSubplotCount();
+        if (count === 0) return [];
+        
+        const containerHeight = this.container.offsetHeight || 600;
+        const mainChartHeight = containerHeight * 0.6;
+        const availableHeight = containerHeight - mainChartHeight;
+        const minHeight = this.config.layout?.minSubplotHeight || 100;
+        
+        if (count <= 10) {
+            // Equal distribution
+            const heightPerSubplot = Math.max(minHeight, availableHeight / count);
+            return Array(count).fill(heightPerSubplot);
+        } else {
+            // Fixed minimum height with scrolling
+            return Array(count).fill(minHeight);
+        }
+    }
+    
+    /**
+     * Check if scrolling should be enabled for subplots
+     * @returns {boolean} True if scrolling needed
+     */
+    shouldEnableScrolling() {
+        const count = this.getSubplotCount();
+        if (count <= 10) return false;
+        
+        const containerHeight = this.container.offsetHeight || 600;
+        const mainChartHeight = containerHeight * 0.6;
+        const availableHeight = containerHeight - mainChartHeight;
+        const minHeight = this.config.layout?.minSubplotHeight || 100;
+        
+        return count * minHeight > availableHeight;
+    }
+    
+    /**
+     * Get indices of visible subplots based on scroll position
+     * 
+     * @param {number} scrollTop - Current scroll position
+     * @returns {number[]} Array of visible subplot indices
+     */
+    getVisibleSubplots(scrollTop = 0) {
+        const count = this.getSubplotCount();
+        if (count === 0) return [];
+        
+        const heights = this.calculateSubplotHeights();
+        const viewportHeight = (this.container.offsetHeight || 600) * 0.4;
+        const bufferZone = 50; // Extra pixels for smooth scrolling
+        
+        const visibleStart = scrollTop - bufferZone;
+        const visibleEnd = scrollTop + viewportHeight + bufferZone;
+        
+        const visible = [];
+        let currentTop = 0;
+        
+        for (let i = 0; i < count; i++) {
+            const height = heights[i];
+            const subplotBottom = currentTop + height;
+            
+            // Check if subplot is in visible range
+            if (subplotBottom >= visibleStart && currentTop <= visibleEnd) {
+                visible.push(i);
+            }
+            
+            currentTop = subplotBottom;
+        }
+        
+        return visible;
+    }
+    
+    /**
+     * Apply virtualization to render only visible subplots
+     */
+    applyVirtualization() {
+        if (!this.shouldEnableScrolling()) {
+            console.log('Virtualization not needed');
+            return;
+        }
+        
+        // Enable scrolling on subplot container
+        if (this.subplotsWrapper) {
+            this.subplotsWrapper.style.overflowY = 'auto';
+            this.subplotsWrapper.style.maxHeight = `${(this.container.offsetHeight || 600) * 0.4}px`;
+        }
+        
+        console.log('Virtualization applied');
+    }
+    
+    /**
+     * Get total height needed for all subplots
+     * @returns {number} Total height in pixels
+     */
+    getTotalSubplotAreaHeight() {
+        const heights = this.calculateSubplotHeights();
+        return heights.reduce((sum, h) => sum + h, 0);
+    }
+    
+    // =========================================================================
+    // Task 6.4: Enhanced uPlot Synchronization for N Subplots
+    // =========================================================================
+    
+    /**
+     * Register a chart for cursor/zoom synchronization
+     * @param {Object} chart - uPlot chart instance
+     */
+    registerChartForSync(chart) {
+        if (!chart) return;
+        
+        if (!this.syncedCharts.includes(chart)) {
+            this.syncedCharts.push(chart);
+            console.log(`Chart registered for sync, total: ${this.syncedCharts.length}`);
+        }
+    }
+    
+    /**
+     * Unregister a chart from synchronization
+     * @param {Object} chart - uPlot chart instance to remove
+     */
+    unregisterChartFromSync(chart) {
+        const index = this.syncedCharts.indexOf(chart);
+        if (index > -1) {
+            this.syncedCharts.splice(index, 1);
+            console.log(`Chart unregistered from sync, remaining: ${this.syncedCharts.length}`);
+        }
+    }
+    
+    /**
+     * Broadcast cursor position to all synchronized charts
+     * @param {Object} position - Cursor position { left, top }
+     * @param {Object} sourceChart - Chart that triggered the event
+     */
+    broadcastCursorPosition(position, sourceChart) {
+        if (this._syncInProgress) return;
+        
+        this._syncInProgress = true;
+        
+        this.syncedCharts.forEach(chart => {
+            if (chart !== sourceChart && chart.setCursor) {
+                chart.setCursor(position);
+            }
+        });
+        
+        // Reset sync lock after brief delay
+        setTimeout(() => {
+            this._syncInProgress = false;
+        }, 10);
+    }
+    
+    /**
+     * Broadcast zoom range to all synchronized charts
+     * @param {Object} range - Zoom range { min, max }
+     * @param {Object} sourceChart - Chart that triggered the event
+     */
+    broadcastZoomRange(range, sourceChart) {
+        if (this._syncInProgress) return;
+        
+        this._syncInProgress = true;
+        
+        this.syncedCharts.forEach(chart => {
+            if (chart !== sourceChart && chart.setScale) {
+                chart.setScale('x', range);
+            }
+        });
+        
+        setTimeout(() => {
+            this._syncInProgress = false;
+        }, 10);
+    }
+    
+    /**
+     * Get synchronization status
+     * @returns {Object} Sync status info
+     */
+    getSyncStatus() {
+        return {
+            chartCount: this.syncedCharts.length,
+            cursorSyncEnabled: this.config.sync?.cursor !== false,
+            zoomSyncEnabled: this.config.sync?.zoom !== false,
+            syncInProgress: this._syncInProgress || false
+        };
     }
     
     /**
