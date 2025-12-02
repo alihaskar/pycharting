@@ -6,7 +6,7 @@ Testing detection of pre-existing indicator columns in CSV files.
 import pytest
 import pandas as pd
 import numpy as np
-from src.api.processor import detect_indicator_columns
+from src.api.processor import detect_indicator_columns, filter_indicator_data
 
 
 class TestIndicatorColumnDetection:
@@ -142,4 +142,136 @@ class TestIndicatorColumnDetection:
         indicators = detect_indicator_columns(df)
         
         assert indicators == []
+
+
+class TestDataFilteringAndExtraction:
+    """Test filtering and extraction of indicator data."""
+    
+    def test_filter_indicator_data_overlays_only(self):
+        """Test filtering overlay indicators."""
+        df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=3),
+            'open': [100, 101, 102],
+            'close': [101, 102, 103],
+            'sma_20': [100.5, 101.5, 102.5],
+            'ema_12': [100.2, 101.2, 102.2],
+            'rsi_14': [45, 46, 47]
+        })
+        
+        overlays, subplots = filter_indicator_data(
+            df,
+            overlays=['sma_20', 'ema_12'],
+            subplots=None
+        )
+        
+        assert overlays == ['sma_20', 'ema_12']
+        assert subplots == []
+    
+    def test_filter_indicator_data_subplots_only(self):
+        """Test filtering subplot indicators."""
+        df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=3),
+            'open': [100, 101, 102],
+            'close': [101, 102, 103],
+            'sma_20': [100.5, 101.5, 102.5],
+            'rsi_14': [45, 46, 47],
+            'macd': [0.5, 0.6, 0.7]
+        })
+        
+        overlays, subplots = filter_indicator_data(
+            df,
+            overlays=None,
+            subplots=['rsi_14', 'macd']
+        )
+        
+        assert overlays == []
+        assert subplots == ['rsi_14', 'macd']
+    
+    def test_filter_indicator_data_both_types(self):
+        """Test filtering both overlay and subplot indicators."""
+        df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=3),
+            'open': [100, 101, 102],
+            'close': [101, 102, 103],
+            'sma_20': [100.5, 101.5, 102.5],
+            'rsi_14': [45, 46, 47]
+        })
+        
+        overlays, subplots = filter_indicator_data(
+            df,
+            overlays=['sma_20'],
+            subplots=['rsi_14']
+        )
+        
+        assert overlays == ['sma_20']
+        assert subplots == ['rsi_14']
+    
+    def test_filter_indicator_data_no_filters(self):
+        """Test when no filters are specified."""
+        df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=3),
+            'open': [100, 101, 102],
+            'close': [101, 102, 103],
+            'sma_20': [100.5, 101.5, 102.5],
+            'rsi_14': [45, 46, 47]
+        })
+        
+        overlays, subplots = filter_indicator_data(df, overlays=None, subplots=None)
+        
+        assert overlays == []
+        assert subplots == []
+    
+    def test_filter_indicator_data_missing_columns(self):
+        """Test filtering when requested columns don't exist."""
+        df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=3),
+            'open': [100, 101, 102],
+            'close': [101, 102, 103],
+            'sma_20': [100.5, 101.5, 102.5]
+        })
+        
+        overlays, subplots = filter_indicator_data(
+            df,
+            overlays=['sma_20', 'nonexistent'],
+            subplots=['rsi_14']
+        )
+        
+        # Should only include existing columns
+        assert overlays == ['sma_20']
+        assert subplots == []
+    
+    def test_filter_indicator_data_empty_lists(self):
+        """Test filtering with empty lists."""
+        df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=3),
+            'open': [100, 101, 102],
+            'close': [101, 102, 103],
+            'sma_20': [100.5, 101.5, 102.5]
+        })
+        
+        overlays, subplots = filter_indicator_data(df, overlays=[], subplots=[])
+        
+        assert overlays == []
+        assert subplots == []
+    
+    def test_filter_indicator_data_preserves_order(self):
+        """Test that filtering preserves requested order."""
+        df = pd.DataFrame({
+            'timestamp': pd.date_range('2024-01-01', periods=3),
+            'open': [100, 101, 102],
+            'close': [101, 102, 103],
+            'sma_20': [100.5, 101.5, 102.5],
+            'ema_12': [100.2, 101.2, 102.2],
+            'rsi_14': [45, 46, 47]
+        })
+        
+        # Request in specific order
+        overlays, subplots = filter_indicator_data(
+            df,
+            overlays=['ema_12', 'sma_20'],
+            subplots=None
+        )
+        
+        # Should preserve requested order
+        assert overlays == ['ema_12', 'sma_20']
 
