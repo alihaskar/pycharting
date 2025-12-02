@@ -159,14 +159,61 @@ def classify_indicators(indicator_columns: List[str]) -> Tuple[List[str], List[s
     """
     Classify indicators as overlay (price-based) or subplot (oscillator).
     
+    Uses pattern matching to identify common indicator types:
+    - Overlay: Moving averages (SMA, EMA, MA), VWAP, Bollinger Bands
+    - Subplot: Oscillators and momentum indicators (RSI, MACD, Stochastic, OBV, CCI)
+    
+    Unknown indicators default to subplot for safety.
+    
     Args:
         indicator_columns: List of indicator column names
         
     Returns:
         Tuple of (overlay_indicators, subplot_indicators)
+        
+    Examples:
+        >>> classify_indicators(['sma_20', 'rsi_14', 'ema_12'])
+        (['sma_20', 'ema_12'], ['rsi_14'])
     """
-    # For now, just a stub - will be implemented in Task 12
-    pass
+    # Define regex patterns for overlay indicators (price-based)
+    overlay_patterns = [
+        r'.*sma.*',      # Simple Moving Average
+        r'.*ema.*',      # Exponential Moving Average
+        r'^ma[_\d].*',   # Generic Moving Average starting with "ma_" or "ma" followed by digit
+        r'.*\bma\b.*',   # Generic Moving Average with word boundaries
+        r'.*vwap.*',     # Volume Weighted Average Price
+        r'.*bb.*',       # Bollinger Bands
+        r'.*band.*',     # Any band indicators
+        r'.*average.*',  # Any average indicators
+    ]
+    
+    # Define regex patterns for subplot indicators (oscillators/momentum)
+    subplot_patterns = [
+        r'.*rsi.*',      # Relative Strength Index
+        r'.*macd.*',     # Moving Average Convergence Divergence
+        r'.*stoch.*',    # Stochastic
+        r'.*obv.*',      # On-Balance Volume
+        r'.*cci.*',      # Commodity Channel Index
+        r'.*adx.*',      # Average Directional Index
+        r'.*mfi.*',      # Money Flow Index
+    ]
+    
+    overlays = []
+    subplots = []
+    
+    for col in indicator_columns:
+        col_lower = col.lower()
+        
+        # Check if matches overlay patterns
+        is_overlay = any(re.match(pattern, col_lower, re.IGNORECASE) for pattern in overlay_patterns)
+        
+        if is_overlay:
+            overlays.append(col)
+        else:
+            # Default to subplot for unknown indicators (safety)
+            subplots.append(col)
+    
+    return overlays, subplots
 
 
 def check_numeric_columns(df: pd.DataFrame, ohlc_columns: Dict[str, str]) -> None:

@@ -610,3 +610,159 @@ class TestIndicatorDetection:
         assert 'another_signal' in indicators
         assert len(indicators) == 2
 
+
+class TestIndicatorClassification:
+    """Test classification of indicators as overlay or subplot."""
+    
+    def test_classify_sma_as_overlay(self):
+        """Test that SMA indicators are classified as overlay."""
+        indicators = ['sma_20', 'sma_50', 'sma_200']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'sma_20' in overlays
+        assert 'sma_50' in overlays
+        assert 'sma_200' in overlays
+        assert len(overlays) == 3
+        assert len(subplots) == 0
+    
+    def test_classify_ema_as_overlay(self):
+        """Test that EMA indicators are classified as overlay."""
+        indicators = ['ema_12', 'ema_26', 'EMA_50']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'ema_12' in overlays
+        assert 'ema_26' in overlays
+        assert 'EMA_50' in overlays
+        assert len(overlays) == 3
+    
+    def test_classify_ma_as_overlay(self):
+        """Test that generic MA indicators are classified as overlay."""
+        indicators = ['ma_10', 'MA_20', 'moving_average_50']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'ma_10' in overlays
+        assert 'MA_20' in overlays
+        assert 'moving_average_50' in overlays
+    
+    def test_classify_vwap_as_overlay(self):
+        """Test that VWAP indicators are classified as overlay."""
+        indicators = ['vwap', 'VWAP', 'vwap_daily']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'vwap' in overlays
+        assert 'VWAP' in overlays
+        assert 'vwap_daily' in overlays
+    
+    def test_classify_bollinger_bands_as_overlay(self):
+        """Test that Bollinger Bands indicators are classified as overlay."""
+        indicators = ['bb_upper', 'bb_lower', 'bb_middle', 'bollinger_bands']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'bb_upper' in overlays
+        assert 'bb_lower' in overlays
+        assert 'bb_middle' in overlays
+        assert 'bollinger_bands' in overlays
+    
+    def test_classify_rsi_as_subplot(self):
+        """Test that RSI indicators are classified as subplot."""
+        indicators = ['rsi_14', 'RSI_21', 'rsi']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'rsi_14' in subplots
+        assert 'RSI_21' in subplots
+        assert 'rsi' in subplots
+        assert len(subplots) == 3
+        assert len(overlays) == 0
+    
+    def test_classify_macd_as_subplot(self):
+        """Test that MACD indicators are classified as subplot."""
+        indicators = ['macd', 'macd_signal', 'macd_histogram', 'MACD']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'macd' in subplots
+        assert 'macd_signal' in subplots
+        assert 'macd_histogram' in subplots
+        assert 'MACD' in subplots
+    
+    def test_classify_stochastic_as_subplot(self):
+        """Test that Stochastic indicators are classified as subplot."""
+        indicators = ['stoch_k', 'stoch_d', 'stochastic']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'stoch_k' in subplots
+        assert 'stoch_d' in subplots
+        assert 'stochastic' in subplots
+    
+    def test_classify_obv_as_subplot(self):
+        """Test that OBV indicators are classified as subplot."""
+        indicators = ['obv', 'OBV', 'obv_signal']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'obv' in subplots
+        assert 'OBV' in subplots
+        assert 'obv_signal' in subplots
+    
+    def test_classify_cci_as_subplot(self):
+        """Test that CCI indicators are classified as subplot."""
+        indicators = ['cci', 'CCI_20', 'commodity_channel_index']
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert 'cci' in subplots
+        assert 'CCI_20' in subplots
+        assert 'commodity_channel_index' in subplots
+    
+    def test_classify_mixed_indicators(self):
+        """Test classification of mixed overlay and subplot indicators."""
+        indicators = [
+            'sma_20', 'ema_12',  # Overlays
+            'rsi_14', 'macd', 'stoch_k'  # Subplots
+        ]
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        # Check overlays
+        assert 'sma_20' in overlays
+        assert 'ema_12' in overlays
+        assert len(overlays) == 2
+        
+        # Check subplots
+        assert 'rsi_14' in subplots
+        assert 'macd' in subplots
+        assert 'stoch_k' in subplots
+        assert len(subplots) == 3
+    
+    def test_classify_case_insensitive(self):
+        """Test that classification is case-insensitive."""
+        indicators_lower = ['sma_20', 'rsi_14']
+        indicators_upper = ['SMA_20', 'RSI_14']
+        indicators_mixed = ['Sma_20', 'Rsi_14']
+        
+        overlays1, subplots1 = classify_indicators(indicators_lower)
+        overlays2, subplots2 = classify_indicators(indicators_upper)
+        overlays3, subplots3 = classify_indicators(indicators_mixed)
+        
+        # All should classify the same way
+        assert len(overlays1) == len(overlays2) == len(overlays3) == 1
+        assert len(subplots1) == len(subplots2) == len(subplots3) == 1
+    
+    def test_classify_empty_list(self):
+        """Test classification with empty indicator list."""
+        indicators = []
+        
+        overlays, subplots = classify_indicators(indicators)
+        
+        assert overlays == []
+        assert subplots == []
+        assert isinstance(overlays, list)
+        assert isinstance(subplots, list)
+
