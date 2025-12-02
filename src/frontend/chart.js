@@ -119,6 +119,7 @@ class ChartManager {
             height: this.container.clientHeight || window.innerHeight - 150,
             cursor: {
                 drag: {
+                    setScale: true,  // Enable panning instead of zoom-to-selection
                     x: true,
                     y: false
                 }
