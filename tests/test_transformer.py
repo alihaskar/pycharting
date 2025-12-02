@@ -12,7 +12,8 @@ from datetime import datetime
 from src.python_api.transformer import (
     transform_dataframe_to_csv,
     standardize_column_names,
-    prepare_dataframe_for_csv
+    prepare_dataframe_for_csv,
+    handle_datetime_index
 )
 
 
@@ -179,4 +180,129 @@ class TestDataFrameCopyingAndRenaming:
         
         assert len(result) == 0
         assert isinstance(result, pd.DataFrame)
+
+
+class TestDateTimeIndexHandling:
+    """Test datetime index conversion and handling."""
+    
+    def test_handle_datetime_index_basic(self):
+        """Test basic datetime index to column conversion."""
+        dates = pd.date_range('2024-01-01', periods=5, freq='1min')
+        df = pd.DataFrame({
+            'open': [100, 101, 102, 103, 104],
+            'close': [101, 102, 103, 104, 105]
+        }, index=dates)
+        
+        result = handle_datetime_index(df)
+        
+        # Index should be reset
+        assert result.index.name is None or result.index.name != 'timestamp'
+        # Timestamp column should exist
+        assert 'timestamp' in result.columns
+        # Should have 5 rows
+        assert len(result) == 5
+    
+    def test_handle_datetime_index_preserves_data(self):
+        """Test that datetime conversion preserves OHLC data."""
+        dates = pd.date_range('2024-01-01', periods=3, freq='1min')
+        df = pd.DataFrame({
+            'open': [100, 101, 102],
+            'high': [102, 103, 104],
+            'low': [99, 100, 101],
+            'close': [101, 102, 103]
+        }, index=dates)
+        
+        result = handle_datetime_index(df)
+        
+        # Data should be preserved
+        assert result['open'].tolist() == [100, 101, 102]
+        assert result['high'].tolist() == [102, 103, 104]
+        assert result['low'].tolist() == [99, 100, 101]
+        assert result['close'].tolist() == [101, 102, 103]
+    
+    def test_handle_datetime_index_with_timezone(self):
+        """Test datetime index with timezone information."""
+        dates = pd.date_range('2024-01-01', periods=3, freq='1min', tz='UTC')
+        df = pd.DataFrame({
+            'open': [100, 101, 102],
+            'close': [101, 102, 103]
+        }, index=dates)
+        
+        result = handle_datetime_index(df)
+        
+        # Timestamp column should be created
+        assert 'timestamp' in result.columns
+        # Should handle timezone gracefully
+        assert len(result) == 3
+    
+    def test_handle_datetime_index_hourly_frequency(self):
+        """Test datetime index with hourly frequency."""
+        dates = pd.date_range('2024-01-01', periods=24, freq='1h')
+        df = pd.DataFrame({
+            'open': range(100, 124),
+            'close': range(101, 125)
+        }, index=dates)
+        
+        result = handle_datetime_index(df)
+        
+        assert 'timestamp' in result.columns
+        assert len(result) == 24
+    
+    def test_handle_datetime_index_daily_frequency(self):
+        """Test datetime index with daily frequency."""
+        dates = pd.date_range('2024-01-01', periods=30, freq='1D')
+        df = pd.DataFrame({
+            'open': range(100, 130),
+            'close': range(101, 131)
+        }, index=dates)
+        
+        result = handle_datetime_index(df)
+        
+        assert 'timestamp' in result.columns
+        assert len(result) == 30
+    
+    def test_handle_datetime_index_already_has_timestamp_column(self):
+        """Test handling when DataFrame already has a timestamp column."""
+        dates = pd.date_range('2024-01-01', periods=3, freq='1min')
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'open': [100, 101, 102],
+            'close': [101, 102, 103]
+        }, index=dates)
+        
+        result = handle_datetime_index(df)
+        
+        # Should still have timestamp column
+        assert 'timestamp' in result.columns
+        # Should not duplicate
+        assert result.columns.tolist().count('timestamp') == 1
+    
+    def test_handle_datetime_index_with_non_datetime_index(self):
+        """Test handling DataFrame with non-datetime index."""
+        df = pd.DataFrame({
+            'open': [100, 101, 102],
+            'close': [101, 102, 103]
+        })
+        
+        result = handle_datetime_index(df)
+        
+        # Should handle gracefully
+        assert isinstance(result, pd.DataFrame)
+        # Original data preserved
+        assert len(result) == 3
+    
+    def test_handle_datetime_index_timestamp_format(self):
+        """Test that timestamp is in proper format for CSV."""
+        dates = pd.date_range('2024-01-01', periods=3, freq='1min')
+        df = pd.DataFrame({
+            'open': [100, 101, 102],
+            'close': [101, 102, 103]
+        }, index=dates)
+        
+        result = handle_datetime_index(df)
+        
+        # Timestamp should be datetime-like or string
+        assert 'timestamp' in result.columns
+        # Verify it's a valid timestamp representation
+        assert result['timestamp'].notna().all()
 

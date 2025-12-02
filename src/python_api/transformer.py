@@ -70,6 +70,48 @@ def prepare_dataframe_for_csv(
     return df_prepared
 
 
+def handle_datetime_index(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convert datetime index to timestamp column for CSV compatibility.
+    
+    Resets the DataFrame index to convert a datetime index into a regular
+    timestamp column. Handles timezone-aware timestamps and preserves
+    datetime precision.
+    
+    Args:
+        df: pandas DataFrame with datetime index
+        
+    Returns:
+        DataFrame with datetime index converted to timestamp column
+        
+    Examples:
+        >>> dates = pd.date_range('2024-01-01', periods=3, freq='1min')
+        >>> df = pd.DataFrame({'open': [100, 101, 102]}, index=dates)
+        >>> result = handle_datetime_index(df)
+        >>> 'timestamp' in result.columns
+        True
+    """
+    # Create a copy to avoid modifying original
+    df_copy = df.copy()
+    
+    # Check if index is datetime-like
+    if isinstance(df_copy.index, pd.DatetimeIndex):
+        # Reset index to create timestamp column
+        df_copy.reset_index(inplace=True)
+        
+        # Rename index column to 'timestamp' if it has a different name
+        if df_copy.columns[0] != 'timestamp':
+            # Check if 'timestamp' already exists
+            if 'timestamp' not in df_copy.columns:
+                df_copy.rename(columns={df_copy.columns[0]: 'timestamp'}, inplace=True)
+    else:
+        # If not a datetime index, just reset it
+        # This handles regular integer indices
+        df_copy.reset_index(drop=True, inplace=True)
+    
+    return df_copy
+
+
 def transform_dataframe_to_csv(
     df: pd.DataFrame,
     ohlc_mapping: Dict[str, str],
