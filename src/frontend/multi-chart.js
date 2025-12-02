@@ -1167,6 +1167,12 @@ export class MultiChartManager {
             let overlays = [];
             let subplots = [];
             
+            // Helper function to convert UI format (RSI:14) to CSV format (rsi_14)
+            const convertIndicatorName = (uiName) => {
+                // RSI:14 -> rsi_14, SMA:20 -> sma_20, EMA:12 -> ema_12
+                return uiName.toLowerCase().replace(':', '_');
+            };
+            
             // AUTO-DETECT: If no indicators specified, load common ones from sample data
             if (!options.indicators || options.indicators.length === 0) {
                 // Auto-detect common indicator patterns
@@ -1174,15 +1180,22 @@ export class MultiChartManager {
                 subplots = ['rsi_14'];
                 console.log('Auto-detecting indicators:', { overlays, subplots });
             } else if (Array.isArray(options.indicators)) {
-                // For now, classify based on common patterns
-                // SMA/EMA are overlays, RSI is subplot
+                // Classify based on common patterns
+                // SMA/EMA are overlays, RSI/MACD are subplots
                 options.indicators.forEach(ind => {
+                    const csvName = convertIndicatorName(ind);
                     const indLower = ind.toLowerCase();
-                    if (indLower.includes('sma') || indLower.includes('ema')) {
-                        overlays.push(ind);
-                    } else {
-                        subplots.push(ind);
+                    
+                    if (indLower.startsWith('sma') || indLower.startsWith('ema')) {
+                        overlays.push(csvName);
+                    } else if (indLower.startsWith('rsi') || indLower.startsWith('macd')) {
+                        subplots.push(csvName);
                     }
+                });
+                console.log('Converted indicators:', { 
+                    from: options.indicators, 
+                    overlays, 
+                    subplots 
                 });
             }
             
