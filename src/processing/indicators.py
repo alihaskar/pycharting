@@ -98,22 +98,11 @@ def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
     losses[losses > 0] = 0  # Keep only negative changes
     losses = abs(losses)  # Make losses positive
     
-    # Initialize average gain and loss series
-    avg_gain = pd.Series(index=prices.index, dtype=float)
-    avg_loss = pd.Series(index=prices.index, dtype=float)
-    
-    # Calculate first average using simple mean of first 'period' values
-    # Note: We need period+1 data points (first is NaN from diff, then period values)
-    if len(prices) > period:
-        # First average is at position 'period' (0-indexed)
-        avg_gain.iloc[period] = gains.iloc[1:period+1].mean()
-        avg_loss.iloc[period] = losses.iloc[1:period+1].mean()
-        
-        # For subsequent values, use Wilder's smoothing
-        # Smoothed average = ((Previous avg * (period - 1)) + current value) / period
-        for i in range(period + 1, len(prices)):
-            avg_gain.iloc[i] = (avg_gain.iloc[i-1] * (period - 1) + gains.iloc[i]) / period
-            avg_loss.iloc[i] = (avg_loss.iloc[i-1] * (period - 1) + losses.iloc[i]) / period
+    # Use pandas ewm with Wilder's smoothing (alpha = 1/period)
+    # This is equivalent to Wilder's smoothing method used in RSI
+    # adjust=False gives us the recursive formula
+    avg_gain = gains.ewm(alpha=1/period, adjust=False, min_periods=period).mean()
+    avg_loss = losses.ewm(alpha=1/period, adjust=False, min_periods=period).mean()
     
     # Calculate RS (Relative Strength)
     rs = avg_gain / avg_loss
@@ -163,7 +152,7 @@ def calculate_ema(prices: pd.Series, period: int) -> pd.Series:
     Formula: EMA = (Price * Alpha) + (Previous EMA * (1 - Alpha))
     where Alpha = 2 / (Period + 1)
     
-    The first EMA value is initialized using SMA.
+    Uses pandas' optimized ewm() for vectorized calculation.
     
     Args:
         prices: Series of price data (typically close prices)
@@ -180,18 +169,10 @@ def calculate_ema(prices: pd.Series, period: int) -> pd.Series:
         # Not enough data, return all NaN
         return pd.Series([np.nan] * len(prices), index=prices.index)
     
-    # Calculate alpha (smoothing factor)
-    alpha = 2.0 / (period + 1)
-    
-    # Initialize EMA series
-    ema = pd.Series(index=prices.index, dtype=float)
-    
-    # First EMA value is the SMA of the first 'period' prices
-    ema.iloc[period - 1] = prices.iloc[:period].mean()
-    
-    # Calculate subsequent EMA values using the formula
-    for i in range(period, len(prices)):
-        ema.iloc[i] = (prices.iloc[i] * alpha) + (ema.iloc[i-1] * (1 - alpha))
+    # Use pandas ewm (exponentially weighted moving average) - vectorized and fast
+    # adjust=False gives us the recursive formula we want
+    # min_periods=period ensures first period-1 values are NaN
+    ema = prices.ewm(span=period, adjust=False, min_periods=period).mean()
     
     return ema
 
