@@ -83,20 +83,15 @@ data/
 *.csv
 *.parquet
 
-# Task Master
+# Ignore Taskmaster and cursor folders, and their contents, anywhere in the project
 .taskmaster/
-/.taskmaster
-/.cursor/
-.cursor/
-.cursor
-/cursor/
-.cursor/
-/.taskmaster
 taskmaster/
-.taskmaster/
-.taskmaster
-!node_modules/.cursor
-!node_modules/.taskmaster
+cursor/
+.cursor/
+
+# Do NOT ignore .cursor and .taskmaster if they are inside node_modules
+!node_modules/.cursor/
+!node_modules/.taskmaster/
 
 
 # Dependency directories

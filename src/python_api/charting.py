@@ -7,8 +7,14 @@ interactive charts in the browser with automatic OHLC and indicator detection.
 
 import os
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict
 import pandas as pd
+
+from .detector import (
+    detect_ohlc_columns,
+    detect_indicator_columns,
+    classify_indicators
+)
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +108,8 @@ class Charting:
         """
         Load DataFrame and display as interactive chart.
         
+        Task 28: DataFrame loading with auto-detection
+        
         Args:
             df: Pandas DataFrame with OHLC data and optional indicators
             overlays: List of overlay indicator column names (optional)
@@ -114,8 +122,82 @@ class Charting:
             ValueError: If DataFrame is invalid
             RuntimeError: If chart startup fails
         """
-        # Stub - will be implemented in Task 28
-        raise NotImplementedError("load() will be implemented in Task 28")
+        logger.info("Loading DataFrame...")
+        
+        # Task 28.1: Validate DataFrame
+        self._validate_dataframe(df)
+        
+        # Task 28.2: Auto-detect OHLC columns
+        ohlc_mapping = detect_ohlc_columns(df)
+        
+        if not ohlc_mapping.get('open') or not ohlc_mapping.get('close'):
+            raise ValueError(
+                "DataFrame must contain at least 'open' and 'close' columns. "
+                f"Detected columns: {list(df.columns)}"
+            )
+        
+        logger.info(f"Detected OHLC columns: {ohlc_mapping}")
+        
+        # Task 28.3: Detect and classify indicators
+        indicator_columns = detect_indicator_columns(df, ohlc_mapping)
+        logger.info(f"Detected indicator columns: {indicator_columns}")
+        
+        # Task 28.4: Handle manual override vs auto-classification
+        if overlays is None or subplots is None:
+            # Auto-classify indicators
+            auto_overlays, auto_subplots = classify_indicators(indicator_columns)
+            overlays = overlays if overlays is not None else auto_overlays
+            subplots = subplots if subplots is not None else auto_subplots
+            logger.info(f"Auto-classified: overlays={overlays}, subplots={subplots}")
+        else:
+            logger.info(f"Using manual classification: overlays={overlays}, subplots={subplots}")
+        
+        # Task 28.5 / Task 29: Continue with transformation and server startup
+        return self._start_chart(df, ohlc_mapping, overlays, subplots)
+    
+    def _validate_dataframe(self, df: pd.DataFrame) -> None:
+        """
+        Validate DataFrame structure.
+        
+        Task 28.1: DataFrame validation logic
+        
+        Raises:
+            ValueError: If DataFrame is invalid
+        """
+        if not isinstance(df.index, pd.DatetimeIndex):
+            raise ValueError(
+                "DataFrame must have DatetimeIndex. "
+                f"Current index type: {type(df.index).__name__}"
+            )
+        
+        if len(df) == 0:
+            raise ValueError("DataFrame cannot be empty")
+        
+        logger.debug(f"DataFrame validated: {len(df)} rows")
+    
+    def _start_chart(
+        self,
+        df: pd.DataFrame,
+        ohlc_mapping: Dict[str, str],
+        overlays: List[str],
+        subplots: List[str]
+    ) -> str:
+        """
+        Start chart server and display in browser.
+        
+        Task 29: Load orchestration (stub for now)
+        
+        Args:
+            df: Validated DataFrame
+            ohlc_mapping: OHLC column mapping
+            overlays: Overlay indicator columns
+            subplots: Subplot indicator columns
+            
+        Returns:
+            Chart URL
+        """
+        # Stub - will be implemented in Task 29
+        raise NotImplementedError("_start_chart() will be implemented in Task 29")
     
     def _cleanup_temp_files(self) -> None:
         """
