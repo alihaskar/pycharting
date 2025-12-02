@@ -187,6 +187,11 @@ def transform_dataframe_to_csv(
     """
     Transform DataFrame to CSV file with standardized column names.
     
+    Performs complete transformation pipeline:
+    1. Standardizes OHLC column names
+    2. Converts datetime index to timestamp column
+    3. Writes to temporary CSV file
+    
     Args:
         df: pandas DataFrame with OHLC and indicator data
         ohlc_mapping: Dictionary mapping standard names to detected column names
@@ -195,7 +200,23 @@ def transform_dataframe_to_csv(
         
     Returns:
         Path to the generated CSV file
+        
+    Examples:
+        >>> dates = pd.date_range('2024-01-01', periods=3, freq='1min')
+        >>> df = pd.DataFrame({'Open': [100, 101, 102]}, index=dates)
+        >>> mapping = {'open': 'Open'}
+        >>> filepath = transform_dataframe_to_csv(df, mapping)
+        >>> os.path.exists(filepath)
+        True
     """
-    # For now, just a stub - will be fully implemented across subtasks
-    pass
+    # Step 1: Standardize OHLC column names
+    df_transformed = standardize_column_names(df, ohlc_mapping)
+    
+    # Step 2: Handle datetime index (convert to timestamp column)
+    df_transformed = handle_datetime_index(df_transformed)
+    
+    # Step 3: Create CSV file
+    filepath = create_temp_csv(df_transformed, filepath=output_path)
+    
+    return filepath
 
