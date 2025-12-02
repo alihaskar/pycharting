@@ -209,6 +209,54 @@ class ChartManager {
                             u.setScale('x', { min: null, max: null });
                         });
                     }
+                ],
+                setCursor: [
+                    (u) => {
+                        // Update OHLC display on cursor move
+                        const idx = u.cursor.idx;
+                        
+                        if (idx === null || idx === undefined) {
+                            this.ohlcDisplay.style.display = 'none';
+                            return;
+                        }
+                        
+                        this.ohlcDisplay.style.display = 'block';
+                        
+                        // Extract OHLC values (series indices: 0=time, 1=open, 2=high, 3=low, 4=close)
+                        const timestamp = u.data[0][idx];
+                        const open = u.data[1][idx];
+                        const high = u.data[2][idx];
+                        const low = u.data[3][idx];
+                        const close = u.data[4][idx];
+                        const volume = u.data[5] ? u.data[5][idx] : null;
+                        
+                        // Format date
+                        const date = new Date(timestamp * 1000);
+                        const dateStr = date.toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        
+                        // Determine if bullish or bearish
+                        const isUp = close >= open;
+                        const color = isUp ? '#4caf50' : '#f44336';
+                        
+                        // Build display HTML
+                        let html = `<div style="color: #666; margin-bottom: 4px;">${dateStr}</div>`;
+                        html += `<div><span style="color: #666;">O</span> <span style="font-weight: bold;">${open?.toFixed(2) || '-'}</span></div>`;
+                        html += `<div><span style="color: #666;">H</span> <span style="font-weight: bold;">${high?.toFixed(2) || '-'}</span></div>`;
+                        html += `<div><span style="color: #666;">L</span> <span style="font-weight: bold;">${low?.toFixed(2) || '-'}</span></div>`;
+                        html += `<div><span style="color: #666;">C</span> <span style="font-weight: bold; color: ${color};">${close?.toFixed(2) || '-'}</span></div>`;
+                        
+                        if (volume !== null && volume !== undefined) {
+                            html += `<div style="margin-top: 4px;"><span style="color: #666;">Vol</span> <span style="font-weight: bold;">${volume?.toLocaleString() || '-'}</span></div>`;
+                        }
+                        
+                        this.ohlcDisplay.innerHTML = html;
+                    }
                 ]
             },
             axes: [
@@ -323,9 +371,6 @@ class ChartManager {
         this.currentData = data;
         this.currentMetadata = metadata;
         
-        // Create chart options
-        const opts = this.createChartOptions(metadata);
-        
         // Destroy existing chart if any
         if (this.chart) {
             this.chart.destroy();
@@ -333,6 +378,29 @@ class ChartManager {
         
         // Clear any loading/error messages
         this.container.innerHTML = '';
+        
+        // Create OHLC value display BEFORE creating chart options
+        this.ohlcDisplay = document.createElement('div');
+        this.ohlcDisplay.style.cssText = `
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            pointer-events: none;
+            z-index: 10;
+            display: none;
+        `;
+        this.container.style.position = 'relative';
+        this.container.appendChild(this.ohlcDisplay);
+        
+        // Create chart options (now ohlcDisplay exists)
+        const opts = this.createChartOptions(metadata);
         
         // Create new chart
         this.chart = new uPlot(opts, data, this.container);
