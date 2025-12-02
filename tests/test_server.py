@@ -199,3 +199,96 @@ class TestServerManagerClassStructure:
         # Port should be assigned
         assert manager.port is not None
 
+
+class TestURLBuilding:
+    """Test URL building with parameters."""
+    
+    def test_build_url_basic(self):
+        """Test basic URL building."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        manager = ServerManager(app, port=8000)
+        
+        url = manager.build_url('data.csv')
+        
+        assert url.startswith('http://127.0.0.1:8000')
+        assert 'filename=data.csv' in url
+    
+    def test_build_url_with_overlays(self):
+        """Test URL building with overlay indicators."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        manager = ServerManager(app, port=8000)
+        
+        url = manager.build_url('data.csv', overlays=['sma_20', 'ema_12'])
+        
+        assert 'filename=data.csv' in url
+        assert 'overlays=sma_20,ema_12' in url
+    
+    def test_build_url_with_subplots(self):
+        """Test URL building with subplot indicators."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        manager = ServerManager(app, port=8000)
+        
+        url = manager.build_url('data.csv', subplots=['rsi_14', 'macd'])
+        
+        assert 'filename=data.csv' in url
+        assert 'subplots=rsi_14,macd' in url
+    
+    def test_build_url_with_both_indicators(self):
+        """Test URL building with both overlay and subplot indicators."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        manager = ServerManager(app, port=8000)
+        
+        url = manager.build_url('data.csv', overlays=['sma_20'], subplots=['rsi_14'])
+        
+        assert 'overlays=sma_20' in url
+        assert 'subplots=rsi_14' in url
+    
+    def test_build_url_with_empty_lists(self):
+        """Test URL building with empty indicator lists."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        manager = ServerManager(app, port=8000)
+        
+        url = manager.build_url('data.csv', overlays=[], subplots=[])
+        
+        assert 'filename=data.csv' in url
+        # Should not include empty parameters
+        assert 'overlays=' not in url or 'overlays=&' not in url
+        assert 'subplots=' not in url or 'subplots=&' not in url
+    
+    def test_build_url_special_characters(self):
+        """Test URL building with special characters in filename."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        manager = ServerManager(app, port=8000)
+        
+        url = manager.build_url('my_data.csv')
+        
+        assert 'filename=my_data.csv' in url
+
+
+class TestServerStatus:
+    """Test server status checking."""
+    
+    def test_is_running_initially_false(self):
+        """Test that server is not running initially."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        manager = ServerManager(app)
+        
+        assert manager.is_running() is False
+    
+    def test_get_url_basic(self):
+        """Test get_url() method."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        manager = ServerManager(app, port=8000)
+        
+        url = manager.get_url()
+        
+        assert url == 'http://127.0.0.1:8000'
+

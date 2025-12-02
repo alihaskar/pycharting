@@ -82,4 +82,117 @@ class ServerManager:
         self.thread: Optional[threading.Thread] = None
         
         logger.info(f"ServerManager initialized on port {self.port}")
+    
+    def build_url(
+        self, 
+        csv_filename: str,
+        overlays: Optional[List[str]] = None,
+        subplots: Optional[List[str]] = None
+    ) -> str:
+        """
+        Build URL with query parameters for chart data endpoint.
+        
+        Args:
+            csv_filename: Name of CSV file to load
+            overlays: List of overlay indicator column names
+            subplots: List of subplot indicator column names
+            
+        Returns:
+            Complete URL with query parameters
+        """
+        base_url = f"http://127.0.0.1:{self.port}"
+        params = [f"filename={csv_filename}"]
+        
+        if overlays:
+            params.append(f"overlays={','.join(overlays)}")
+        
+        if subplots:
+            params.append(f"subplots={','.join(subplots)}")
+        
+        return f"{base_url}?{'&'.join(params)}"
+    
+    def get_url(self) -> str:
+        """
+        Get base server URL.
+        
+        Returns:
+            Base server URL without parameters
+        """
+        return f"http://127.0.0.1:{self.port}"
+    
+    def is_running(self) -> bool:
+        """
+        Check if server is currently running.
+        
+        Returns:
+            True if server is running, False otherwise
+        """
+        return self.thread is not None and self.thread.is_alive()
+    
+    def start(
+        self,
+        csv_path: str,
+        overlays: Optional[List[str]] = None,
+        subplots: Optional[List[str]] = None
+    ) -> str:
+        """
+        Start uvicorn server in background thread.
+        
+        Args:
+            csv_path: Path to CSV file
+            overlays: List of overlay indicator names
+            subplots: List of subplot indicator names
+            
+        Returns:
+            URL with chart data endpoint and parameters
+        """
+        if self.is_running():
+            logger.warning("Server is already running")
+            return self.build_url(csv_path, overlays, subplots)
+        
+        # Configure uvicorn server
+        config = uvicorn.Config(
+            self.app,
+            host="127.0.0.1",
+            port=self.port,
+            log_level="info"
+        )
+        self.server = uvicorn.Server(config)
+        
+        # Start server in background thread
+        self.thread = threading.Thread(target=self.server.run, daemon=True)
+        self.thread.start()
+        
+        logger.info(f"Server started on http://127.0.0.1:{self.port}")
+        
+        # Build and return URL with parameters
+        return self.build_url(csv_path, overlays, subplots)
+    
+    def stop(self, timeout: float = 5.0) -> None:
+        """
+        Stop the server gracefully.
+        
+        Args:
+            timeout: Maximum time to wait for server shutdown (seconds)
+        """
+        if not self.is_running():
+            logger.info("Server is not running")
+            return
+        
+        # Signal server to stop
+        if self.server:
+            self.server.should_exit = True
+        
+        # Wait for thread to finish
+        if self.thread:
+            self.thread.join(timeout=timeout)
+            
+            if self.thread.is_alive():
+                logger.warning(f"Server thread did not stop within {timeout}s timeout")
+            else:
+                logger.info("Server stopped successfully")
+        
+        # Clean up
+        self.server = None
+        self.thread = None
 
