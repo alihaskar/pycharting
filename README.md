@@ -72,6 +72,29 @@ poetry run pytest
 
 All tests should pass.
 
+## Quick Start
+
+### Run the Application (Single Command)
+
+After installation, start both backend and frontend servers with one command:
+
+```bash
+python run.py
+```
+
+This will start:
+- **Backend API** on http://localhost:8000
+- **Frontend** on http://localhost:3000
+
+Then open your browser to **http://localhost:3000** and load one of the sample files:
+- `sample.csv` - Moderate volatility data
+- `crypto.csv` - High volatility crypto-like data
+- `stock.csv` - Low volatility stock-like data
+
+Press `Ctrl+C` to stop both servers.
+
+For more details, see [QUICK_START.md](QUICK_START.md).
+
 ## Project Structure
 
 ```

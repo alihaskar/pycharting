@@ -14,29 +14,50 @@
 poetry install
 ```
 
-### Step 2: Start the Backend API
+### Step 2: Start Both Servers (Single Command) ⚡
 
-Open a terminal and run:
+**Recommended - One command to rule them all!**
+
+```bash
+python run.py
+```
+
+This will start both the backend API (port 8000) and frontend server (port 3000) simultaneously.
+
+You should see:
+```
+🚀 Starting Backend API on http://localhost:8000...
+🌐 Starting Frontend Server on http://localhost:3000...
+
+============================================================
+✅ Servers are running!
+============================================================
+📊 Frontend:  http://localhost:3000
+🔧 Backend:   http://localhost:8000
+📚 API Docs:  http://localhost:8000/docs
+============================================================
+
+💡 Press Ctrl+C to stop both servers
+```
+
+Then open your browser to: **http://localhost:3000**
+
+---
+
+### Alternative: Manual Two-Terminal Setup
+
+<details>
+<summary>Click to expand if you prefer running servers separately</summary>
+
+**Terminal 1 - Backend API:**
 
 ```bash
 poetry run uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-You should see:
-```
-INFO:     Uvicorn running on http://0.0.0.0:8000
-INFO:     Application startup complete.
-```
-
 The API will be available at: **http://localhost:8000**
 
-API Documentation (Swagger UI): **http://localhost:8000/docs**
-
-### Step 3: Start the Frontend
-
-**Option A: Using Python HTTP Server (Recommended)**
-
-Open a **NEW terminal** and run:
+**Terminal 2 - Frontend:**
 
 ```bash
 cd src/frontend
@@ -45,18 +66,11 @@ python -m http.server 3000
 
 Then open your browser to: **http://localhost:3000**
 
-**Option B: Using Live Server (VS Code Extension)**
+</details>
 
-If you have the Live Server extension:
-1. Right-click on `src/frontend/index.html`
-2. Select "Open with Live Server"
+---
 
-**Option C: Direct File Open**
-
-Simply open `src/frontend/index.html` in your browser.
-(Note: CORS might block API calls - use Option A or B instead)
-
-### Step 4: Load Sample Data
+### Step 3: Load Sample Data
 
 The project comes with 3 sample CSV files:
 
