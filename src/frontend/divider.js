@@ -140,6 +140,11 @@ export class DraggableDivider {
         const deltaY = newY - this.currentY;
         this.currentY = newY;
         
+        // Resize panels if elements are provided
+        if (this.options.topElement && this.options.bottomElement) {
+            this.resizePanels(deltaY);
+        }
+        
         // Fire onDrag callback with delta
         if (this.options.onDrag) {
             this.options.onDrag(deltaY);
@@ -207,6 +212,11 @@ export class DraggableDivider {
         const deltaY = newY - this.currentY;
         this.currentY = newY;
         
+        // Resize panels if elements are provided
+        if (this.options.topElement && this.options.bottomElement) {
+            this.resizePanels(deltaY);
+        }
+        
         // Fire onDrag callback with delta
         if (this.options.onDrag) {
             this.options.onDrag(deltaY);
@@ -244,6 +254,70 @@ export class DraggableDivider {
             return event.touches[0].clientY;
         }
         return event.clientY || 0;
+    }
+    
+    /**
+     * Constrain a size value within min/max bounds
+     * @param {number} size - The size to constrain
+     * @param {number} min - Minimum allowed size
+     * @param {number} max - Maximum allowed size (optional)
+     * @returns {number} Constrained size
+     */
+    constrainSize(size, min, max = Infinity) {
+        if (size < min) return min;
+        if (size > max) return max;
+        return size;
+    }
+    
+    /**
+     * Resize adjacent panels based on drag delta
+     * @param {number} deltaY - The vertical distance moved
+     */
+    resizePanels(deltaY) {
+        const topElement = this.options.topElement;
+        const bottomElement = this.options.bottomElement;
+        
+        if (!topElement || !bottomElement) {
+            return; // No panels to resize
+        }
+        
+        // Get current heights
+        const topHeight = parseInt(topElement.style.height) || topElement.offsetHeight || 0;
+        const bottomHeight = parseInt(bottomElement.style.height) || bottomElement.offsetHeight || 0;
+        
+        // Calculate new heights
+        let newTopHeight = topHeight + deltaY;
+        let newBottomHeight = bottomHeight - deltaY;
+        
+        // Apply constraints
+        const minSize = this.options.minSize || 50;
+        const maxSize = this.options.maxSize || Infinity;
+        
+        // Constrain top panel
+        newTopHeight = this.constrainSize(newTopHeight, minSize, maxSize);
+        
+        // Constrain bottom panel
+        newBottomHeight = this.constrainSize(newBottomHeight, minSize, maxSize);
+        
+        // Verify the resize is valid (both panels are within bounds)
+        const totalHeight = topHeight + bottomHeight;
+        const newTotalHeight = newTopHeight + newBottomHeight;
+        
+        // Adjust if the total changed (due to constraints)
+        if (Math.abs(newTotalHeight - totalHeight) > 1) {
+            // Recalculate to maintain total height
+            if (newTopHeight < minSize) {
+                newTopHeight = minSize;
+                newBottomHeight = totalHeight - minSize;
+            } else if (newBottomHeight < minSize) {
+                newBottomHeight = minSize;
+                newTopHeight = totalHeight - minSize;
+            }
+        }
+        
+        // Apply new heights
+        topElement.style.height = `${newTopHeight}px`;
+        bottomElement.style.height = `${newBottomHeight}px`;
     }
     
     /**

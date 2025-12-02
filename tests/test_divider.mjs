@@ -441,6 +441,188 @@ test('Divider has visual feedback state', () => {
 });
 
 // ============================================================================
+// Test Suite: Drag Calculation and Container Resizing
+// ============================================================================
+
+test('Calculates delta from drag movement', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container, {
+        onDrag: (deltaY) => {
+            assertEqual(deltaY, 50, 'Should calculate correct delta');
+        }
+    });
+    
+    divider.handleMouseDown({ clientY: 100, preventDefault: () => {} });
+    divider.handleMouseMove({ clientY: 150, preventDefault: () => {} });
+});
+
+test('Resizes adjacent containers during drag', () => {
+    const container = new MockHTMLElement();
+    const topPanel = new MockHTMLElement();
+    const bottomPanel = new MockHTMLElement();
+    
+    topPanel.style.height = '200px';
+    bottomPanel.style.height = '200px';
+    container.appendChild(topPanel);
+    container.appendChild(bottomPanel);
+    
+    let resizeCalled = false;
+    const divider = new DraggableDivider(container, {
+        topElement: topPanel,
+        bottomElement: bottomPanel,
+        onDrag: (deltaY) => {
+            resizeCalled = true;
+            // Should resize panels
+            divider.resizePanels(deltaY);
+        }
+    });
+    
+    divider.handleMouseDown({ clientY: 100, preventDefault: () => {} });
+    divider.handleMouseMove({ clientY: 150, preventDefault: () => {} });
+    
+    assertTrue(resizeCalled, 'Should call resize during drag');
+});
+
+test('Enforces minimum size constraints', () => {
+    const container = new MockHTMLElement();
+    const topPanel = new MockHTMLElement();
+    const bottomPanel = new MockHTMLElement();
+    
+    topPanel.style.height = '100px';
+    bottomPanel.style.height = '200px';
+    
+    const divider = new DraggableDivider(container, {
+        topElement: topPanel,
+        bottomElement: bottomPanel,
+        minSize: 50
+    });
+    
+    // Try to resize top panel below minimum
+    const newHeight = divider.constrainSize(30, 50);
+    assertEqual(newHeight, 50, 'Should enforce minimum size');
+});
+
+test('Enforces maximum size constraints', () => {
+    const container = new MockHTMLElement();
+    const topPanel = new MockHTMLElement();
+    
+    const divider = new DraggableDivider(container, {
+        topElement: topPanel,
+        maxSize: 500
+    });
+    
+    const newHeight = divider.constrainSize(600, 50, 500);
+    assertEqual(newHeight, 500, 'Should enforce maximum size');
+});
+
+test('Handles negative delta (dragging up)', () => {
+    const container = new MockHTMLElement();
+    let capturedDelta;
+    
+    const divider = new DraggableDivider(container, {
+        onDrag: (deltaY) => {
+            capturedDelta = deltaY;
+        }
+    });
+    
+    divider.handleMouseDown({ clientY: 200, preventDefault: () => {} });
+    divider.handleMouseMove({ clientY: 150, preventDefault: () => {} });
+    
+    assertTrue(capturedDelta < 0, 'Should handle negative delta');
+});
+
+test('Handles positive delta (dragging down)', () => {
+    const container = new MockHTMLElement();
+    let capturedDelta;
+    
+    const divider = new DraggableDivider(container, {
+        onDrag: (deltaY) => {
+            capturedDelta = deltaY;
+        }
+    });
+    
+    divider.handleMouseDown({ clientY: 100, preventDefault: () => {} });
+    divider.handleMouseMove({ clientY: 150, preventDefault: () => {} });
+    
+    assertTrue(capturedDelta > 0, 'Should handle positive delta');
+});
+
+test('Updates current position during drag', () => {
+    const container = new MockHTMLElement();
+    const divider = new DraggableDivider(container);
+    
+    divider.handleMouseDown({ clientY: 100, preventDefault: () => {} });
+    assertEqual(divider.currentY, 100, 'Should set initial currentY');
+    
+    divider.handleMouseMove({ clientY: 150, preventDefault: () => {} });
+    assertEqual(divider.currentY, 150, 'Should update currentY');
+});
+
+test('Calculates cumulative delta across multiple moves', () => {
+    const container = new MockHTMLElement();
+    const deltas = [];
+    
+    const divider = new DraggableDivider(container, {
+        onDrag: (deltaY) => {
+            deltas.push(deltaY);
+        }
+    });
+    
+    divider.handleMouseDown({ clientY: 100, preventDefault: () => {} });
+    divider.handleMouseMove({ clientY: 110, preventDefault: () => {} });
+    divider.handleMouseMove({ clientY: 130, preventDefault: () => {} });
+    divider.handleMouseMove({ clientY: 160, preventDefault: () => {} });
+    
+    // Should have three deltas: +10, +20, +30
+    assertTrue(deltas.length === 3, 'Should track multiple moves');
+    assertEqual(deltas[0], 10, 'First delta should be 10');
+    assertEqual(deltas[1], 20, 'Second delta should be 20');
+    assertEqual(deltas[2], 30, 'Third delta should be 30');
+});
+
+test('Resizing respects container boundaries', () => {
+    const container = new MockHTMLElement();
+    container.getBoundingClientRect = () => ({
+        top: 0,
+        left: 0,
+        right: 100,
+        bottom: 400,
+        width: 100,
+        height: 400
+    });
+    
+    const topPanel = new MockHTMLElement();
+    topPanel.style.height = '200px';
+    
+    const divider = new DraggableDivider(container, {
+        topElement: topPanel,
+        minSize: 50
+    });
+    
+    // Ensure resize calculations respect boundaries
+    const maxAllowed = 400 - 50; // Container height - min bottom size
+    const constrained = divider.constrainSize(500, 50, maxAllowed);
+    
+    assertTrue(constrained <= maxAllowed, 'Should respect container boundaries');
+});
+
+test('No resize when not dragging', () => {
+    const container = new MockHTMLElement();
+    let dragCalled = false;
+    
+    const divider = new DraggableDivider(container, {
+        onDrag: () => {
+            dragCalled = true;
+        }
+    });
+    
+    // Move without starting drag
+    divider.handleMouseMove({ clientY: 150, preventDefault: () => {} });
+    
+    assertFalse(dragCalled, 'Should not trigger drag when not in drag state');
+});
+
+// ============================================================================
 // Run Tests
 // ============================================================================
 
