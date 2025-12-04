@@ -213,10 +213,10 @@
             const close = [];
             
             let currentPrice = startPrice;
-            const startTime = Date.now() / 1000 - (numCandles * 3600); // 1 hour per candle
+            const startTime = Date.now() - (numCandles * 3600000); // 1 hour per candle in milliseconds
             
             for (let i = 0; i < numCandles; i++) {
-                timestamps.push(startTime + (i * 3600));
+                timestamps.push(startTime + (i * 3600000)); // milliseconds
                 
                 const o = currentPrice;
                 const volatility = currentPrice * 0.02;

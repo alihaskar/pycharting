@@ -108,22 +108,103 @@ class PyChart {
     }
     
     /**
+     * Set chart data and render
+     * @param {Array} data - Chart data [xValues, open, high, low, close, ...overlays]
+     * @param {Array} timestamps - Optional array of timestamps corresponding to xValues
+     */
+    setData(data, timestamps = null) {
+        const prevLen = this.data ? this.data.length : null;
+        const prevHadTimestamps = this.timestamps != null;
+        const nowHasTimestamps = timestamps != null;
+        
+        this.data = data;
+        this.timestamps = timestamps;
+        
+        // Debug: Check what we received
+        if (timestamps && timestamps.length > 0) {
+            console.log('Chart received timestamps. First:', timestamps[0], 'Type:', typeof timestamps[0]);
+            console.log('Chart received X-indices. First:', data[0][0]);
+        } else {
+            console.log('Chart received NO timestamps');
+        }
+        
+        // Rebuild chart if:
+        // 1. Series count changed (e.g., overlays added)
+        // 2. Timestamp presence changed (affects axis formatting)
+        const needsRebuild = !this.chart || 
+                             prevLen !== data.length || 
+                             prevHadTimestamps !== nowHasTimestamps;
+        
+        if (this.chart && !needsRebuild) {
+            // Fast path: just update data
+            this.chart.setData(data);
+            return;
+        }
+        
+        // Rebuild chart
+        if (this.chart) {
+            this.chart.destroy();
+            this.chart = null;
+        }
+        
+        const config = this.createConfig(data);
+        this.chart = new uPlot(config, data, this.container);
+        this._setupInteractions();
+    }
+
+    /**
+     * Helper to format x-axis values (indices) to dates
+     */
+    formatDate(index) {
+        if (!this.timestamps) {
+            console.log('formatDate: No timestamps array');
+            return index;
+        }
+        
+        if (this.data && this.data[0] && this.data[0].length > 0) {
+            const startIndex = this.data[0][0];
+            const dataIndex = Math.round(index - startIndex);
+            
+            if (dataIndex >= 0 && dataIndex < this.timestamps.length) {
+                const val = this.timestamps[dataIndex];
+                
+                console.log(`formatDate: index=${index}, dataIndex=${dataIndex}, val=${val}, type=${typeof val}`);
+                
+                // Heuristic: Only format as date if value looks like a timestamp (milliseconds)
+                if (typeof val === 'number' && val > 315360000000) {
+                    const date = new Date(val);
+                    return date.toLocaleString(undefined, {
+                        month: 'numeric', day: 'numeric', 
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                }
+                console.log('Value too small for timestamp:', val);
+                return val;
+            }
+            console.log('dataIndex out of range:', dataIndex, 'timestamps.length:', this.timestamps.length);
+        }
+        return index;
+    }
+    
+    /**
      * Create uPlot configuration
-     * @param {Array} data - Chart data [timestamps, open, high, low, close, ...overlays]
+     * @param {Array} data - Chart data
      */
     createConfig(data) {
         const self = this;
+        // Check if Open series exists and contains any non-null values
+        const openSeries = data[1];
+        const hasOHLC = openSeries && Array.isArray(openSeries) && openSeries.some(v => v != null);
         
         // Build series configuration
         const series = [
             {
-                label: 'Index',
-                // Show raw index value rather than interpreting as a timestamp
-                value: (u, v) => v != null ? v.toString() : ''
+                label: 'Time',
+                value: (u, v) => self.formatDate(v)
             },
             {
                 label: 'Open',
-                show: false, // Hide from legend, shown in candlestick
+                show: false,
             },
             {
                 label: 'High',
@@ -135,7 +216,8 @@ class PyChart {
             },
             {
                 label: 'Close',
-                stroke: 'transparent',
+                stroke: hasOHLC ? 'transparent' : '#2196F3',
+                width: hasOHLC ? 0 : 2,
                 fill: 'transparent',
             }
         ];
@@ -157,7 +239,6 @@ class PyChart {
             series,
             scales: {
                 x: {
-                    // Treat x-values as plain numeric indices, not timestamps
                     time: false,
                 },
                 y: {
@@ -168,6 +249,10 @@ class PyChart {
                 {
                     stroke: '#888',
                     grid: { stroke: '#eee', width: 1 },
+                    values: (u, vals) => vals.map(v => {
+                        const idx = Math.round(v);
+                        return self.formatDate(idx);
+                    }),
                 },
                 {
                     stroke: '#888',
@@ -175,45 +260,12 @@ class PyChart {
                     values: (u, vals) => vals.map(v => v.toFixed(2)),
                 }
             ],
-            plugins: [
-                this.candlestickPlugin()
-            ],
+            plugins: hasOHLC ? [this.candlestickPlugin()] : [],
             cursor: {
-                // Disable uPlot's built-in drag selection (we implement our own pan)
-                drag: {
-                    x: false,
-                    y: false,
-                },
-                sync: {
-                    key: 'pycharting',
-                }
+                drag: { x: false, y: false },
+                sync: { key: 'pycharting' }
             }
         };
-    }
-    
-    /**
-     * Set chart data and render
-     * @param {Array} data - Chart data [timestamps, open, high, low, close, ...overlays]
-     */
-    setData(data) {
-        const prevLen = this.data ? this.data.length : null;
-        this.data = data;
-        
-        // If the number of series hasn't changed, we can just update data
-        if (this.chart && prevLen === data.length) {
-            this.chart.setData(data);
-            return;
-        }
-        
-        // If the series count changed (e.g. overlays added), rebuild the chart
-        if (this.chart) {
-            this.chart.destroy();
-            this.chart = null;
-        }
-        
-        const config = this.createConfig(data);
-        this.chart = new uPlot(config, data, this.container);
-        this._setupInteractions();
     }
     
     /**

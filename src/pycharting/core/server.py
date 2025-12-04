@@ -18,11 +18,23 @@ import socket
 import logging
 from pathlib import Path
 from typing import Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 import uvicorn
+
+
+class NoCacheStaticFiles(StaticFiles):
+    """Custom StaticFiles that adds no-cache headers for development."""
+    
+    async def get_response(self, path: str, scope) -> Response:
+        response = await super().get_response(path, scope)
+        # Add no-cache headers to prevent browser caching during development
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
 # Configure logging
 logging.basicConfig(
@@ -107,9 +119,9 @@ def create_app() -> FastAPI:
     static_dir = Path(__file__).parent.parent / "web" / "static"
     static_dir.mkdir(parents=True, exist_ok=True)
     
-    # Mount static files
+    # Mount static files with no-cache headers for development
     try:
-        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+        app.mount("/static", NoCacheStaticFiles(directory=str(static_dir)), name="static")
         logger.info(f"Static files mounted from: {static_dir}")
     except Exception as e:
         logger.warning(f"Could not mount static files: {e}")
