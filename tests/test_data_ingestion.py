@@ -3,7 +3,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from src.data.ingestion import DataManager, DataValidationError, validate_input
+from pycharting.data.ingestion import DataManager, DataValidationError, validate_input
 
 
 class TestValidateInput:

@@ -1,13 +1,44 @@
+"""
+PyCharting Demo Script.
+
+This script demonstrates the full capabilities of the PyCharting library.
+It generates a large synthetic dataset (1 million points) representing financial OHLC data
+and calculates common technical indicators (SMA, EMA, RSI-like, Stochastic-like).
+
+It then launches the interactive chart server to visualize this data.
+This serves as both a usage example and a performance benchmark.
+"""
+
 import numpy as np
-from pycharting import plot, stop_server
+from src.pycharting import plot, stop_server
 
 
 def sma(values: np.ndarray, window: int) -> np.ndarray:
+    """
+    Calculate Simple Moving Average (SMA).
+
+    Args:
+        values (np.ndarray): Input data array.
+        window (int): The rolling window size.
+
+    Returns:
+        np.ndarray: The SMA series.
+    """
     kernel = np.ones(window, dtype=float) / float(window)
     return np.convolve(values, kernel, mode="same")
 
 
 def ema(values: np.ndarray, span: int) -> np.ndarray:
+    """
+    Calculate Exponential Moving Average (EMA).
+
+    Args:
+        values (np.ndarray): Input data array.
+        span (int): The span (N) for the EMA calculation.
+
+    Returns:
+        np.ndarray: The EMA series.
+    """
     alpha = 2.0 / (span + 1.0)
     out = np.empty_like(values, dtype=float)
     out[0] = values[0]
@@ -17,6 +48,19 @@ def ema(values: np.ndarray, span: int) -> np.ndarray:
 
 
 def rsi_like(values: np.ndarray, period: int = 14) -> np.ndarray:
+    """
+    Calculate an RSI-like oscillator (Relative Strength Index approximation).
+
+    Note: This is a simplified calculation using SMA instead of the traditional Wilder's smoothing
+    for performance demonstration purposes.
+
+    Args:
+        values (np.ndarray): Input price data (typically Close).
+        period (int): The lookback period.
+
+    Returns:
+        np.ndarray: The RSI values (0-100).
+    """
     # Lightweight SMA-style RSI approximation
     delta = np.diff(values, prepend=values[0])
     gain = np.where(delta > 0, delta, 0.0)
@@ -38,6 +82,21 @@ def rsi_like(values: np.ndarray, period: int = 14) -> np.ndarray:
 def stochastic_like(
     close: np.ndarray, low: np.ndarray, high: np.ndarray, period: int = 14
 ) -> np.ndarray:
+    """
+    Calculate a Stochastic-like oscillator.
+
+    This estimates the position of the close price relative to the recent high-low range.
+    It uses smoothed bands for a cleaner visual in this demo.
+
+    Args:
+        close (np.ndarray): Closing prices.
+        low (np.ndarray): Low prices.
+        high (np.ndarray): High prices.
+        period (int): The lookback period.
+
+    Returns:
+        np.ndarray: The oscillator values (0-100).
+    """
     # Cheap "stochastic-looking" oscillator using rolling min/max approximation.
     # We normalize close into [0, 100] over a slowly-varying band.
     band_low = sma(low, period)
