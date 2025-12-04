@@ -252,3 +252,87 @@ class TestDataManager:
         # Verify arrays are stored (conversion happened but data is referenced)
         assert dm.open.dtype == open_data.dtype
         assert len(dm.open) == len(open_data)
+    
+    def test_timestamp_conversion_to_milliseconds(self):
+        """Test that DatetimeIndex is converted to Unix timestamps in milliseconds."""
+        # Create a DatetimeIndex with known timestamps
+        index = pd.date_range("2024-01-01", periods=5, freq="h")
+        open_data = np.array([100, 102, 101, 103, 102])
+        high = np.array([105, 106, 105, 107, 106])
+        low = np.array([99, 100, 99, 101, 100])
+        close = np.array([104, 103, 104, 105, 104])
+        
+        dm = DataManager(index, open_data, high, low, close)
+        
+        # Get chunk should return timestamps in milliseconds
+        chunk = dm.get_chunk(0, 5)
+        
+        # Verify that index is a list of integers (Unix timestamps in milliseconds)
+        assert isinstance(chunk["index"], list)
+        assert all(isinstance(x, int) for x in chunk["index"])
+        
+        # Verify timestamps are in the correct range (milliseconds since epoch)
+        # For 2024-01-01, timestamps should be around 1704067200000 (ms)
+        expected_first_ts = int(pd.Timestamp("2024-01-01").timestamp() * 1000)
+        assert chunk["index"][0] == expected_first_ts
+        
+        # Verify timestamps are 1 hour apart (3600000 ms)
+        assert chunk["index"][1] - chunk["index"][0] == 3600000
+    
+    def test_numeric_index_unchanged(self):
+        """Test that numeric indices are not converted to timestamps."""
+        # Use plain numeric index
+        index = np.arange(5)
+        open_data = np.array([100, 102, 101, 103, 102])
+        high = np.array([105, 106, 105, 107, 106])
+        low = np.array([99, 100, 99, 101, 100])
+        close = np.array([104, 103, 104, 105, 104])
+        
+        dm = DataManager(index, open_data, high, low, close)
+        
+        # Get chunk should return plain numeric indices
+        chunk = dm.get_chunk(0, 5)
+        
+        # Verify that index is unchanged
+        assert chunk["index"] == [0, 1, 2, 3, 4]
+    
+    def test_unix_timestamp_index_unchanged(self):
+        """Test that raw Unix timestamps (already in milliseconds) pass through unchanged."""
+        # Use Unix timestamps in milliseconds (like JavaScript Date.now())
+        base_ts = 1704067200000  # 2024-01-01 in milliseconds
+        index = np.array([base_ts + i * 3600000 for i in range(5)])
+        open_data = np.array([100, 102, 101, 103, 102])
+        high = np.array([105, 106, 105, 107, 106])
+        low = np.array([99, 100, 99, 101, 100])
+        close = np.array([104, 103, 104, 105, 104])
+        
+        dm = DataManager(index, open_data, high, low, close)
+        
+        # Get chunk should return timestamps unchanged
+        chunk = dm.get_chunk(0, 5)
+        
+        # Verify timestamps are preserved
+        assert chunk["index"] == index.tolist()
+        assert all(isinstance(x, int) for x in chunk["index"])
+    
+    def test_timezone_aware_index(self):
+        """Test that timezone-aware indices are correctly converted to milliseconds."""
+        # Create a timezone-aware index (UTC)
+        index = pd.date_range("2024-01-01", periods=5, freq="h", tz="UTC")
+        open_data = np.array([100, 102, 101, 103, 102])
+        high = np.array([105, 106, 105, 107, 106])
+        low = np.array([99, 100, 99, 101, 100])
+        close = np.array([104, 103, 104, 105, 104])
+        
+        dm = DataManager(index, open_data, high, low, close)
+        
+        # Get chunk should return valid integer timestamps, NOT Timestamps objects
+        chunk = dm.get_chunk(0, 5)
+        
+        # Verify conversion
+        assert isinstance(chunk["index"], list)
+        assert all(isinstance(x, int) for x in chunk["index"])
+        
+        # Expected timestamp (1704067200000 for 2024-01-01 UTC)
+        expected_ts = 1704067200000
+        assert chunk["index"][0] == expected_ts

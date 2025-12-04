@@ -170,9 +170,10 @@ def plot(
             server_info = _active_server.server_info
             server_info['url'] = f"http://{server_info['host']}:{server_info['port']}"
         
-        # Construct chart URL with session ID
+        # Construct chart URL with session ID and timestamp to bust cache
         # Use viewport demo which pulls data from the API for the given session
-        chart_url = f"{server_info['url']}/static/viewport-demo.html?session={session_id}"
+        ts = int(time.time())
+        chart_url = f"{server_info['url']}/static/viewport-demo.html?session={session_id}&v={ts}"
         
         # Open browser if requested
         if open_browser:

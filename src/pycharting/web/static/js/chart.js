@@ -108,18 +108,66 @@ class PyChart {
     }
     
     /**
+     * Set chart data and render
+     * @param {Array} data - Chart data [xValues, open, high, low, close, ...overlays]
+     * @param {Array} timestamps - Optional array of timestamps corresponding to xValues
+     */
+    setData(data, timestamps = null) {
+        const prevLen = this.data ? this.data.length : null;
+        this.data = data;
+        this.timestamps = timestamps;
+        
+        // If the number of series hasn't changed, we can just update data
+        if (this.chart && prevLen === data.length) {
+            this.chart.setData(data);
+            return;
+        }
+        
+        // If the series count changed (e.g. overlays added), rebuild the chart
+        if (this.chart) {
+            this.chart.destroy();
+            this.chart = null;
+        }
+        
+        const config = this.createConfig(data);
+        this.chart = new uPlot(config, data, this.container);
+        this._setupInteractions();
+    }
+
+    /**
+     * Helper to format x-axis values (indices) to dates
+     */
+    formatDate(index) {
+        if (!this.timestamps) return index;
+        
+        // Find the timestamp for this index
+        // Since we don't store the full map, we assume data[0] contains indices
+        // and this.timestamps aligns with data[0]
+        if (this.data && this.data[0]) {
+            const dataIndex = this.data[0].indexOf(index);
+            if (dataIndex !== -1 && this.timestamps[dataIndex]) {
+                const date = new Date(this.timestamps[dataIndex]);
+                return date.toLocaleString();
+            }
+        }
+        return index;
+    }
+    
+    /**
      * Create uPlot configuration
-     * @param {Array} data - Chart data [timestamps, open, high, low, close, ...overlays]
+     * @param {Array} data - Chart data
      */
     createConfig(data) {
         const self = this;
+        // Always use numeric indices for X-axis to support ViewportManager slicing
+        const isTimestamp = false; 
         
         // Build series configuration
         const series = [
             {
-                label: 'Index',
-                // Show raw index value rather than interpreting as a timestamp
-                value: (u, v) => v != null ? v.toString() : ''
+                label: 'Time',
+                // Format value using timestamp map if available
+                value: (u, v) => self.formatDate(v)
             },
             {
                 label: 'Open',
@@ -157,7 +205,6 @@ class PyChart {
             series,
             scales: {
                 x: {
-                    // Treat x-values as plain numeric indices, not timestamps
                     time: false,
                 },
                 y: {
@@ -168,6 +215,18 @@ class PyChart {
                 {
                     stroke: '#888',
                     grid: { stroke: '#eee', width: 1 },
+                    // Format ticks using timestamp map
+                    values: (u, vals) => vals.map(v => {
+                        if (self.timestamps && self.data && self.data[0]) {
+                            // Binary search or approximate lookup would be faster for large datasets
+                            // but for the viewport chunk (1-2k points), direct lookup is okay
+                            // Actually, uPlot ticks `vals` might not exactly match data indices
+                            // So we find the closest index
+                            const idx = Math.round(v);
+                            return self.formatDate(idx);
+                        }
+                        return v.toFixed(0);
+                    }),
                 },
                 {
                     stroke: '#888',
@@ -179,14 +238,8 @@ class PyChart {
                 this.candlestickPlugin()
             ],
             cursor: {
-                // Disable uPlot's built-in drag selection (we implement our own pan)
-                drag: {
-                    x: false,
-                    y: false,
-                },
-                sync: {
-                    key: 'pycharting',
-                }
+                drag: { x: false, y: false },
+                sync: { key: 'pycharting' }
             }
         };
     }

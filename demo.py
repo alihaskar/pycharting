@@ -10,7 +10,7 @@ This serves as both a usage example and a performance benchmark.
 """
 
 import numpy as np
-from src.pycharting import plot, stop_server
+from pycharting import plot, stop_server
 
 
 def sma(values: np.ndarray, window: int) -> np.ndarray:
