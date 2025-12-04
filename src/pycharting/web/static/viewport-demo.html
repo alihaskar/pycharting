@@ -39,17 +39,44 @@
             flex-direction: column;
             min-height: 0;
             padding: 8px 12px 12px;
+            overflow: hidden;
         }
         
         #chartContainer {
             width: 100%;
-            flex: 1;
-            min-height: 0;
+            position: relative;
+            min-height: 200px;
+        }
+
+        .resize-handle {
+            width: 100%;
+            height: 8px;
+            background: #ddd;
+            cursor: ns-resize;
+            position: relative;
+            margin: 2px 0;
+            border-radius: 2px;
+            transition: background 0.2s;
+        }
+
+        .resize-handle:hover {
+            background: #999;
+        }
+
+        .resize-handle:active {
+            background: #666;
         }
 
         #subplotsContainer {
             width: 100%;
-            margin-top: 6px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .subplot-wrapper {
+            width: 100%;
+            position: relative;
+            min-height: 80px;
         }
 
         /* keep required DOM nodes for JS, but hide them */
@@ -60,8 +87,9 @@
 </head>
 <body>
     <header>PyCharting</header>
-    <main>
+    <main id="mainContainer">
         <div id="chartContainer"></div>
+        <div id="mainResizeHandle" class="resize-handle" style="display: none;"></div>
         <div id="subplotsContainer"></div>
 
         <!-- hidden UI elements kept for JS compatibility -->
@@ -91,9 +119,10 @@
         // Initialize chart
         function setupChart() {
             const container = document.getElementById('chartContainer');
+            const height = container.offsetHeight || 500;
             chart = new PyChart(container, {
                 title: 'Dynamic Viewport Demo',
-                height: 500
+                height: height
             });
         }
         
@@ -199,9 +228,16 @@
 
                 // Lazily create subplot panel + chart
                 if (!subplotCharts[name]) {
+                    // Create resize handle for this subplot
+                    const resizeHandle = document.createElement('div');
+                    resizeHandle.className = 'resize-handle';
+                    resizeHandle.dataset.target = name;
+                    container.appendChild(resizeHandle);
+                    
                     const wrapper = document.createElement('div');
+                    wrapper.className = 'subplot-wrapper';
+                    wrapper.dataset.name = name;
                     wrapper.style.height = '150px';
-                    wrapper.style.marginTop = '10px';
 
                     const title = document.createElement('div');
                     title.textContent = name;
@@ -212,10 +248,14 @@
 
                     const div = document.createElement('div');
                     div.style.height = '130px';
+                    div.dataset.chartDiv = name;
 
                     wrapper.appendChild(title);
                     wrapper.appendChild(div);
                     container.appendChild(wrapper);
+                    
+                    // Setup resize handler
+                    setupResizeHandle(resizeHandle, wrapper, div);
 
                     const colors = {
                         RSI_like: '#f44336',
@@ -310,14 +350,123 @@
             }
         }
         
+        // Setup resize handler for a subplot
+        function setupResizeHandle(handle, wrapper, chartDiv) {
+            let isResizing = false;
+            let startY = 0;
+            let startHeight = 0;
+            
+            handle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startY = e.clientY;
+                startHeight = wrapper.offsetHeight;
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                
+                const deltaY = e.clientY - startY;
+                const newHeight = Math.max(80, startHeight + deltaY);
+                const newChartHeight = newHeight - 20; // Account for title
+                
+                wrapper.style.height = newHeight + 'px';
+                chartDiv.style.height = newChartHeight + 'px';
+                
+                // Resize the uPlot chart
+                const chartName = wrapper.dataset.name;
+                if (subplotCharts[chartName]) {
+                    subplotCharts[chartName].setSize({
+                        width: chartDiv.offsetWidth,
+                        height: newChartHeight
+                    });
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isResizing = false;
+            });
+        }
+        
+        // Setup main chart resize handle
+        function setupMainResize() {
+            const handle = document.getElementById('mainResizeHandle');
+            const chartContainer = document.getElementById('chartContainer');
+            const mainContainer = document.getElementById('mainContainer');
+            
+            let isResizing = false;
+            let startY = 0;
+            let startHeight = 0;
+            
+            handle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startY = e.clientY;
+                startHeight = chartContainer.offsetHeight;
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                
+                const deltaY = e.clientY - startY;
+                const newHeight = Math.max(200, startHeight + deltaY);
+                
+                chartContainer.style.height = newHeight + 'px';
+                chartContainer.style.flex = 'none';
+                
+                // Resize the uPlot chart
+                if (chart && chart.chart) {
+                    chart.setSize(chartContainer.offsetWidth, newHeight);
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isResizing = false;
+            });
+        }
+        
+        // Initialize chart heights based on whether subplots exist
+        function initializeChartHeights() {
+            const mainContainer = document.getElementById('mainContainer');
+            const chartContainer = document.getElementById('chartContainer');
+            const subplotsContainer = document.getElementById('subplotsContainer');
+            const mainHandle = document.getElementById('mainResizeHandle');
+            
+            // Check if subplots will be rendered
+            setTimeout(() => {
+                const hasSubplots = subplotsContainer.children.length > 0;
+                
+                if (!hasSubplots) {
+                    // No subplots: make main chart consume 80% of available height
+                    const availableHeight = mainContainer.offsetHeight;
+                    chartContainer.style.height = (availableHeight * 0.8) + 'px';
+                    chartContainer.style.flex = 'none';
+                    mainHandle.style.display = 'none';
+                } else {
+                    // Has subplots: show resize handle
+                    chartContainer.style.flex = '1';
+                    chartContainer.style.minHeight = '300px';
+                    mainHandle.style.display = 'block';
+                    setupMainResize();
+                }
+                
+                // Resize chart to fit container
+                if (chart && chart.chart) {
+                    chart.setSize(chartContainer.offsetWidth, chartContainer.offsetHeight);
+                }
+            }, 100);
+        }
+        
         // Auto-initialize on page load
         window.addEventListener('load', () => {
             const sessionId = getSessionId();
             if (sessionId) {
                 // When launched via Python API, auto-init using existing session
                 initializeData();
+                initializeChartHeights();
             } else {
                 setupChart();
+                initializeChartHeights();
             }
         });
     </script>
