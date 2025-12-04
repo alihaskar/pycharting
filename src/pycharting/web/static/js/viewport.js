@@ -233,13 +233,26 @@ class ViewportManager {
      * @param {Object} data - Data from API
      */
     updateChartData(data) {
+        // Generate array of integer indices for X-axis
+        const startIndex = data.start_index || 0;
+        const xIndices = data.index.map((_, i) => startIndex + i);
+        const len = xIndices.length;
+        
+        // Helper to ensure data array exists
+        const ensureArray = (arr) => arr || Array(len).fill(null);
+
+        // Keep timestamps for labeling
+        const timestamps = data.index;
+
         // Convert data format to uPlot format
+        // Use xIndices for the first array (X-axis)
+        // Ensure all series are arrays, even if null in API response
         const chartData = [
-            data.index,
-            data.open,
-            data.high,
-            data.low,
-            data.close
+            xIndices,
+            ensureArray(data.open),
+            ensureArray(data.high),
+            ensureArray(data.low),
+            ensureArray(data.close)
         ];
         
         // Add overlays if present
@@ -249,13 +262,16 @@ class ViewportManager {
             });
         }
         
-        // Update chart
-        this.chart.setData(chartData);
+        // Update chart with indices as X, and pass timestamps for formatting
+        this.chart.setData(chartData, timestamps);
         
         // Ensure listeners are set up (needed if chart was just created/recreated)
         this.setupEventListeners();
 
         // Notify any subplot handlers with full data payload
+        // We need to pass the xIndices here too if subplots use uPlot
+        data.xIndices = xIndices;
+        
         this.subplotCallbacks.forEach((cb) => {
             if (typeof cb === 'function') {
                 cb(data, this);

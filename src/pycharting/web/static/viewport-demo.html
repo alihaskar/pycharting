@@ -163,11 +163,10 @@
             // Track viewport changes
             setInterval(() => {
                 if (chart.chart && chart.chart.scales && chart.chart.scales.x) {
-                    const range = chart.chart.scales.x.range;
-                    if (range) {
-                        const [min, max] = range;
+                    const scale = chart.chart.scales.x;
+                    if (scale.min != null && scale.max != null) {
                         document.getElementById('visibleRange').textContent = 
-                            `${Math.floor(min)} - ${Math.floor(max)}`;
+                            `${Math.floor(scale.min)} - ${Math.floor(scale.max)}`;
                     }
                 }
             }, 1000);
@@ -180,7 +179,11 @@
             }
 
             const container = document.getElementById('subplotsContainer');
-            const index = data.index;
+            
+            // Use generated indices for X-axis to align with main chart
+            const index = data.xIndices || data.index.map((_, i) => (data.start_index || 0) + i);
+            const timestamps = data.index;
+            
             const names = Object.keys(data.subplots);
 
             if (names.length === 0) return;
@@ -223,7 +226,17 @@
                         width: container.clientWidth || 800,
                         height: 130,
                         series: [
-                            {},
+                            {
+                                // Format X labels as dates
+                                value: (u, v) => {
+                                    // Find index in data
+                                    const idx = index.indexOf(v);
+                                    if (idx !== -1 && timestamps[idx]) {
+                                        return new Date(timestamps[idx]).toLocaleString();
+                                    }
+                                    return v;
+                                }
+                            },
                             {
                                 label: name,
                                 stroke: colors[name] || '#FF9800',
@@ -235,7 +248,18 @@
                             y: { auto: true },
                         },
                         axes: [
-                            {},
+                            {
+                                // Minimal x-axis for subplots
+                                show: true,
+                                values: (u, vals) => vals.map(v => {
+                                    const idx = index.indexOf(Math.round(v));
+                                    if (idx !== -1 && timestamps[idx]) {
+                                        // Show shorter time format for subplots
+                                        return new Date(timestamps[idx]).toLocaleTimeString();
+                                    }
+                                    return v.toFixed(0);
+                                })
+                            },
                             {
                                 label: name,
                                 labelSize: 18,

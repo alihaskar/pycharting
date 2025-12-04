@@ -34,10 +34,10 @@ _active_server: Optional[ChartServer] = None
 
 def plot(
     index: Union[np.ndarray, pd.Series, list],
-    open: Union[np.ndarray, pd.Series, list],
-    high: Union[np.ndarray, pd.Series, list],
-    low: Union[np.ndarray, pd.Series, list],
-    close: Union[np.ndarray, pd.Series, list],
+    open: Optional[Union[np.ndarray, pd.Series, list]] = None,
+    high: Optional[Union[np.ndarray, pd.Series, list]] = None,
+    low: Optional[Union[np.ndarray, pd.Series, list]] = None,
+    close: Optional[Union[np.ndarray, pd.Series, list]] = None,
     overlays: Optional[Dict[str, Union[np.ndarray, pd.Series, list]]] = None,
     subplots: Optional[Dict[str, Union[np.ndarray, pd.Series, list]]] = None,
     session_id: str = "default",
@@ -46,7 +46,7 @@ def plot(
     server_timeout: float = 2.0,
 ) -> Dict[str, Any]:
     """
-    Generate and display an interactive OHLC (Open-High-Low-Close) financial chart.
+    Generate and display an interactive OHLC (Open-High-Low-Close) or Line chart.
 
     This function is the primary interface for PyCharting. It performs the following steps:
     1.  **Data Ingestion:** Converts input lists, pandas Series, or numpy arrays into optimized internal formats.
@@ -60,10 +60,11 @@ def plot(
 
     Args:
         index (Union[np.ndarray, pd.Series, list]): The x-axis data (timestamps or integer indices). Must have the same length as price arrays.
-        open (Union[np.ndarray, pd.Series, list]): Opening prices.
-        high (Union[np.ndarray, pd.Series, list]): Highest prices during the interval.
-        low (Union[np.ndarray, pd.Series, list]): Lowest prices during the interval.
-        close (Union[np.ndarray, pd.Series, list]): Closing prices.
+        open (Optional[Union[np.ndarray, pd.Series, list]]): Opening prices.
+        high (Optional[Union[np.ndarray, pd.Series, list]]): Highest prices during the interval.
+        low (Optional[Union[np.ndarray, pd.Series, list]]): Lowest prices during the interval.
+        close (Optional[Union[np.ndarray, pd.Series, list]]): Closing prices. If only `close` is provided (without open/high/low),
+            a line chart will be rendered instead of candlesticks.
         overlays (Optional[Dict[str, Union[np.ndarray, pd.Series, list]]]): A dictionary of additional series to plot *over* the main price chart.
             Keys are labels (e.g., "SMA 50"), values are data arrays. Useful for Moving Averages, Bollinger Bands, etc.
         subplots (Optional[Dict[str, Union[np.ndarray, pd.Series, list]]]): A dictionary of series to plot in separate panels *below* the main chart.
@@ -92,14 +93,15 @@ def plot(
         n = 1000
         index = np.arange(n)
         close = np.cumsum(np.random.randn(n)) + 100
+        
+        # 2. Simple Line Chart
+        plot(index, close=close)
+        
+        # 3. Candlestick Chart
         open_p = close + np.random.randn(n) * 0.5
         high = np.maximum(open_p, close) + np.abs(np.random.randn(n))
         low = np.minimum(open_p, close) - np.abs(np.random.randn(n))
         
-        # 2. Add Indicators
-        sma = np.convolve(close, np.ones(20)/20, mode='same')
-        
-        # 3. Plot with Overlay
         plot(
             index, open_p, high, low, close,
             overlays={"SMA 20": sma},
@@ -170,9 +172,10 @@ def plot(
             server_info = _active_server.server_info
             server_info['url'] = f"http://{server_info['host']}:{server_info['port']}"
         
-        # Construct chart URL with session ID
+        # Construct chart URL with session ID and timestamp to bust cache
         # Use viewport demo which pulls data from the API for the given session
-        chart_url = f"{server_info['url']}/static/viewport-demo.html?session={session_id}"
+        ts = int(time.time())
+        chart_url = f"{server_info['url']}/static/viewport-demo.html?session={session_id}&v={ts}"
         
         # Open browser if requested
         if open_browser:
