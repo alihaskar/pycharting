@@ -2,7 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from src.core.server import create_app, find_free_port
+from pycharting.core.server import create_app, find_free_port
 
 
 @pytest.fixture

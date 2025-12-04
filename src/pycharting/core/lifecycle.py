@@ -1,4 +1,15 @@
-"""Server lifecycle management for PyCharting."""
+"""
+Server Lifecycle Management for PyCharting.
+
+This module manages the background execution and lifecycle of the PyCharting server.
+Since the main Python script (e.g., a data science notebook or script) needs to remain responsive,
+the chart server runs in a separate background thread.
+
+This module handles:
+- **Thread Management:** Starting and stopping the server in a daemon thread.
+- **Heartbeat Monitoring:** Checking for WebSocket connections from the frontend.
+- **Auto-Shutdown:** Automatically stopping the server when the browser tab is closed (connection lost) to prevent orphaned processes.
+"""
 
 import threading
 import time
@@ -7,17 +18,25 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 import uvicorn
 from fastapi import WebSocket, WebSocketDisconnect
-from .server import create_app, find_free_port
+from pycharting.core.server import create_app, find_free_port
 
 logger = logging.getLogger(__name__)
 
 
 class ChartServer:
     """
-    Manages the lifecycle of the PyCharting server.
-    
-    Runs Uvicorn in a background thread and provides auto-shutdown
-    capability when WebSocket connections are lost.
+    A controller for managing the PyCharting background server.
+
+    This class encapsulates the logic for running the FastAPI/Uvicorn server in a separate thread.
+    It includes a heartbeat mechanism that monitors a WebSocket connection from the frontend.
+    If the frontend disconnects (e.g., user closes the tab), the server can automatically shut down
+    after a configurable timeout.
+
+    Attributes:
+        host (str): The hostname to bind to.
+        port (int): The port to bind to.
+        auto_shutdown_timeout (float): Time in seconds to wait before shutting down after connection loss.
+        app (FastAPI): The underlying FastAPI application instance.
     """
     
     def __init__(
@@ -27,12 +46,13 @@ class ChartServer:
         auto_shutdown_timeout: float = 5.0,
     ):
         """
-        Initialize ChartServer.
-        
+        Initialize the ChartServer controller.
+
         Args:
-            host: Host to bind the server to
-            port: Port to use (None for auto-discovery)
-            auto_shutdown_timeout: Seconds to wait before auto-shutdown after disconnect
+            host (str): Host to bind the server to. Defaults to "127.0.0.1".
+            port (Optional[int]): Port to use. If None, an available port is found automatically.
+            auto_shutdown_timeout (float): Seconds to wait before auto-shutdown after the last client disconnects.
+                Defaults to 5.0 seconds.
         """
         self.host = host
         self.port = port or find_free_port()
@@ -122,13 +142,24 @@ class ChartServer:
     
     def start_server(self) -> Dict[str, Any]:
         """
-        Start the server in a background thread.
-        
+        Start the web server in a background daemon thread.
+
+        This method:
+        1. Checks if the server is already running.
+        2. Starts the Uvicorn server in a separate thread.
+        3. Starts a monitor thread to check for WebSocket heartbeats.
+        4. Waits briefly to ensure the server is up.
+
         Returns:
-            Dict with server information (host, port, url)
-            
+            Dict[str, Any]: A dictionary containing connection details:
+                - `host`: The server host.
+                - `port`: The server port.
+                - `url`: The full HTTP URL to the server.
+                - `ws_url`: The WebSocket URL for heartbeats.
+                - `running`: Boolean status.
+
         Raises:
-            RuntimeError: If server is already running
+            RuntimeError: If the server is already running.
         """
         if self._running:
             raise RuntimeError("Server is already running")
@@ -169,7 +200,12 @@ class ChartServer:
         }
     
     def stop_server(self):
-        """Stop the server gracefully."""
+        """
+        Gracefully stop the background server and monitor threads.
+
+        This method signals the server to shut down, closes the Uvicorn loop,
+        and joins the background threads. It is safe to call multiple times.
+        """
         if not self._running:
             logger.warning("Server is not running")
             return

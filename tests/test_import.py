@@ -11,25 +11,25 @@ def test_package_import():
 
 def test_core_import():
     """Test that core module can be imported."""
-    from src import core
+    from src.pycharting import core
     assert core is not None
 
 
 def test_data_import():
     """Test that data module can be imported."""
-    from src import data
+    from src.pycharting import data
     assert data is not None
 
 
 def test_api_import():
     """Test that api module can be imported."""
-    from src import api
+    from src.pycharting import api
     assert api is not None
 
 
 def test_web_import():
     """Test that web module can be imported."""
-    from src import web
+    from src.pycharting import web
     assert web is not None
 
 
