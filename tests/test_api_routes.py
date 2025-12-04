@@ -1,141 +1,231 @@
-"""Tests for API chart data endpoint routing."""
+"""Tests for API routes."""
+
 import pytest
 from fastapi.testclient import TestClient
-from charting.api.main import app
+from src.core.server import create_app
 
 
 @pytest.fixture
 def client():
     """Create test client."""
+    # Clear session state before each test
+    from src.api.routes import _data_managers
+    _data_managers.clear()
+    
+    app = create_app()
     return TestClient(app)
 
 
-def test_chart_data_endpoint_exists(client):
-    """Test that /chart-data endpoint exists."""
-    response = client.get("/chart-data")
+class TestAPIStatus:
+    """Tests for API status endpoint."""
     
-    # Should return error (missing required params) but endpoint exists
-    assert response.status_code in [400, 422]  # Bad request or validation error
+    def test_api_status(self, client):
+        """Test API status endpoint."""
+        response = client.get("/api/status")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert data["status"] == "healthy"
+        assert "active_sessions" in data
+        assert "endpoints" in data
 
 
-def test_chart_data_requires_filename(client):
-    """Test that filename parameter is required."""
-    response = client.get("/chart-data")
+class TestDataInitialization:
+    """Tests for data initialization endpoint."""
     
-    assert response.status_code == 422
-    assert "filename" in response.text.lower()
-
-
-def test_chart_data_accepts_filename(client):
-    """Test that endpoint accepts filename parameter."""
-    response = client.get("/chart-data?filename=test.csv")
+    def test_init_default_session(self, client):
+        """Test initializing default session."""
+        response = client.post("/api/data/init")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert data["session_id"] == "default"
+        assert data["status"] == "initialized"
+        assert data["data_points"] == 1000
     
-    # May fail for other reasons (file not found) but should accept parameter
-    assert response.status_code in [200, 404, 500]
+    def test_init_custom_session(self, client):
+        """Test initializing custom session."""
+        response = client.post("/api/data/init?session_id=test")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert data["session_id"] == "test"
+        assert data["status"] == "initialized"
 
 
-def test_chart_data_optional_indicators(client):
-    """Test that indicators parameter is optional."""
-    response = client.get("/chart-data?filename=test.csv")
+class TestDataFetching:
+    """Tests for data fetching endpoint."""
     
-    # Should not fail due to missing indicators
-    assert "indicators" not in response.json().get("detail", "")
-
-
-def test_chart_data_accepts_multiple_indicators(client):
-    """Test that endpoint accepts multiple indicators."""
-    params = {
-        "filename": "test.csv",
-        "indicators": ["RSI", "SMA"]
-    }
-    response = client.get("/chart-data", params=params)
+    def test_get_data_without_session(self, client):
+        """Test getting data without initializing session."""
+        response = client.get("/api/data")
+        assert response.status_code == 404
+        response_json = response.json()
+        # Check for error message in either 'detail' or 'error' key
+        error_msg = response_json.get("detail") or response_json.get("error", "")
+        assert "not found" in error_msg.lower()
     
-    # Should accept parameter format
-    assert response.status_code in [200, 404, 500]
-
-
-def test_chart_data_indicator_parameters(client):
-    """Test that indicator parameters can be passed."""
-    params = {
-        "filename": "test.csv",
-        "indicators": ["RSI:14", "SMA:20"]
-    }
-    response = client.get("/chart-data", params=params)
+    def test_get_data_with_session(self, client):
+        """Test getting data after initialization."""
+        # Initialize session
+        client.post("/api/data/init")
+        
+        # Fetch data
+        response = client.get("/api/data?start_index=0&end_index=100")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert "index" in data
+        assert "open" in data
+        assert "high" in data
+        assert "low" in data
+        assert "close" in data
+        assert len(data["index"]) == 100
     
-    # Should accept parameter format
-    assert response.status_code in [200, 404, 500]
-
-
-def test_chart_data_time_range_params(client):
-    """Test that time range parameters work."""
-    params = {
-        "filename": "test.csv",
-        "start_date": "2024-01-01",
-        "end_date": "2024-12-31"
-    }
-    response = client.get("/chart-data", params=params)
+    def test_get_data_full_range(self, client):
+        """Test getting all data."""
+        client.post("/api/data/init")
+        
+        response = client.get("/api/data")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert data["total_length"] == 1000
+        assert len(data["index"]) == 1000
     
-    # Should accept time range
-    assert response.status_code in [200, 404, 500]
-
-
-def test_chart_data_timeframe_param(client):
-    """Test that timeframe parameter works."""
-    params = {
-        "filename": "test.csv",
-        "timeframe": "1h"
-    }
-    response = client.get("/chart-data", params=params)
+    def test_get_data_partial_range(self, client):
+        """Test getting partial data range."""
+        client.post("/api/data/init")
+        
+        response = client.get("/api/data?start_index=500&end_index=600")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert data["start_index"] == 500
+        assert data["end_index"] == 600
+        assert len(data["index"]) == 100
     
-    # Should accept timeframe
-    assert response.status_code in [200, 404, 500]
+    def test_get_data_with_custom_session(self, client):
+        """Test getting data from custom session."""
+        client.post("/api/data/init?session_id=custom")
+        
+        response = client.get("/api/data?session_id=custom&start_index=0&end_index=50")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert len(data["index"]) == 50
 
 
-def test_chart_data_response_structure(client, tmp_path):
-    """Test that successful response has correct structure."""
-    # This test will need actual file handling (covered in integration)
-    # For now, just verify endpoint structure
-    response = client.get("/chart-data?filename=test.csv")
+class TestSessionManagement:
+    """Tests for session management endpoints."""
     
-    # Should return JSON
-    assert response.headers["content-type"] == "application/json"
-
-
-def test_chart_data_invalid_timeframe(client):
-    """Test that invalid timeframe is rejected."""
-    params = {
-        "filename": "test.csv",
-        "timeframe": "invalid"
-    }
-    response = client.get("/chart-data", params=params)
+    def test_list_sessions_empty(self, client):
+        """Test listing sessions when none exist."""
+        response = client.get("/api/sessions")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert data["count"] == 0
+        assert len(data["sessions"]) == 0
     
-    # Should reject invalid timeframe
-    assert response.status_code in [400, 422]
-
-
-def test_chart_data_returns_json(client):
-    """Test that response is always JSON."""
-    response = client.get("/chart-data?filename=test.csv")
+    def test_list_sessions_with_data(self, client):
+        """Test listing sessions after initialization."""
+        client.post("/api/data/init")
+        client.post("/api/data/init?session_id=test")
+        
+        response = client.get("/api/sessions")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert data["count"] == 2
+        assert len(data["sessions"]) == 2
     
-    # Should always return JSON
-    assert "application/json" in response.headers["content-type"]
-
-
-def test_chart_data_get_method_only(client):
-    """Test that only GET method is allowed."""
-    response = client.post("/chart-data", json={"filename": "test.csv"})
+    def test_delete_session(self, client):
+        """Test deleting a session."""
+        client.post("/api/data/init?session_id=to_delete")
+        
+        # Verify session exists
+        response = client.get("/api/sessions")
+        assert response.json()["count"] == 1
+        
+        # Delete session
+        response = client.delete("/api/sessions/to_delete")
+        assert response.status_code == 200
+        assert response.json()["status"] == "deleted"
+        
+        # Verify session is gone
+        response = client.get("/api/sessions")
+        assert response.json()["count"] == 0
     
-    # Should not allow POST
-    assert response.status_code == 405
+    def test_delete_nonexistent_session(self, client):
+        """Test deleting non-existent session."""
+        response = client.delete("/api/sessions/nonexistent")
+        assert response.status_code == 404
 
 
-def test_chart_data_cors_headers(client):
-    """Test that CORS headers are present."""
-    response = client.get(
-        "/chart-data?filename=test.csv",
-        headers={"Origin": "http://localhost:3000"}
-    )
+class TestDataValidation:
+    """Tests for data validation."""
     
-    # CORS headers should be present
-    assert "access-control-allow-origin" in response.headers
+    def test_negative_start_index(self, client):
+        """Test that negative start index is rejected."""
+        client.post("/api/data/init")
+        
+        response = client.get("/api/data?start_index=-1")
+        assert response.status_code == 422  # Validation error
+    
+    def test_overlays_and_subplots(self, client):
+        """Test that response includes overlay/subplot fields."""
+        client.post("/api/data/init")
+        
+        response = client.get("/api/data?start_index=0&end_index=10")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert "overlays" in data
+        assert "subplots" in data
+        assert isinstance(data["overlays"], dict)
+        assert isinstance(data["subplots"], dict)
 
+
+class TestAPIIntegration:
+    """Integration tests for API."""
+    
+    def test_full_workflow(self, client):
+        """Test complete workflow: init -> fetch -> delete."""
+        # Initialize
+        response = client.post("/api/data/init?session_id=workflow")
+        assert response.status_code == 200
+        
+        # Fetch data
+        response = client.get("/api/data?session_id=workflow&start_index=0&end_index=100")
+        assert response.status_code == 200
+        assert len(response.json()["index"]) == 100
+        
+        # List sessions
+        response = client.get("/api/sessions")
+        assert response.status_code == 200
+        assert response.json()["count"] == 1
+        
+        # Delete session
+        response = client.delete("/api/sessions/workflow")
+        assert response.status_code == 200
+        
+        # Verify data is inaccessible
+        response = client.get("/api/data?session_id=workflow")
+        assert response.status_code == 404
+    
+    def test_multiple_sessions(self, client):
+        """Test working with multiple sessions simultaneously."""
+        # Create multiple sessions
+        for i in range(3):
+            response = client.post(f"/api/data/init?session_id=session{i}")
+            assert response.status_code == 200
+        
+        # Fetch from each
+        for i in range(3):
+            response = client.get(f"/api/data?session_id=session{i}&start_index=0&end_index=10")
+            assert response.status_code == 200
+        
+        # Verify all exist
+        response = client.get("/api/sessions")
+        assert response.json()["count"] == 3

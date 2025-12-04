@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyCharting</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f3ef;
+            color: #111111;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 10px 20px;
+            border-bottom: 1px solid #222;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            padding: 8px 12px 12px;
+        }
+        
+        #chartContainer {
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+        }
+
+        #subplotsContainer {
+            width: 100%;
+            margin-top: 6px;
+        }
+
+        /* keep required DOM nodes for JS, but hide them */
+        #uiHidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>PyCharting</header>
+    <main>
+        <div id="chartContainer"></div>
+        <div id="subplotsContainer"></div>
+
+        <!-- hidden UI elements kept for JS compatibility -->
+        <div id="uiHidden">
+            <div id="loadingIndicator"></div>
+            <span id="loadingStatus"></span>
+            <span id="totalPoints"></span>
+            <span id="cachedRange"></span>
+            <span id="visibleRange"></span>
+        </div>
+    </main>
+    
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.iife.min.js"></script>
+    <script src="/static/js/chart.js"></script>
+    <script src="/static/js/viewport.js"></script>
+    <script>
+        let chart = null;
+        let viewportManager = null;
+        // Name -> uPlot instance for indicator-style subplots
+        let subplotCharts = {};
+        
+        function getSessionId() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('session') || null;
+        }
+        
+        // Initialize chart
+        function setupChart() {
+            const container = document.getElementById('chartContainer');
+            chart = new PyChart(container, {
+                title: 'Dynamic Viewport Demo',
+                height: 500
+            });
+        }
+        
+        // Initialize viewport manager and load data
+        async function initializeData() {
+            if (!chart) {
+                setupChart();
+            }
+            
+            const sessionId = getSessionId() || 'viewport-demo';
+            
+            // Create viewport manager with loading callbacks
+            viewportManager = new ViewportManager(chart, {
+                sessionId: sessionId,
+                bufferMargin: 0.5,
+                debounceDelay: 300,
+                onLoading: [updateLoadingState],
+                onSubplotsUpdate: [updateSubplots]
+            });
+            
+            try {
+                if (sessionId === 'viewport-demo') {
+                    // Standalone demo: create a demo session on the backend
+                    const result = await viewportManager.initializeSession();
+                    document.getElementById('totalPoints').textContent = 
+                        result.data_points.toLocaleString();
+                } else {
+                    // Python API path: session already exists with real user data
+                    await viewportManager.loadInitialData();
+                    const info = viewportManager.getCacheInfo();
+                    if (info.totalLength) {
+                        document.getElementById('totalPoints').textContent = 
+                            info.totalLength.toLocaleString();
+                    }
+                }
+                
+                updateCacheInfo();
+                
+                // Setup viewport tracking
+                setupViewportTracking();
+                
+            } catch (error) {
+                alert('Failed to initialize session: ' + error.message);
+            }
+        }
+        
+        // Update loading state
+        function updateLoadingState(isLoading) {
+            const indicator = document.getElementById('loadingIndicator');
+            const status = document.getElementById('loadingStatus');
+            
+            if (isLoading) {
+                indicator.classList.add('active');
+                status.textContent = 'Loading...';
+                status.style.color = '#ff9800';
+            } else {
+                indicator.classList.remove('active');
+                status.textContent = 'Ready';
+                status.style.color = '#4caf50';
+            }
+        }
+        
+        // Setup viewport tracking
+        function setupViewportTracking() {
+            if (!chart.chart) return;
+            
+            // Track viewport changes
+            setInterval(() => {
+                if (chart.chart && chart.chart.scales && chart.chart.scales.x) {
+                    const range = chart.chart.scales.x.range;
+                    if (range) {
+                        const [min, max] = range;
+                        document.getElementById('visibleRange').textContent = 
+                            `${Math.floor(min)} - ${Math.floor(max)}`;
+                    }
+                }
+            }, 1000);
+        }
+
+        // Create or update subplot charts when backend sends subplots
+        function updateSubplots(data) {
+            if (!data || !data.subplots || !data.index) {
+                return;
+            }
+
+            const container = document.getElementById('subplotsContainer');
+            const index = data.index;
+            const names = Object.keys(data.subplots);
+
+            if (names.length === 0) return;
+
+            // Expose charts for X-scale syncing from ViewportManager
+            window.viewportSubplotCharts = subplotCharts;
+
+            names.forEach((name) => {
+                const series = data.subplots[name];
+                if (!Array.isArray(series) || series.length !== index.length) {
+                    return;
+                }
+
+                // Lazily create subplot panel + chart
+                if (!subplotCharts[name]) {
+                    const wrapper = document.createElement('div');
+                    wrapper.style.height = '150px';
+                    wrapper.style.marginTop = '10px';
+
+                    const title = document.createElement('div');
+                    title.textContent = name;
+                    title.style.fontSize = '12px';
+                    title.style.fontWeight = '600';
+                    title.style.marginBottom = '4px';
+                    title.style.color = '#555';
+
+                    const div = document.createElement('div');
+                    div.style.height = '130px';
+
+                    wrapper.appendChild(title);
+                    wrapper.appendChild(div);
+                    container.appendChild(wrapper);
+
+                    const colors = {
+                        RSI_like: '#f44336',
+                        Stoch_like: '#9C27B0',
+                    };
+
+                    const chart = new uPlot({
+                        width: container.clientWidth || 800,
+                        height: 130,
+                        series: [
+                            {},
+                            {
+                                label: name,
+                                stroke: colors[name] || '#FF9800',
+                                width: 2,
+                            },
+                        ],
+                        scales: {
+                            x: { time: false },
+                            y: { auto: true },
+                        },
+                        axes: [
+                            {},
+                            {
+                                label: name,
+                                labelSize: 18,
+                            },
+                        ],
+                    }, [index, series], div);
+
+                    subplotCharts[name] = chart;
+                } else {
+                    subplotCharts[name].setData([index, series]);
+                }
+            });
+        }
+        
+        // Show cache information (no visible UI on minimal page, kept for compatibility)
+        function showCacheInfo() {
+            if (!viewportManager) {
+                return;
+            }
+            const info = viewportManager.getCacheInfo();
+            console.log('Cache info', info);
+            updateCacheInfo();
+        }
+
+        // Update cache info display
+        function updateCacheInfo() {
+            if (!viewportManager) return;
+            
+            const info = viewportManager.getCacheInfo();
+            if (info.cached) {
+                document.getElementById('cachedRange').textContent = 
+                    `${info.startIndex} - ${info.endIndex}`;
+            } else {
+                document.getElementById('cachedRange').textContent = 'No cache';
+            }
+        }
+        
+        // Clear cache (no alerts on minimal page)
+        function clearCache() {
+            if (!viewportManager) {
+                return;
+            }
+
+            viewportManager.clearCache();
+            const el = document.getElementById('cachedRange');
+            if (el) {
+                el.textContent = 'Cache cleared';
+            }
+        }
+        
+        // Auto-initialize on page load
+        window.addEventListener('load', () => {
+            const sessionId = getSessionId();
+            if (sessionId) {
+                // When launched via Python API, auto-init using existing session
+                initializeData();
+            } else {
+                setupChart();
+            }
+        });
+    </script>
+</body>
+</html>
