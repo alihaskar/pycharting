@@ -1,4 +1,18 @@
-"""FastAPI server for PyCharting."""
+"""
+Core Server Module for PyCharting.
+
+This module implements the FastAPI-based web server that powers the interactive charts.
+It handles serving static assets (HTML, JS, CSS) and providing API endpoints for data retrieval.
+The server is designed to run locally and provide a seamless bridge between the Python runtime
+and the browser-based visualization.
+
+Key Responsibilities:
+- **Port Management:** Automatically finding available ports for the server.
+- **Application Factory:** Creating and configuring the FastAPI application instance.
+- **Static File Serving:** Serving the frontend assets required for the chart UI.
+- **API Routing:** Connecting API routes to the application.
+- **Server Execution:** Launching the Uvicorn server.
+"""
 
 import socket
 import logging
@@ -20,17 +34,27 @@ logger = logging.getLogger(__name__)
 
 def find_free_port(start_port: int = 8000, end_port: int = 9000) -> int:
     """
-    Find a free port in the specified range.
-    
+    Find an available TCP port in the specified range.
+
+    This utility function iterates through a range of ports to find one that is currently
+    not in use. This is crucial for ensuring the chart server can start without conflicts,
+    even if the default port is occupied or multiple instances are running.
+
     Args:
-        start_port: Starting port number to search from
-        end_port: Ending port number to search to
-        
+        start_port (int): The starting port number to search from (inclusive). Defaults to 8000.
+        end_port (int): The ending port number to search to (exclusive). Defaults to 9000.
+
     Returns:
-        Free port number
-        
+        int: An available port number found within the range.
+
     Raises:
-        RuntimeError: If no free port is found in range
+        RuntimeError: If no free port can be found in the specified range.
+
+    Example:
+        ```python
+        port = find_free_port(8000, 8010)
+        print(f"Found free port: {port}")
+        ```
     """
     for port in range(start_port, end_port):
         try:
@@ -46,10 +70,21 @@ def find_free_port(start_port: int = 8000, end_port: int = 9000) -> int:
 
 def create_app() -> FastAPI:
     """
-    Create and configure the FastAPI application.
-    
+    Create and configure the FastAPI application instance.
+
+    This factory function initializes the FastAPI app with necessary configurations:
+    - Sets up metadata (title, description, version).
+    - Configures CORS (Cross-Origin Resource Sharing) to allow local browser access.
+    - Mounts the static files directory to serve the frontend application.
+    - Configures the root endpoint to serve the main HTML entry point.
+    - Includes the API router for data endpoints.
+    - Sets up global exception handlers and health check endpoints.
+
+    The application is stateless regarding data; data is managed via the `_data_managers`
+    registry in `src.api.routes` which is accessed by the API routes included here.
+
     Returns:
-        Configured FastAPI application instance
+        FastAPI: The fully configured FastAPI application ready to be run by Uvicorn.
     """
     app = FastAPI(
         title="PyCharting",
@@ -136,7 +171,7 @@ def create_app() -> FastAPI:
         """
     
     # Include API routes
-    from api.routes import router as api_router
+    from pycharting.api.routes import router as api_router
     app.include_router(api_router)
     
     # Health check endpoint
@@ -175,13 +210,35 @@ def run_server(
     reload: bool = False,
 ) -> None:
     """
-    Run the PyCharting server.
-    
+    Launch the PyCharting web server.
+
+    This function is the main entry point for running the server directly (e.g., for development).
+    It handles port selection, application creation, and starting the Uvicorn server process.
+
+    In the library usage context, this is typically managed by `src.core.lifecycle.ChartServer`,
+    which runs this logic in a background thread. However, this function can be used to run
+    the server in the main thread (blocking) or for testing purposes.
+
     Args:
-        host: Host to bind to
-        port: Port to use. If None and auto_port is True, finds a free port
-        auto_port: If True, automatically find a free port if specified port is unavailable
-        reload: Enable auto-reload for development
+        host (str): The hostname or IP address to bind the server to. Defaults to "127.0.0.1".
+        port (Optional[int]): The specific port to use. If `None`, a free port will be found automatically
+            unless `auto_port` is False.
+        auto_port (bool): If True (default), automatically finds an alternative free port if the specified
+            (or default) port is unavailable.
+        reload (bool): If True, enables Uvicorn's auto-reload feature. Useful for development.
+            Defaults to False.
+
+    Returns:
+        None: This function blocks until the server stops.
+
+    Example:
+        ```python
+        # Run server on localhost, finding a free port automatically
+        run_server()
+
+        # Run on a specific port
+        run_server(port=8080)
+        ```
     """
     # Determine port
     if port is None:
