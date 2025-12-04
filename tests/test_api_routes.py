@@ -2,14 +2,14 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from src.core.server import create_app
+from pycharting.core.server import create_app
 
 
 @pytest.fixture
 def client():
     """Create test client."""
     # Clear session state before each test
-    from src.api.routes import _data_managers
+    from pycharting.api.routes import _data_managers
     _data_managers.clear()
     
     app = create_app()

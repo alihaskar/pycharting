@@ -1,4 +1,19 @@
-"""Main Python API interface for PyCharting."""
+"""
+Main User Interface for PyCharting.
+
+This module exposes the high-level functions that users interact with to create charts,
+manage the server, and check status. It bridges the gap between the user's data (numpy/pandas)
+and the internal server/data management logic.
+
+The primary function is `plot()`, which orchestrates:
+1. Validating and ingesting user data via `DataManager`.
+2. Starting (or reusing) the background `ChartServer`.
+3. Constructing the visualization URL.
+4. Opening the chart in the user's default web browser.
+
+It also provides utilities for manual server control (`stop_server`, `get_server_status`)
+and Jupyter notebook integration.
+"""
 
 import webbrowser
 import time
@@ -7,9 +22,9 @@ from typing import Optional, Dict, Any, Union
 import numpy as np
 import pandas as pd
 
-from data.ingestion import DataManager
-from core.lifecycle import ChartServer
-from api.routes import _data_managers
+from pycharting.data.ingestion import DataManager
+from pycharting.core.lifecycle import ChartServer
+from pycharting.api.routes import _data_managers
 
 logger = logging.getLogger(__name__)
 
@@ -31,42 +46,65 @@ def plot(
     server_timeout: float = 2.0,
 ) -> Dict[str, Any]:
     """
-    Create and display an interactive OHLC chart.
-    
-    This is the main entry point for PyCharting. It creates a chart server,
-    loads your data, and opens it in your default web browser.
-    
+    Generate and display an interactive OHLC (Open-High-Low-Close) financial chart.
+
+    This function is the primary interface for PyCharting. It performs the following steps:
+    1.  **Data Ingestion:** Converts input lists, pandas Series, or numpy arrays into optimized internal formats.
+    2.  **Server Management:** Checks if a background chart server is running. If not, it starts one on a separate thread.
+    3.  **Session Registration:** Stores the provided data under a `session_id`. This allows multiple charts to coexist
+        or data to be updated.
+    4.  **Browser Launch:** Automatically opens the default web browser to the generated chart URL.
+
+    The chart is rendered using a high-performance web frontend capable of handling millions of data points via
+    dynamic data slicing.
+
     Args:
-        index: Time or index values for x-axis
-        open: Opening prices
-        high: High prices
-        low: Low prices
-        close: Closing prices
-        overlays: Optional dict of overlay series (e.g., moving averages)
-        subplots: Optional dict of subplot series (e.g., volume, indicators)
-        session_id: Unique identifier for this chart session
-        port: Server port (None for auto-discovery)
-        open_browser: Whether to automatically open the browser
-        server_timeout: Seconds to wait for server startup
-        
+        index (Union[np.ndarray, pd.Series, list]): The x-axis data (timestamps or integer indices). Must have the same length as price arrays.
+        open (Union[np.ndarray, pd.Series, list]): Opening prices.
+        high (Union[np.ndarray, pd.Series, list]): Highest prices during the interval.
+        low (Union[np.ndarray, pd.Series, list]): Lowest prices during the interval.
+        close (Union[np.ndarray, pd.Series, list]): Closing prices.
+        overlays (Optional[Dict[str, Union[np.ndarray, pd.Series, list]]]): A dictionary of additional series to plot *over* the main price chart.
+            Keys are labels (e.g., "SMA 50"), values are data arrays. Useful for Moving Averages, Bollinger Bands, etc.
+        subplots (Optional[Dict[str, Union[np.ndarray, pd.Series, list]]]): A dictionary of series to plot in separate panels *below* the main chart.
+            Keys are labels (e.g., "RSI", "Volume"), values are data arrays.
+        session_id (str): A unique identifier for this dataset. Use different IDs to keep multiple charts active simultaneously.
+            Defaults to "default".
+        port (Optional[int]): Specific port to run the server on. If `None` (default), a free port is automatically found.
+        open_browser (bool): If `True` (default), automatically launches the system's default web browser to view the chart.
+        server_timeout (float): Maximum time (in seconds) to wait for the server to start before proceeding. Defaults to 2.0.
+
     Returns:
-        Dict with server info including URL and status
-        
+        Dict[str, Any]: A dictionary containing execution details:
+            - `status`: "success" or "error".
+            - `url`: The full URL to view the chart.
+            - `server_url`: The base URL of the server.
+            - `session_id`: The session ID used.
+            - `data_points`: Number of data points loaded.
+            - `server_running`: Boolean indicating if the server is active.
+
     Example:
         ```python
         import numpy as np
         from pycharting import plot
-        
-        # Generate sample data
-        n = 100
+
+        # 1. Prepare Data
+        n = 1000
         index = np.arange(n)
         close = np.cumsum(np.random.randn(n)) + 100
-        open = close + np.random.randn(n) * 0.5
-        high = np.maximum(open, close) + np.abs(np.random.randn(n))
-        low = np.minimum(open, close) - np.abs(np.random.randn(n))
+        open_p = close + np.random.randn(n) * 0.5
+        high = np.maximum(open_p, close) + np.abs(np.random.randn(n))
+        low = np.minimum(open_p, close) - np.abs(np.random.randn(n))
         
-        # Create interactive chart
-        plot(index, open, high, low, close)
+        # 2. Add Indicators
+        sma = np.convolve(close, np.ones(20)/20, mode='same')
+        
+        # 3. Plot with Overlay
+        plot(
+            index, open_p, high, low, close,
+            overlays={"SMA 20": sma},
+            session_id="my-analysis"
+        )
         ```
     """
     global _active_server
@@ -177,16 +215,19 @@ def plot(
 
 def stop_server():
     """
-    Stop the active chart server.
-    
-    Call this to manually stop the server when you're done viewing charts.
-    The server also auto-stops after 5 minutes of inactivity.
-    
+    Manually shut down the active chart server.
+
+    While the server has an auto-shutdown feature (triggered after a timeout when no clients are connected),
+    this function allows for immediate, manual cleanup. This is useful in scripts or notebooks where you want
+    to ensure resources are freed immediately after a session.
+
+    If no server is running, this function does nothing and prints a message.
+
     Example:
         ```python
         from pycharting import stop_server
-        
-        # When done with all charts
+
+        # ... after done with analysis ...
         stop_server()
         ```
     """
@@ -202,17 +243,23 @@ def stop_server():
 
 def get_server_status() -> Dict[str, Any]:
     """
-    Get the status of the active chart server.
-    
+    Retrieve the current status of the background chart server.
+
+    This is useful for debugging connection issues or checking if a session is still active.
+
     Returns:
-        Dict with server status information
-        
+        Dict[str, Any]: A dictionary containing:
+            - `running`: Boolean indicating if the server process is alive.
+            - `server_info`: Dictionary of host, port, and connection details (or None).
+            - `active_sessions`: Count of currently loaded datasets/sessions.
+
     Example:
         ```python
         from pycharting import get_server_status
         
         status = get_server_status()
-        print(status)
+        if status['running']:
+            print(f"Server running at {status['server_info']['url']}")
         ```
     """
     global _active_server
