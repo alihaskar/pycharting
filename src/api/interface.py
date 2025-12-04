@@ -7,9 +7,9 @@ from typing import Optional, Dict, Any, Union
 import numpy as np
 import pandas as pd
 
-from src.data.ingestion import DataManager
-from src.core.lifecycle import ChartServer
-from src.api.routes import _data_managers
+from ..data.ingestion import DataManager
+from ..core.lifecycle import ChartServer
+from .routes import _data_managers
 
 logger = logging.getLogger(__name__)
 
