@@ -285,9 +285,33 @@ class DataManager:
         start_index = max(0, min(start_index, self._length))
         end_index = max(start_index, min(end_index, self._length))
         
+        # Slice index array
+        index_slice = self._index[start_index:end_index]
+        
+        # Convert datetime types to Unix timestamps (milliseconds) for JavaScript
+        if np.issubdtype(index_slice.dtype, np.datetime64):
+            # Convert to Unix timestamp in milliseconds
+            index_list = (index_slice.astype('datetime64[ms]').astype(np.int64)).tolist()
+        elif len(index_slice) > 0:
+            # Check if it contains pandas Timestamp objects (common with timezone-aware data)
+            first_elem = index_slice[0]
+            if isinstance(first_elem, (pd.Timestamp, pd.Period)):
+                # Convert to DatetimeIndex then to int64 (nanoseconds)
+                # Then convert to milliseconds
+                try:
+                    index_list = (pd.Index(index_slice).astype(np.int64) // 1000000).tolist()
+                except (ValueError, TypeError):
+                    # Fallback if conversion fails
+                    index_list = index_slice.tolist()
+            else:
+                # Assume numeric or already compatible
+                index_list = index_slice.tolist()
+        else:
+            index_list = index_slice.tolist()
+        
         # Slice arrays (views, not copies - very efficient)
         result = {
-            "index": self._index[start_index:end_index].tolist(),
+            "index": index_list,
             "open": self._open[start_index:end_index].tolist(),
             "high": self._high[start_index:end_index].tolist(),
             "low": self._low[start_index:end_index].tolist(),

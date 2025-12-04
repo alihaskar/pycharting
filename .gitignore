@@ -105,4 +105,5 @@ node_modules/
 poetry.lock
 
 
-
+# Exclude everything in folder demo and its content
+/demos/
