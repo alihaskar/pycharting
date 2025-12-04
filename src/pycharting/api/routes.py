@@ -29,10 +29,10 @@ _data_managers: Dict[str, Any] = {}
 class DataResponse(BaseModel):
     """Response model for data endpoint."""
     index: list
-    open: list
-    high: list
-    low: list
-    close: list
+    open: Optional[list] = None
+    high: Optional[list] = None
+    low: Optional[list] = None
+    close: Optional[list] = None
     overlays: Dict[str, list] = Field(default_factory=dict)
     subplots: Dict[str, list] = Field(default_factory=dict)
     start_index: int
