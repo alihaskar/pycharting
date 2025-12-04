@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pycharting"
-version = "0.2.2"
+version = "0.2.6"
 description = "High-performance financial charting library for OHLC data visualization with technical indicators"
 authors = ["ali askar <26202651+alihaskar@users.noreply.github.com>"]
 readme = "README.md"
@@ -19,8 +19,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization",
 ]
 
-# match your actual src layout: src/api, src/core, src/data, src/web
+# expose the public package as `pycharting` and ship internal modules as top-level packages
 packages = [
+    { include = "pycharting", from = "src" },
     { include = "api", from = "src" },
     { include = "core", from = "src" },
     { include = "data", from = "src" },

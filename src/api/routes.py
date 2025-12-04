@@ -103,7 +103,7 @@ async def initialize_data(
         Session information
     """
     import numpy as np
-    from src.data.ingestion import DataManager
+    from ..data.ingestion import DataManager
     
     try:
         # Generate demo OHLC data
