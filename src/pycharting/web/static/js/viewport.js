@@ -234,21 +234,25 @@ class ViewportManager {
      */
     updateChartData(data) {
         // Generate array of integer indices for X-axis
-        // This is critical for uPlot to work with ViewportManager's index-based slicing
         const startIndex = data.start_index || 0;
         const xIndices = data.index.map((_, i) => startIndex + i);
+        const len = xIndices.length;
         
+        // Helper to ensure data array exists
+        const ensureArray = (arr) => arr || Array(len).fill(null);
+
         // Keep timestamps for labeling
-        const timestamps = data.index; // Should be timestamps from backend now
+        const timestamps = data.index;
 
         // Convert data format to uPlot format
         // Use xIndices for the first array (X-axis)
+        // Ensure all series are arrays, even if null in API response
         const chartData = [
             xIndices,
-            data.open,
-            data.high,
-            data.low,
-            data.close
+            ensureArray(data.open),
+            ensureArray(data.high),
+            ensureArray(data.low),
+            ensureArray(data.close)
         ];
         
         // Add overlays if present
