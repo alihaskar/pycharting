@@ -1,5 +1,9 @@
 # PyCharting
 
+[![PyPI version](https://img.shields.io/pypi/v/pycharting.svg)](https://pypi.org/project/pycharting/)
+[![Python versions](https://img.shields.io/pypi/pyversions/pycharting.svg)](https://pypi.org/project/pycharting/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 High‑performance financial charting library for OHLC data visualization with technical indicators.
 
 ## Overview
@@ -51,6 +55,11 @@ poetry install
 ## Quick start
 
 The primary API is a single `plot` function that takes OHLC arrays (plus optional overlays and subplots), starts a local server, and opens your default browser on the interactive chart.
+You normally import everything you need like this:
+
+```python
+from pycharting import plot, stop_server, get_server_status
+```
 
 When you run this script, PyCharting will:
 
