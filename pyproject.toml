@@ -1,78 +1,45 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "pycharting"
-version = "0.1.0"
-description = "A Python library for interactive charting and data visualization"
+version = "0.2.2"
+description = "High-performance financial charting library for OHLC data visualization with technical indicators"
+authors = ["ali askar <26202651+alihaskar@users.noreply.github.com>"]
 readme = "README.md"
-requires-python = ">=3.8"
-license = {text = "MIT"}
-authors = [
-    {name = "PyCharting Team"}
-]
-keywords = ["charting", "visualization", "data", "plotting", "interactive"]
+license = "MIT"
+homepage = "https://github.com/alihaskar/pycharting"
+repository = "https://github.com/alihaskar/pycharting"
+keywords = ["charting", "finance", "ohlc", "technical-indicators", "trading", "visualization"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Scientific/Engineering :: Visualization",
 ]
 
-dependencies = [
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
-    "fastapi>=0.104.0",
-    "uvicorn[standard]>=0.24.0",
+# match your actual src layout: src/api, src/core, src/data, src/web
+packages = [
+    { include = "api", from = "src" },
+    { include = "core", from = "src" },
+    { include = "data", from = "src" },
+    { include = "web", from = "src" },
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
-    "pytest-asyncio>=0.21.0",
-    "black>=23.0.0",
-    "flake8>=6.0.0",
-    "mypy>=1.5.0",
-]
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = ">=0.115.0,<1.0.0"
+pandas = ">=2.2.0,<3.0.0"
+numpy = ">=1.26.0,<3.0.0"
+pydantic = ">=2.7.0,<3.0.0"
+uvicorn = { version = ">=0.24.0,<1.0.0", extras = ["standard"] }
+pytz = ">=2024.1,<2026.0"
 
-[project.urls]
-Homepage = "https://github.com/yourusername/pycharting"
-Documentation = "https://pycharting.readthedocs.io"
-Repository = "https://github.com/yourusername/pycharting"
-Issues = "https://github.com/yourusername/pycharting/issues"
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.3.0,<9.0.0"
+httpx = ">=0.27.0,<0.29.0"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = [
-    "--verbose",
-    "--cov=src",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-]
-
-[tool.black]
-line-length = 100
-target-version = ["py38", "py39", "py310", "py311", "py312"]
-include = '\.pyi?$'
-
-[tool.mypy]
-python_version = "3.8"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"
