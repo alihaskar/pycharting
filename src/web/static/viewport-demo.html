@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PyCharting - Viewport Management Demo</title>
+    <title>PyCharting</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.min.css">
     <style>
         * {
@@ -11,196 +11,68 @@
             margin: 0;
             padding: 0;
         }
+
+        html, body {
+            height: 100%;
+        }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f5f5;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding: 30px;
-        }
-        
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 28px;
-        }
-        
-        .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 16px;
-        }
-        
-        .loading-indicator {
-            padding: 10px;
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        
-        .loading-indicator.active {
-            display: block;
-        }
-        
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        button {
-            padding: 10px 20px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background 0.2s;
-        }
-        
-        button:hover {
-            background: #1976D2;
-        }
-        
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 4px;
-        }
-        
-        .info-item {
+            background: #f5f3ef;
+            color: #111111;
             display: flex;
             flex-direction: column;
         }
-        
-        .info-label {
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 5px;
-        }
-        
-        .info-value {
+
+        header {
+            padding: 10px 20px;
+            border-bottom: 1px solid #222;
             font-size: 18px;
             font-weight: 600;
-            color: #333;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            padding: 8px 12px 12px;
         }
         
         #chartContainer {
             width: 100%;
-            height: 500px;
-            margin-bottom: 10px;
+            flex: 1;
+            min-height: 0;
         }
 
         #subplotsContainer {
             width: 100%;
-            margin-bottom: 20px;
+            margin-top: 6px;
         }
-        
-        .instructions {
-            margin-top: 30px;
-            padding: 20px;
-            background: #e3f2fd;
-            border-left: 4px solid #2196F3;
-            border-radius: 4px;
-        }
-        
-        .instructions h3 {
-            margin-bottom: 15px;
-            color: #1976D2;
-        }
-        
-        .instructions ul {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .instructions li {
-            padding: 8px 0;
-            padding-left: 25px;
-            position: relative;
-        }
-        
-        .instructions li:before {
-            content: "→";
-            position: absolute;
-            left: 0;
-            color: #2196F3;
-            font-weight: bold;
+
+        /* keep required DOM nodes for JS, but hide them */
+        #uiHidden {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>PyCharting - Viewport Management Demo</h1>
-        <p class="subtitle">Dynamic data loading with zoom and pan interactions</p>
-        
-        <div class="loading-indicator" id="loadingIndicator">
-            Loading data...
-        </div>
-        
-        <div class="controls">
-            <button onclick="initializeData()">Initialize Session</button>
-            <button onclick="showCacheInfo()">Show Cache Info</button>
-            <button onclick="clearCache()">Clear Cache</button>
-        </div>
-        
-        <div class="info-grid">
-            <div class="info-item">
-                <span class="info-label">Total Data Points</span>
-                <span class="info-value" id="totalPoints">-</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Cached Range</span>
-                <span class="info-value" id="cachedRange">-</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Visible Range</span>
-                <span class="info-value" id="visibleRange">-</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Loading Status</span>
-                <span class="info-value" id="loadingStatus">Ready</span>
-            </div>
-        </div>
-        
+    <header>PyCharting</header>
+    <main>
         <div id="chartContainer"></div>
         <div id="subplotsContainer"></div>
-        
-        <div class="instructions">
-            <h3>How to Use</h3>
-            <ul>
-                <li>Click "Initialize Session" to load data from the server</li>
-                <li>Drag horizontally on the chart to pan through the data</li>
-                <li>Scroll or pinch to zoom in/out</li>
-                <li>Watch the "Cached Range" indicator - data loads automatically as you explore</li>
-                <li>The system prefetches data with buffer margins for smooth scrolling</li>
-                <li>Loading is debounced to prevent excessive API calls during rapid interactions</li>
-            </ul>
+
+        <!-- hidden UI elements kept for JS compatibility -->
+        <div id="uiHidden">
+            <div id="loadingIndicator"></div>
+            <span id="loadingStatus"></span>
+            <span id="totalPoints"></span>
+            <span id="cachedRange"></span>
+            <span id="visibleRange"></span>
         </div>
-    </div>
+    </main>
     
     <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.iife.min.js"></script>
     <script src="/static/js/chart.js"></script>
@@ -378,25 +250,16 @@
             });
         }
         
-        // Show cache information
+        // Show cache information (no visible UI on minimal page, kept for compatibility)
         function showCacheInfo() {
             if (!viewportManager) {
-                alert('Please initialize session first');
                 return;
             }
-            
             const info = viewportManager.getCacheInfo();
-            alert(
-                `Cache Information:\n\n` +
-                `Start Index: ${info.startIndex}\n` +
-                `End Index: ${info.endIndex}\n` +
-                `Cached: ${info.cached ? 'Yes' : 'No'}\n` +
-                `Total Length: ${info.totalLength}`
-            );
-            
+            console.log('Cache info', info);
             updateCacheInfo();
         }
-        
+
         // Update cache info display
         function updateCacheInfo() {
             if (!viewportManager) return;
@@ -410,16 +273,17 @@
             }
         }
         
-        // Clear cache
+        // Clear cache (no alerts on minimal page)
         function clearCache() {
             if (!viewportManager) {
-                alert('Please initialize session first');
                 return;
             }
-            
+
             viewportManager.clearCache();
-            document.getElementById('cachedRange').textContent = 'Cache cleared';
-            alert('Cache cleared! Zoom or pan to reload data.');
+            const el = document.getElementById('cachedRange');
+            if (el) {
+                el.textContent = 'Cache cleared';
+            }
         }
         
         // Auto-initialize on page load
