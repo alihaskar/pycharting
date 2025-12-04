@@ -239,13 +239,9 @@ class DataManager:
         # Slice index array
         index_slice = self._index[start_index:end_index]
         
-        # Debug dtype
-        print(f"DEBUG: Index dtype: {index_slice.dtype}")
-        
         # Convert datetime types to Unix timestamps (milliseconds) for JavaScript
         if np.issubdtype(index_slice.dtype, np.datetime64):
             index_list = (index_slice.astype('datetime64[ms]').astype(np.int64)).tolist()
-            print(f"DEBUG: Converted datetime to timestamps. First: {index_list[0] if index_list else 'EMPTY'}")
         elif len(index_slice) > 0:
             first_elem = index_slice[0]
             if isinstance(first_elem, (pd.Timestamp, pd.Period)):

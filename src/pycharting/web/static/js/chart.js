@@ -120,14 +120,6 @@ class PyChart {
         this.data = data;
         this.timestamps = timestamps;
         
-        // Debug: Check what we received
-        if (timestamps && timestamps.length > 0) {
-            console.log('Chart received timestamps. First:', timestamps[0], 'Type:', typeof timestamps[0]);
-            console.log('Chart received X-indices. First:', data[0][0]);
-        } else {
-            console.log('Chart received NO timestamps');
-        }
-        
         // Rebuild chart if:
         // 1. Series count changed (e.g., overlays added)
         // 2. Timestamp presence changed (affects axis formatting)
@@ -157,7 +149,6 @@ class PyChart {
      */
     formatDate(index) {
         if (!this.timestamps) {
-            console.log('formatDate: No timestamps array');
             return index;
         }
         
@@ -168,9 +159,8 @@ class PyChart {
             if (dataIndex >= 0 && dataIndex < this.timestamps.length) {
                 const val = this.timestamps[dataIndex];
                 
-                console.log(`formatDate: index=${index}, dataIndex=${dataIndex}, val=${val}, type=${typeof val}`);
-                
                 // Heuristic: Only format as date if value looks like a timestamp (milliseconds)
+                // Threshold: Year 1980 (~3.15e11 ms)
                 if (typeof val === 'number' && val > 315360000000) {
                     const date = new Date(val);
                     return date.toLocaleString(undefined, {
@@ -178,10 +168,8 @@ class PyChart {
                         hour: '2-digit', minute: '2-digit'
                     });
                 }
-                console.log('Value too small for timestamp:', val);
                 return val;
             }
-            console.log('dataIndex out of range:', dataIndex, 'timestamps.length:', this.timestamps.length);
         }
         return index;
     }
