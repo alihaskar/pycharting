@@ -1,5 +1,5 @@
 import numpy as np
-from src import plot, stop_server
+from pycharting import plot, stop_server
 
 
 def sma(values: np.ndarray, window: int) -> np.ndarray:
