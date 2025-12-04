@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyCharting Demo - OHLC Chart</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #1976D2;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        #chartContainer {
+            width: 100%;
+            height: 500px;
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            padding: 10px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .status.loading {
+            background: #fff3e0;
+            border-color: #FF9800;
+        }
+        
+        .status.error {
+            background: #ffebee;
+            border-color: #f44336;
+        }
+        
+        .features {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        .features h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .features ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .features li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PyCharting Demo</h1>
+        <p class="subtitle">High-performance OHLC candlestick chart with uPlot</p>
+        
+        <div class="status" id="status">
+            Ready to load data
+        </div>
+        
+        <div class="controls">
+            <button onclick="loadSmallDataset()">Load Small Dataset (100 candles)</button>
+            <button onclick="loadMediumDataset()">Load Medium Dataset (1,000 candles)</button>
+            <button onclick="loadLargeDataset()">Load Large Dataset (10,000 candles)</button>
+            <button onclick="addOverlay()">Add Moving Average Overlay</button>
+        </div>
+        
+        <div class="info">
+            <div class="info-item">
+                <span class="info-label">Data Points</span>
+                <span class="info-value" id="dataPoints">0</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Render Time</span>
+                <span class="info-value" id="renderTime">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Performance</span>
+                <span class="info-value" id="performance">-</span>
+            </div>
+        </div>
+        
+        <div id="chartContainer"></div>
+        
+        <div class="features">
+            <h3>Features</h3>
+            <ul>
+                <li>Custom candlestick rendering with OHLC data</li>
+                <li>High-performance canvas-based rendering (60fps)</li>
+                <li>Drag to zoom/pan on X-axis</li>
+                <li>Responsive sizing</li>
+                <li>Support for overlays (moving averages, indicators)</li>
+                <li>Automatic color coding (green = up, red = down)</li>
+                <li>Handles large datasets (10k+ candles)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.iife.min.js"></script>
+    <script src="/static/js/chart.js"></script>
+    <script>
+        let chart = null;
+        let currentData = null;
+        
+        // Generate synthetic OHLC data
+        function generateOHLCData(numCandles, startPrice = 100) {
+            const timestamps = [];
+            const open = [];
+            const high = [];
+            const low = [];
+            const close = [];
+            
+            let currentPrice = startPrice;
+            const startTime = Date.now() / 1000 - (numCandles * 3600); // 1 hour per candle
+            
+            for (let i = 0; i < numCandles; i++) {
+                timestamps.push(startTime + (i * 3600));
+                
+                const o = currentPrice;
+                const volatility = currentPrice * 0.02;
+                const change = (Math.random() - 0.5) * volatility;
+                const c = o + change;
+                
+                const h = Math.max(o, c) + Math.random() * volatility * 0.5;
+                const l = Math.min(o, c) - Math.random() * volatility * 0.5;
+                
+                open.push(o);
+                high.push(h);
+                low.push(l);
+                close.push(c);
+                
+                currentPrice = c;
+            }
+            
+            return [timestamps, open, high, low, close];
+        }
+        
+        // Calculate simple moving average
+        function calculateSMA(data, period) {
+            const result = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < period - 1) {
+                    result.push(null);
+                } else {
+                    let sum = 0;
+                    for (let j = 0; j < period; j++) {
+                        sum += data[i - j];
+                    }
+                    result.push(sum / period);
+                }
+            }
+            return result;
+        }
+        
+        function setStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+        }
+        
+        function updateInfo(dataPoints, renderTime) {
+            document.getElementById('dataPoints').textContent = dataPoints.toLocaleString();
+            document.getElementById('renderTime').textContent = renderTime + ' ms';
+            
+            let perfRating = 'Excellent';
+            if (renderTime > 100) perfRating = 'Good';
+            if (renderTime > 500) perfRating = 'Fair';
+            if (renderTime > 1000) perfRating = 'Poor';
+            document.getElementById('performance').textContent = perfRating;
+        }
+        
+        function loadDataset(numCandles, label) {
+            setStatus(`Generating ${label}...`, 'loading');
+            
+            setTimeout(() => {
+                const startTime = performance.now();
+                
+                // Generate data
+                currentData = generateOHLCData(numCandles);
+                
+                // Create or update chart
+                const container = document.getElementById('chartContainer');
+                
+                if (!chart) {
+                    chart = new PyChart(container, {
+                        title: `OHLC Chart - ${label}`,
+                        height: 500
+                    });
+                }
+                
+                chart.setData(currentData);
+                
+                const renderTime = Math.round(performance.now() - startTime);
+                
+                setStatus(`Loaded ${numCandles} candles successfully`, 'info');
+                updateInfo(numCandles, renderTime);
+            }, 10);
+        }
+        
+        function loadSmallDataset() {
+            loadDataset(100, '100 candles');
+        }
+        
+        function loadMediumDataset() {
+            loadDataset(1000, '1,000 candles');
+        }
+        
+        function loadLargeDataset() {
+            loadDataset(10000, '10,000 candles');
+        }
+        
+        function addOverlay() {
+            if (!currentData || currentData.length < 5) {
+                alert('Please load a dataset first');
+                return;
+            }
+            
+            setStatus('Adding 20-period SMA overlay...', 'loading');
+            
+            setTimeout(() => {
+                const closeData = currentData[4];
+                const sma = calculateSMA(closeData, 20);
+                
+                // Add SMA as overlay (index 5)
+                const newData = [...currentData];
+                if (newData.length === 5) {
+                    newData.push(sma);
+                } else {
+                    newData[5] = sma;
+                }
+                
+                currentData = newData;
+                chart.setData(currentData);
+                
+                setStatus('Added 20-period SMA overlay', 'info');
+            }, 10);
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (chart) {
+                const container = document.getElementById('chartContainer');
+                chart.setSize(container.clientWidth, 500);
+            }
+        });
+        
+        // Load initial dataset
+        loadSmallDataset();
+    </script>
+</body>
+</html>

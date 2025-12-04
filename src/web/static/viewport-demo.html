@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyCharting - Viewport Management Demo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .loading-indicator {
+            padding: 10px;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .loading-indicator.active {
+            display: block;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #1976D2;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        #chartContainer {
+            width: 100%;
+            height: 500px;
+            margin-bottom: 10px;
+        }
+
+        #subplotsContainer {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        .instructions {
+            margin-top: 30px;
+            padding: 20px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 15px;
+            color: #1976D2;
+        }
+        
+        .instructions ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .instructions li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .instructions li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #2196F3;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PyCharting - Viewport Management Demo</h1>
+        <p class="subtitle">Dynamic data loading with zoom and pan interactions</p>
+        
+        <div class="loading-indicator" id="loadingIndicator">
+            Loading data...
+        </div>
+        
+        <div class="controls">
+            <button onclick="initializeData()">Initialize Session</button>
+            <button onclick="showCacheInfo()">Show Cache Info</button>
+            <button onclick="clearCache()">Clear Cache</button>
+        </div>
+        
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Total Data Points</span>
+                <span class="info-value" id="totalPoints">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Cached Range</span>
+                <span class="info-value" id="cachedRange">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Visible Range</span>
+                <span class="info-value" id="visibleRange">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Loading Status</span>
+                <span class="info-value" id="loadingStatus">Ready</span>
+            </div>
+        </div>
+        
+        <div id="chartContainer"></div>
+        <div id="subplotsContainer"></div>
+        
+        <div class="instructions">
+            <h3>How to Use</h3>
+            <ul>
+                <li>Click "Initialize Session" to load data from the server</li>
+                <li>Drag horizontally on the chart to pan through the data</li>
+                <li>Scroll or pinch to zoom in/out</li>
+                <li>Watch the "Cached Range" indicator - data loads automatically as you explore</li>
+                <li>The system prefetches data with buffer margins for smooth scrolling</li>
+                <li>Loading is debounced to prevent excessive API calls during rapid interactions</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.iife.min.js"></script>
+    <script src="/static/js/chart.js"></script>
+    <script src="/static/js/viewport.js"></script>
+    <script>
+        let chart = null;
+        let viewportManager = null;
+        // Name -> uPlot instance for indicator-style subplots
+        let subplotCharts = {};
+        
+        function getSessionId() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('session') || null;
+        }
+        
+        // Initialize chart
+        function setupChart() {
+            const container = document.getElementById('chartContainer');
+            chart = new PyChart(container, {
+                title: 'Dynamic Viewport Demo',
+                height: 500
+            });
+        }
+        
+        // Initialize viewport manager and load data
+        async function initializeData() {
+            if (!chart) {
+                setupChart();
+            }
+            
+            const sessionId = getSessionId() || 'viewport-demo';
+            
+            // Create viewport manager with loading callbacks
+            viewportManager = new ViewportManager(chart, {
+                sessionId: sessionId,
+                bufferMargin: 0.5,
+                debounceDelay: 300,
+                onLoading: [updateLoadingState],
+                onSubplotsUpdate: [updateSubplots]
+            });
+            
+            try {
+                if (sessionId === 'viewport-demo') {
+                    // Standalone demo: create a demo session on the backend
+                    const result = await viewportManager.initializeSession();
+                    document.getElementById('totalPoints').textContent = 
+                        result.data_points.toLocaleString();
+                } else {
+                    // Python API path: session already exists with real user data
+                    await viewportManager.loadInitialData();
+                    const info = viewportManager.getCacheInfo();
+                    if (info.totalLength) {
+                        document.getElementById('totalPoints').textContent = 
+                            info.totalLength.toLocaleString();
+                    }
+                }
+                
+                updateCacheInfo();
+                
+                // Setup viewport tracking
+                setupViewportTracking();
+                
+            } catch (error) {
+                alert('Failed to initialize session: ' + error.message);
+            }
+        }
+        
+        // Update loading state
+        function updateLoadingState(isLoading) {
+            const indicator = document.getElementById('loadingIndicator');
+            const status = document.getElementById('loadingStatus');
+            
+            if (isLoading) {
+                indicator.classList.add('active');
+                status.textContent = 'Loading...';
+                status.style.color = '#ff9800';
+            } else {
+                indicator.classList.remove('active');
+                status.textContent = 'Ready';
+                status.style.color = '#4caf50';
+            }
+        }
+        
+        // Setup viewport tracking
+        function setupViewportTracking() {
+            if (!chart.chart) return;
+            
+            // Track viewport changes
+            setInterval(() => {
+                if (chart.chart && chart.chart.scales && chart.chart.scales.x) {
+                    const range = chart.chart.scales.x.range;
+                    if (range) {
+                        const [min, max] = range;
+                        document.getElementById('visibleRange').textContent = 
+                            `${Math.floor(min)} - ${Math.floor(max)}`;
+                    }
+                }
+            }, 1000);
+        }
+
+        // Create or update subplot charts when backend sends subplots
+        function updateSubplots(data) {
+            if (!data || !data.subplots || !data.index) {
+                return;
+            }
+
+            const container = document.getElementById('subplotsContainer');
+            const index = data.index;
+            const names = Object.keys(data.subplots);
+
+            if (names.length === 0) return;
+
+            // Expose charts for X-scale syncing from ViewportManager
+            window.viewportSubplotCharts = subplotCharts;
+
+            names.forEach((name) => {
+                const series = data.subplots[name];
+                if (!Array.isArray(series) || series.length !== index.length) {
+                    return;
+                }
+
+                // Lazily create subplot panel + chart
+                if (!subplotCharts[name]) {
+                    const wrapper = document.createElement('div');
+                    wrapper.style.height = '150px';
+                    wrapper.style.marginTop = '10px';
+
+                    const title = document.createElement('div');
+                    title.textContent = name;
+                    title.style.fontSize = '12px';
+                    title.style.fontWeight = '600';
+                    title.style.marginBottom = '4px';
+                    title.style.color = '#555';
+
+                    const div = document.createElement('div');
+                    div.style.height = '130px';
+
+                    wrapper.appendChild(title);
+                    wrapper.appendChild(div);
+                    container.appendChild(wrapper);
+
+                    const colors = {
+                        RSI_like: '#f44336',
+                        Stoch_like: '#9C27B0',
+                    };
+
+                    const chart = new uPlot({
+                        width: container.clientWidth || 800,
+                        height: 130,
+                        series: [
+                            {},
+                            {
+                                label: name,
+                                stroke: colors[name] || '#FF9800',
+                                width: 2,
+                            },
+                        ],
+                        scales: {
+                            x: { time: false },
+                            y: { auto: true },
+                        },
+                        axes: [
+                            {},
+                            {
+                                label: name,
+                                labelSize: 18,
+                            },
+                        ],
+                    }, [index, series], div);
+
+                    subplotCharts[name] = chart;
+                } else {
+                    subplotCharts[name].setData([index, series]);
+                }
+            });
+        }
+        
+        // Show cache information
+        function showCacheInfo() {
+            if (!viewportManager) {
+                alert('Please initialize session first');
+                return;
+            }
+            
+            const info = viewportManager.getCacheInfo();
+            alert(
+                `Cache Information:\n\n` +
+                `Start Index: ${info.startIndex}\n` +
+                `End Index: ${info.endIndex}\n` +
+                `Cached: ${info.cached ? 'Yes' : 'No'}\n` +
+                `Total Length: ${info.totalLength}`
+            );
+            
+            updateCacheInfo();
+        }
+        
+        // Update cache info display
+        function updateCacheInfo() {
+            if (!viewportManager) return;
+            
+            const info = viewportManager.getCacheInfo();
+            if (info.cached) {
+                document.getElementById('cachedRange').textContent = 
+                    `${info.startIndex} - ${info.endIndex}`;
+            } else {
+                document.getElementById('cachedRange').textContent = 'No cache';
+            }
+        }
+        
+        // Clear cache
+        function clearCache() {
+            if (!viewportManager) {
+                alert('Please initialize session first');
+                return;
+            }
+            
+            viewportManager.clearCache();
+            document.getElementById('cachedRange').textContent = 'Cache cleared';
+            alert('Cache cleared! Zoom or pan to reload data.');
+        }
+        
+        // Auto-initialize on page load
+        window.addEventListener('load', () => {
+            const sessionId = getSessionId();
+            if (sessionId) {
+                // When launched via Python API, auto-init using existing session
+                initializeData();
+            } else {
+                setupChart();
+            }
+        });
+    </script>
+</body>
+</html>
