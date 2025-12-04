@@ -46,4 +46,4 @@ from .api.interface import plot, stop_server, get_server_status  # type: ignore 
 __all__ = ["plot", "stop_server", "get_server_status", "__version__"]
 
 # Keep this in sync with pyproject.toml
-__version__ = "0.2.10"
+__version__ = "0.2.11"
