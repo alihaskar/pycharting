@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyCharting - Multi-Chart Synchronization Demo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .control-group label {
+            font-size: 14px;
+            color: #333;
+            cursor: pointer;
+        }
+        
+        .control-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #1976D2;
+        }
+        
+        #chartsContainer {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        .chart-section {
+            margin-bottom: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .chart-header {
+            padding: 10px 15px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #e0e0e0;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .chart-body {
+            padding: 10px;
+        }
+        
+        .info-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+        }
+        
+        .info-box h3 {
+            margin-bottom: 10px;
+            color: #1976D2;
+        }
+        
+        .info-box ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .info-box li {
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .info-box li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #2196F3;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PyCharting - Multi-Chart Synchronization Demo</h1>
+        <p class="subtitle">Synchronized cursor and zoom/pan across multiple chart instances</p>
+        
+        <div class="controls">
+            <div class="control-group">
+                <input type="checkbox" id="syncCursor" checked>
+                <label for="syncCursor">Sync Cursor</label>
+            </div>
+            <div class="control-group">
+                <input type="checkbox" id="syncZoom" checked>
+                <label for="syncZoom">Sync Zoom</label>
+            </div>
+            <div class="control-group">
+                <input type="checkbox" id="syncPan" checked>
+                <label for="syncPan">Sync Pan</label>
+            </div>
+            <button onclick="generateData()">Generate New Data</button>
+        </div>
+        
+        <div id="chartsContainer"></div>
+        
+        <div class="info-box">
+            <h3>How to Use</h3>
+            <ul>
+                <li>Hover over any chart to see the synchronized cursor across all charts</li>
+                <li>Drag horizontally on any chart to pan - all charts pan together</li>
+                <li>Scroll or pinch on any chart to zoom - all charts zoom together</li>
+                <li>Toggle synchronization options above to customize behavior</li>
+                <li>The main chart shows OHLC candlesticks</li>
+                <li>Subplot 1 shows volume data (bar chart)</li>
+                <li>Subplot 2 shows an RSI indicator (line chart)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.iife.min.js"></script>
+    <script src="/static/js/chart.js"></script>
+    <script src="/static/js/sync.js"></script>
+    <script>
+        let multiChartManager = null;
+        
+        // Generate sample OHLC data
+        function generateOHLCData(n = 100) {
+            const index = [];
+            const open = [];
+            const high = [];
+            const low = [];
+            const close = [];
+            const volume = [];
+            
+            let currentPrice = 100;
+            
+            for (let i = 0; i < n; i++) {
+                index.push(i);
+                
+                const change = (Math.random() - 0.5) * 2;
+                currentPrice += change;
+                
+                const o = currentPrice + (Math.random() - 0.5) * 0.5;
+                const c = currentPrice + (Math.random() - 0.5) * 0.5;
+                const h = Math.max(o, c) + Math.abs(Math.random());
+                const l = Math.min(o, c) - Math.abs(Math.random());
+                
+                open.push(o);
+                high.push(h);
+                low.push(l);
+                close.push(c);
+                volume.push(Math.random() * 1000000 + 500000);
+            }
+            
+            return { index, open, high, low, close, volume };
+        }
+        
+        // Calculate RSI indicator
+        function calculateRSI(closes, period = 14) {
+            const rsi = [];
+            
+            for (let i = 0; i < closes.length; i++) {
+                if (i < period) {
+                    rsi.push(50); // Default value for insufficient data
+                    continue;
+                }
+                
+                let gains = 0;
+                let losses = 0;
+                
+                for (let j = i - period + 1; j <= i; j++) {
+                    const change = closes[j] - closes[j - 1];
+                    if (change > 0) {
+                        gains += change;
+                    } else {
+                        losses += Math.abs(change);
+                    }
+                }
+                
+                const avgGain = gains / period;
+                const avgLoss = losses / period;
+                const rs = avgGain / (avgLoss || 0.001);
+                const rsiValue = 100 - (100 / (1 + rs));
+                
+                rsi.push(rsiValue);
+            }
+            
+            return rsi;
+        }
+        
+        // Initialize charts
+        function initializeCharts() {
+            const container = document.getElementById('chartsContainer');
+            container.innerHTML = '';
+            
+            // Create multi-chart manager
+            multiChartManager = new MultiChartManager(container, {
+                mainHeight: 400,
+                subHeight: 150,
+                gap: 15,
+                syncCursor: true,
+                syncZoom: true,
+                syncPan: true
+            });
+            
+            // Generate data
+            const data = generateOHLCData(100);
+            const rsi = calculateRSI(data.close);
+            
+            // Create main OHLC chart
+            const mainChartDiv = document.createElement('div');
+            mainChartDiv.className = 'chart-section';
+            mainChartDiv.innerHTML = `
+                <div class="chart-header">Main Chart - OHLC Candlesticks</div>
+                <div class="chart-body" id="mainChart"></div>
+            `;
+            container.appendChild(mainChartDiv);
+            
+            const mainChart = new PyChart(document.getElementById('mainChart'), {
+                title: '',
+                height: 400
+            });
+            multiChartManager.chartSync.addChart(mainChart, { id: 'main' });
+            mainChart.setData([data.index, data.open, data.high, data.low, data.close]);
+            
+            // Create Volume subplot
+            const volumeChartDiv = document.createElement('div');
+            volumeChartDiv.className = 'chart-section';
+            volumeChartDiv.innerHTML = `
+                <div class="chart-header">Subplot 1 - Volume</div>
+                <div class="chart-body" id="volumeChart"></div>
+            `;
+            container.appendChild(volumeChartDiv);
+            
+            const volumeChart = new uPlot({
+                title: '',
+                width: mainChartDiv.offsetWidth - 40,
+                height: 150,
+                series: [
+                    {},
+                    {
+                        label: 'Volume',
+                        stroke: '#2196F3',
+                        fill: 'rgba(33, 150, 243, 0.2)',
+                        paths: uPlot.paths.bars({ size: [0.8, 100] })
+                    }
+                ],
+                axes: [
+                    {},
+                    {
+                        label: 'Volume',
+                        labelSize: 20,
+                    }
+                ]
+            }, [data.index, data.volume], document.getElementById('volumeChart'));
+            
+            multiChartManager.chartSync.addChart(volumeChart, { id: 'volume' });
+            
+            // Create RSI subplot
+            const rsiChartDiv = document.createElement('div');
+            rsiChartDiv.className = 'chart-section';
+            rsiChartDiv.innerHTML = `
+                <div class="chart-header">Subplot 2 - RSI Indicator</div>
+                <div class="chart-body" id="rsiChart"></div>
+            `;
+            container.appendChild(rsiChartDiv);
+            
+            const rsiChart = new uPlot({
+                title: '',
+                width: mainChartDiv.offsetWidth - 40,
+                height: 150,
+                series: [
+                    {},
+                    {
+                        label: 'RSI',
+                        stroke: '#f44336',
+                        width: 2
+                    }
+                ],
+                axes: [
+                    {},
+                    {
+                        label: 'RSI',
+                        labelSize: 20,
+                        range: [0, 100]
+                    }
+                ],
+                scales: {
+                    y: {
+                        range: [0, 100]
+                    }
+                }
+            }, [data.index, rsi], document.getElementById('rsiChart'));
+            
+            multiChartManager.chartSync.addChart(rsiChart, { id: 'rsi' });
+        }
+        
+        // Generate new data
+        function generateData() {
+            if (multiChartManager) {
+                multiChartManager.clear();
+            }
+            initializeCharts();
+        }
+        
+        // Setup sync controls
+        document.getElementById('syncCursor').addEventListener('change', (e) => {
+            if (multiChartManager) {
+                multiChartManager.getSync().setCursorSync(e.target.checked);
+            }
+        });
+        
+        document.getElementById('syncZoom').addEventListener('change', (e) => {
+            if (multiChartManager) {
+                multiChartManager.getSync().setZoomSync(e.target.checked);
+            }
+        });
+        
+        document.getElementById('syncPan').addEventListener('change', (e) => {
+            if (multiChartManager) {
+                multiChartManager.getSync().setPanSync(e.target.checked);
+            }
+        });
+        
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            initializeCharts();
+        });
+    </script>
+</body>
+</html>

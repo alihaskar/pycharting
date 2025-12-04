@@ -18,22 +18,28 @@ classifiers = [
     "Topic :: Office/Business :: Financial",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
-packages = [{include = "charting", from = "src"}]
+
+# match your actual src layout: src/api, src/core, src/data, src/web
+packages = [
+    { include = "api", from = "src" },
+    { include = "core", from = "src" },
+    { include = "data", from = "src" },
+    { include = "web", from = "src" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-fastapi = "^0.123.4"
-pandas = "^2.3.3"
-numpy = "^2.3.5"
-pydantic = "^2.12.5"
-uvicorn = "^0.38.0"
-pytz = "^2025.2"
-
+fastapi = ">=0.115.0,<1.0.0"
+pandas = ">=2.2.0,<3.0.0"
+numpy = ">=1.26.0,<3.0.0"
+pydantic = ">=2.7.0,<3.0.0"
+uvicorn = { version = ">=0.24.0,<1.0.0", extras = ["standard"] }
+pytz = ">=2024.1,<2026.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^9.0.1"
-httpx = "^0.28.1"
+pytest = ">=8.3.0,<9.0.0"
+httpx = ">=0.27.0,<0.29.0"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.9.0"]
 build-backend = "poetry.core.masonry.api"
