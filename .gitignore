@@ -80,6 +80,7 @@ Thumbs.db
 
 # Project specific
 data/
+!src/pycharting/data/
 *.csv
 *.parquet
 

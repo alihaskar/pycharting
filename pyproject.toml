@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pycharting"
-version = "0.2.8"
+version = "0.2.9"
 description = "High-performance financial charting library for OHLC data visualization with technical indicators"
 authors = ["ali askar <26202651+alihaskar@users.noreply.github.com>"]
 readme = "README.md"
@@ -22,6 +22,11 @@ classifiers = [
 # expose the public package as `pycharting`
 packages = [
     { include = "pycharting", from = "src" }
+]
+
+# Include package data (web static files)
+include = [
+    { path = "src/pycharting/web/static/**/*", format = ["sdist", "wheel"] }
 ]
 
 [tool.poetry.dependencies]
