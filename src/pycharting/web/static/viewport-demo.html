@@ -211,6 +211,10 @@
             }, 1000);
         }
 
+        // Store timestamps globally so they can be updated on each data fetch
+        let subplotTimestamps = [];
+        let subplotIndices = [];
+
         // Create or update subplot charts when backend sends subplots
         function updateSubplots(data) {
             if (!data || !data.subplots || !data.index) {
@@ -221,7 +225,11 @@
             
             // Use generated indices for X-axis to align with main chart
             const index = data.xIndices || data.index.map((_, i) => (data.start_index || 0) + i);
-            const timestamps = data.index;
+            const timestamps = data.timestamps || data.index;
+            
+            // Update global references for date formatting
+            subplotIndices = index;
+            subplotTimestamps = timestamps;
             
             const names = Object.keys(data.subplots);
 
@@ -277,12 +285,12 @@
                         height: 130,
                         series: [
                             {
-                                // Format X labels as dates
+                                // Format X labels as dates using global timestamps
                                 value: (u, v) => {
-                                    // Find index in data
-                                    const idx = index.indexOf(v);
-                                    if (idx !== -1 && timestamps[idx]) {
-                                        return new Date(timestamps[idx]).toLocaleString();
+                                    // Find index in current data
+                                    const idx = subplotIndices.indexOf(v);
+                                    if (idx !== -1 && subplotTimestamps[idx]) {
+                                        return new Date(subplotTimestamps[idx]).toLocaleString();
                                     }
                                     return v;
                                 }
@@ -302,10 +310,10 @@
                                 // Minimal x-axis for subplots
                                 show: true,
                                 values: (u, vals) => vals.map(v => {
-                                    const idx = index.indexOf(Math.round(v));
-                                    if (idx !== -1 && timestamps[idx]) {
+                                    const idx = subplotIndices.indexOf(Math.round(v));
+                                    if (idx !== -1 && subplotTimestamps[idx]) {
                                         // Show shorter time format for subplots
-                                        return new Date(timestamps[idx]).toLocaleTimeString();
+                                        return new Date(subplotTimestamps[idx]).toLocaleTimeString();
                                     }
                                     return v.toFixed(0);
                                 })
