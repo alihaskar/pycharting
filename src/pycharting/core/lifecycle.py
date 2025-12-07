@@ -218,11 +218,15 @@ class ChartServer:
         if self._server:
             self._server.should_exit = True
         
-        # Wait for threads to finish
-        if self._server_thread and self._server_thread.is_alive():
+        # Only join threads if not called from within them
+        current_thread = threading.current_thread()
+        
+        # Wait for server thread to finish
+        if self._server_thread and self._server_thread.is_alive() and self._server_thread != current_thread:
             self._server_thread.join(timeout=5)
         
-        if self._monitor_thread and self._monitor_thread.is_alive():
+        # Wait for monitor thread to finish
+        if self._monitor_thread and self._monitor_thread.is_alive() and self._monitor_thread != current_thread:
             self._monitor_thread.join(timeout=2)
         
         logger.info("Server stopped")

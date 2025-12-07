@@ -44,6 +44,7 @@ def plot(
     port: Optional[int] = None,
     open_browser: bool = True,
     server_timeout: float = 2.0,
+    block: bool = True,
 ) -> Dict[str, Any]:
     """
     Generate and display an interactive OHLC (Open-High-Low-Close) or Line chart.
@@ -74,6 +75,7 @@ def plot(
         port (Optional[int]): Specific port to run the server on. If `None` (default), a free port is automatically found.
         open_browser (bool): If `True` (default), automatically launches the system's default web browser to view the chart.
         server_timeout (float): Maximum time (in seconds) to wait for the server to start before proceeding. Defaults to 2.0.
+        block (bool): If `True` (default), blocks execution until the browser page is closed. Useful in Jupyter notebooks.
 
     Returns:
         Dict[str, Any]: A dictionary containing execution details:
@@ -160,7 +162,7 @@ def plot(
             _active_server = ChartServer(
                 host="127.0.0.1",
                 port=port,
-                auto_shutdown_timeout=300.0  # 5 minutes
+                auto_shutdown_timeout=3.0  # 3 seconds after disconnect
             )
             server_info = _active_server.start_server()
             
@@ -202,6 +204,21 @@ def plot(
         if not open_browser:
             print(f"  Open the URL above in your browser to view the chart.")
         print()
+        
+        # Block until server shutdown if requested
+        if block and _active_server:
+            logger.info("Blocking until chart is closed (press Ctrl+C to force exit)...")
+            print("Keeping server alive until you close the browser page...")
+            try:
+                # Wait with timeout so Ctrl+C can interrupt
+                while not _active_server._shutdown_event.is_set():
+                    _active_server._shutdown_event.wait(timeout=0.5)
+                logger.info("Server shutdown detected, returning control")
+                print("\n✓ Chart closed, server stopped")
+            except KeyboardInterrupt:
+                logger.info("Interrupted by user")
+                print("\n⚠️  Interrupted - stopping server...")
+                _active_server.stop_server()
         
         return result
         

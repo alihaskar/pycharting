@@ -22,6 +22,7 @@ class PyChart {
         this.chart = null;
         this.data = null;
         this.measurementButtonElement = null;
+        this.exportButtonElement = null; // Track export button
     }
     
     /**
@@ -143,6 +144,11 @@ class PyChart {
         const config = this.createConfig(data);
         this.chart = new uPlot(config, data, this.container);
         this._setupInteractions();
+        
+        // Add export button (only once)
+        if (!this.exportButtonElement) {
+            this.addExportButton();
+        }
     }
 
     /**
@@ -739,9 +745,132 @@ class PyChart {
     }
     
     /**
+     * Export full chart view including overlays to user-selected location
+     * @param {string} defaultFilename - Default filename suggestion
+     */
+    async exportFullView(defaultFilename = 'chart.png') {
+        try {
+            // Save original background
+            const originalBg = this.container.style.backgroundColor;
+            
+            // Temporarily set white background for export
+            this.container.style.backgroundColor = '#ffffff';
+            
+            // Dynamically load html2canvas
+            const html2canvas = (await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/+esm')).default;
+            
+            // Capture the entire container (chart + overlays)
+            const canvas = await html2canvas(this.container, {
+                backgroundColor: '#ffffff',
+                scale: 2, // 2x resolution for better quality
+                logging: false,
+                useCORS: true
+            });
+            
+            // Restore original background
+            this.container.style.backgroundColor = originalBg;
+            
+            // Convert canvas to blob
+            canvas.toBlob(async (blob) => {
+                if (!blob) {
+                    console.error('Failed to create image blob');
+                    return;
+                }
+                
+                // Try modern File System Access API first
+                if ('showSaveFilePicker' in window) {
+                    try {
+                        const handle = await window.showSaveFilePicker({
+                            suggestedName: defaultFilename,
+                            types: [{
+                                description: 'PNG Image',
+                                accept: {'image/png': ['.png']}
+                            }]
+                        });
+                        
+                        const writable = await handle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        
+                        console.log('Chart exported successfully');
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            console.error('Save failed:', err);
+                            // Fallback to download
+                            this._downloadBlob(blob, defaultFilename);
+                        }
+                    }
+                } else {
+                    // Fallback for browsers without File System Access API
+                    this._downloadBlob(blob, defaultFilename);
+                }
+            }, 'image/png');
+            
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('Failed to export chart. Please try again.');
+        }
+    }
+
+    /**
+     * Fallback download method
+     * @private
+     */
+    _downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    /**
+     * Add export button to the chart UI
+     */
+    addExportButton() {
+        // Create button element
+        const btn = document.createElement('button');
+        btn.textContent = '📷 Export Chart';
+        btn.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        `;
+        
+        btn.onmouseover = () => btn.style.background = 'rgba(255, 255, 255, 1)';
+        btn.onmouseout = () => btn.style.background = 'rgba(255, 255, 255, 0.9)';
+        
+        btn.onclick = () => {
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            this.exportFullView(`chart_${timestamp}.png`);
+        };
+        
+        // Ensure container is positioned
+        if (getComputedStyle(this.container).position === 'static') {
+            this.container.style.position = 'relative';
+        }
+        
+        this.container.appendChild(btn);
+        this.exportButtonElement = btn; // Store reference
+    }
+    
+    /**
      * Destroy the chart and clean up resources
      */
     destroy() {
+        if (this.exportButtonElement) {
+            this.exportButtonElement.remove();
+            this.exportButtonElement = null;
+        }
         if (this.measurementOverlay) {
             this.measurementOverlay.remove();
             this.measurementOverlay = null;
