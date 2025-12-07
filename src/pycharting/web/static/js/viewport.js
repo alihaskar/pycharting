@@ -269,8 +269,9 @@ class ViewportManager {
         this.setupEventListeners();
 
         // Notify any subplot handlers with full data payload
-        // We need to pass the xIndices here too if subplots use uPlot
+        // Pass both xIndices and timestamps for proper date formatting
         data.xIndices = xIndices;
+        data.timestamps = timestamps;
         
         this.subplotCallbacks.forEach((cb) => {
             if (typeof cb === 'function') {
