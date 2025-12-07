@@ -21,6 +21,7 @@ class PyChart {
         
         this.chart = null;
         this.data = null;
+        this.measurementButtonElement = null;
     }
     
     /**
@@ -614,6 +615,7 @@ class PyChart {
                 ms.measuring = false;
                 drawMeasurement(); 
                 console.log('Measurement ended');
+                this._autoDeactivateMeasurementButton();
             }
         }, true);  // Use capture phase to get event first
         
@@ -667,6 +669,7 @@ class PyChart {
         if (this.chart && this.chart.over) {
             this.chart.over.style.cursor = 'crosshair';
         }
+        this._updateMeasurementButtonElement();
         console.log('Measurement tool enabled via button');
     }
     
@@ -693,6 +696,7 @@ class PyChart {
         if (this.chart && this.chart.over) {
             this.chart.over.style.cursor = 'default';
         }
+        this._updateMeasurementButtonElement();
         console.log('Measurement tool disabled via button');
     }
     
@@ -701,6 +705,37 @@ class PyChart {
      */
     get measurementEnabled() {
         return this.measurementButtonActive;
+    }
+
+    /**
+     * Register DOM button for measurement so we can keep classes in sync.
+     * Clears previous registration if passed null.
+     */
+    registerMeasurementButton(button) {
+        this.measurementButtonElement = button;
+        this._updateMeasurementButtonElement();
+    }
+
+    _updateMeasurementButtonElement() {
+        if (!this.measurementButtonElement) return;
+        if (this.measurementButtonActive) {
+            this.measurementButtonElement.classList.add('active');
+        } else {
+            this.measurementButtonElement.classList.remove('active');
+        }
+    }
+
+    _autoDeactivateMeasurementButton() {
+        if (!this.measurementButtonActive) return;
+
+        this.measurementButtonActive = false;
+        if (this.measurementState) {
+            this.measurementState.enabled = false;
+        }
+        if (this.chart && this.chart.over) {
+            this.chart.over.style.cursor = 'default';
+        }
+        this._updateMeasurementButtonElement();
     }
     
     /**

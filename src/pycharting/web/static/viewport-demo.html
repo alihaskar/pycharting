@@ -193,6 +193,8 @@
             const newBtn = measureBtn.cloneNode(true);
             measureBtn.parentNode.replaceChild(newBtn, measureBtn);
             
+            chart.registerMeasurementButton(newBtn);
+            
             // Add click handler
             newBtn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -206,11 +208,9 @@
                 if (chart.measurementEnabled) {
                     console.log('Disabling measurement tool');
                     chart.disableMeasurementTool();
-                    newBtn.classList.remove('active');
                 } else {
                     console.log('Enabling measurement tool');
                     chart.enableMeasurementTool();
-                    newBtn.classList.add('active');
                 }
             });
             
