@@ -259,6 +259,7 @@ class PyChart {
     /**
      * Attach basic mouse wheel zoom and drag-to-pan interactions.
      * uPlot doesn't ship these by default; we implement minimal X-only behavior.
+     * Also sets up measurement tool (activated with Shift key).
      * @private
      */
     _setupInteractions() {
@@ -267,6 +268,9 @@ class PyChart {
         
         const over = u.over;
         if (!over) return;
+        
+        // Setup measurement tool (Shift key)
+        this._setupMeasurementTool();
         
         // --- Wheel zoom (horizontal) ---
         const zoomFactor = 0.25;
@@ -293,6 +297,7 @@ class PyChart {
         }, { passive: false });
         
         // --- Drag pan (left mouse button) ---
+        // Skip panning when Shift is pressed (for measurement tool)
         let dragging = false;
         let dragStartX = 0;
         let dragMin = 0;
@@ -300,6 +305,7 @@ class PyChart {
         
         over.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return;
+            if (e.shiftKey) return;  // Skip if Shift is held (measurement tool)
             dragging = true;
             dragStartX = e.clientX;
             const scale = u.scales.x;
@@ -339,9 +345,211 @@ class PyChart {
     }
     
     /**
+     * Setup measurement tool (activated with Shift key)
+     * @private
+     */
+    _setupMeasurementTool() {
+        const u = this.chart;
+        const over = u.over;
+        if (!over) {
+            console.warn('Cannot setup measurement tool: no overlay element');
+            return;
+        }
+        
+        console.log('Setting up measurement tool...');
+        
+        // State for measurement
+        let measuring = false;
+        let startX = null;
+        let startY = null;
+        let startVal = null;
+        let startTime = null;
+        let shiftPressed = false;
+        
+        // Overlay canvas for drawing measurement line
+        const overlay = document.createElement('canvas');
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.zIndex = '10';
+        over.parentElement.appendChild(overlay);
+        
+        const overlayCtx = overlay.getContext('2d');
+        
+        // Resize overlay to match chart
+        const resizeOverlay = () => {
+            const rect = over.getBoundingClientRect();
+            overlay.width = rect.width;
+            overlay.height = rect.height;
+            overlay.style.width = rect.width + 'px';
+            overlay.style.height = rect.height + 'px';
+        };
+        resizeOverlay();
+        
+        // Helper to format time delta
+        const formatTimeDelta = (ms) => {
+            const seconds = Math.abs(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (days > 0) return `${days}d ${hours % 24}h`;
+            if (hours > 0) return `${hours}h ${minutes % 60}m`;
+            if (minutes > 0) return `${minutes}m ${Math.floor(seconds % 60)}s`;
+            return `${seconds.toFixed(1)}s`;
+        };
+        
+        // Draw measurement
+        const drawMeasurement = (endX, endY) => {
+            overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+            
+            if (!measuring || startX === null) return;
+            
+            // Draw line
+            overlayCtx.strokeStyle = '#2196F3';
+            overlayCtx.lineWidth = 2;
+            overlayCtx.setLineDash([5, 5]);
+            overlayCtx.beginPath();
+            overlayCtx.moveTo(startX, startY);
+            overlayCtx.lineTo(endX, endY);
+            overlayCtx.stroke();
+            overlayCtx.setLineDash([]);
+            
+            // Draw circles at endpoints
+            overlayCtx.fillStyle = '#2196F3';
+            overlayCtx.beginPath();
+            overlayCtx.arc(startX, startY, 5, 0, Math.PI * 2);
+            overlayCtx.fill();
+            overlayCtx.beginPath();
+            overlayCtx.arc(endX, endY, 5, 0, Math.PI * 2);
+            overlayCtx.fill();
+            
+            // Calculate values
+            const endVal = u.posToVal(endY, 'y');
+            const endTime = u.posToVal(endX, 'x');
+            
+            const deltaVal = endVal - startVal;
+            const deltaPercent = ((deltaVal / startVal) * 100).toFixed(2);
+            
+            // Calculate time delta
+            let timeDeltaStr = '';
+            if (this.timestamps) {
+                const startIdx = Math.round(startTime);
+                const endIdx = Math.round(endTime);
+                const startDataIdx = Math.max(0, Math.min(this.timestamps.length - 1, startIdx - (this.chart.data[0][0] || 0)));
+                const endDataIdx = Math.max(0, Math.min(this.timestamps.length - 1, endIdx - (this.chart.data[0][0] || 0)));
+                
+                if (this.timestamps[startDataIdx] && this.timestamps[endDataIdx]) {
+                    const timeDelta = this.timestamps[endDataIdx] - this.timestamps[startDataIdx];
+                    timeDeltaStr = formatTimeDelta(timeDelta);
+                } else {
+                    timeDeltaStr = `${Math.abs(endIdx - startIdx).toFixed(0)} bars`;
+                }
+            } else {
+                timeDeltaStr = `${Math.abs(endTime - startTime).toFixed(0)} bars`;
+            }
+            
+            // Draw measurement box
+            const boxX = (startX + endX) / 2;
+            const boxY = (startY + endY) / 2 - 40;
+            
+            const lines = [
+                `Δ Price: ${deltaVal >= 0 ? '+' : ''}${deltaVal.toFixed(2)}`,
+                `Δ %: ${deltaPercent >= 0 ? '+' : ''}${deltaPercent}%`,
+                `Δ Time: ${timeDeltaStr}`
+            ];
+            
+            // Measure text width for box sizing
+            overlayCtx.font = '12px monospace';
+            const maxWidth = Math.max(...lines.map(l => overlayCtx.measureText(l).width));
+            const boxWidth = maxWidth + 20;
+            const boxHeight = 60;
+            
+            // Draw box background
+            overlayCtx.fillStyle = 'rgba(33, 33, 33, 0.9)';
+            overlayCtx.fillRect(boxX - boxWidth / 2, boxY, boxWidth, boxHeight);
+            
+            // Draw box border
+            overlayCtx.strokeStyle = '#2196F3';
+            overlayCtx.lineWidth = 1;
+            overlayCtx.strokeRect(boxX - boxWidth / 2, boxY, boxWidth, boxHeight);
+            
+            // Draw text
+            overlayCtx.fillStyle = deltaVal >= 0 ? '#26a69a' : '#ef5350';
+            overlayCtx.textAlign = 'center';
+            lines.forEach((line, i) => {
+                overlayCtx.fillText(line, boxX, boxY + 18 + i * 16);
+            });
+        };
+        
+        // Track Shift key
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Shift') {
+                shiftPressed = true;
+                over.style.cursor = 'crosshair';
+                console.log('Measurement tool activated (Shift pressed)');
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'Shift') {
+                shiftPressed = false;
+                over.style.cursor = 'default';
+                if (measuring) {
+                    measuring = false;
+                    overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+                }
+                console.log('Measurement tool deactivated (Shift released)');
+            }
+        });
+        
+        // Click to start/end measurement (only when Shift is held)
+        over.addEventListener('mousedown', (e) => {
+            if (!shiftPressed) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (!measuring) {
+                const rect = over.getBoundingClientRect();
+                startX = e.clientX - rect.left;
+                startY = e.clientY - rect.top;
+                startVal = u.posToVal(startY, 'y');
+                startTime = u.posToVal(startX, 'x');
+                measuring = true;
+                console.log('Measurement started at:', startX, startY, 'Value:', startVal);
+            } else {
+                // End measurement
+                measuring = false;
+                console.log('Measurement ended');
+            }
+        }, true);  // Use capture phase to get event first
+        
+        // Mouse move to draw line
+        over.addEventListener('mousemove', (e) => {
+            if (!measuring || !shiftPressed) return;
+            
+            const rect = over.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+            
+            drawMeasurement(endX, endY);
+        });
+        
+        // Store overlay reference for cleanup
+        this.measurementOverlay = overlay;
+        console.log('Measurement tool ready (Hold Shift + Click to measure)');
+    }
+    
+    /**
      * Destroy the chart and clean up resources
      */
     destroy() {
+        if (this.measurementOverlay) {
+            this.measurementOverlay.remove();
+            this.measurementOverlay = null;
+        }
         if (this.chart) {
             this.chart.destroy();
             this.chart = null;
