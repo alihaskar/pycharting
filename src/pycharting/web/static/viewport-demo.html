@@ -559,6 +559,48 @@
             }, 100);
         }
         
+        // Setup WebSocket heartbeat connection
+        function setupHeartbeat() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/heartbeat`;
+            
+            console.log('Connecting to heartbeat:', wsUrl);
+            const ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('Heartbeat connected');
+                
+                // Send ping every 500ms (faster than backend timeout)
+                const interval = setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send('ping');
+                    } else {
+                        clearInterval(interval);
+                    }
+                }, 500);
+                
+                // Clean up on page unload
+                window.addEventListener('beforeunload', () => {
+                    clearInterval(interval);
+                    ws.close();
+                });
+            };
+            
+            ws.onmessage = (event) => {
+                if (event.data === 'pong') {
+                    console.debug('Heartbeat pong received');
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('Heartbeat error:', error);
+            };
+            
+            ws.onclose = () => {
+                console.log('Heartbeat disconnected');
+            };
+        }
+        
         // Auto-initialize on page load
         window.addEventListener('load', () => {
             const sessionId = getSessionId();
@@ -566,6 +608,7 @@
                 // When launched via Python API, auto-init using existing session
                 initializeData();
                 initializeChartHeights();
+                setupHeartbeat();
             } else {
                 setupChart();
                 initializeChartHeights();
