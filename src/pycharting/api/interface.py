@@ -162,7 +162,7 @@ def plot(
             _active_server = ChartServer(
                 host="127.0.0.1",
                 port=port,
-                auto_shutdown_timeout=300.0  # 5 minutes
+                auto_shutdown_timeout=3.0  # 3 seconds after disconnect
             )
             server_info = _active_server.start_server()
             
@@ -210,12 +210,14 @@ def plot(
             logger.info("Blocking until chart is closed (press Ctrl+C to force exit)...")
             print("Keeping server alive until you close the browser page...")
             try:
-                _active_server._shutdown_event.wait()
+                # Wait with timeout so Ctrl+C can interrupt
+                while not _active_server._shutdown_event.is_set():
+                    _active_server._shutdown_event.wait(timeout=0.5)
                 logger.info("Server shutdown detected, returning control")
                 print("\n✓ Chart closed, server stopped")
             except KeyboardInterrupt:
                 logger.info("Interrupted by user")
-                print("\n Interrupted - stopping server...")
+                print("\n⚠️  Interrupted - stopping server...")
                 _active_server.stop_server()
         
         return result
