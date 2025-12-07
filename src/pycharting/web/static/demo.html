@@ -259,16 +259,16 @@
                 return;
             }
             
+            chart.registerMeasurementButton(measureBtn);
+            
             measureBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 console.log('Measurement button clicked');
                 
                 if (chart.measurementEnabled) {
                     chart.disableMeasurementTool();
-                    measureBtn.classList.remove('active');
                 } else {
                     chart.enableMeasurementTool();
-                    measureBtn.classList.add('active');
                 }
             });
             
