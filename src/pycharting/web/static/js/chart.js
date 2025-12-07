@@ -305,7 +305,8 @@ class PyChart {
         
         over.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return;
-            if (e.shiftKey) return;  // Skip if Shift is held (measurement tool)
+            // Skip panning if Shift is held OR measurement tool is enabled
+            if (e.shiftKey || this.measurementState.enabled) return;
             dragging = true;
             dragStartX = e.clientX;
             const scale = u.scales.x;
@@ -341,11 +342,28 @@ class PyChart {
     setSize(width, height) {
         if (this.chart) {
             this.chart.setSize({ width, height });
+            
+            // Resize measurement overlay to match plotting area
+            if (this.measurementOverlay && this.chart.bbox) {
+                const bbox = this.chart.bbox;
+                
+                this.measurementOverlay.style.left = bbox.left + 'px';
+                this.measurementOverlay.style.top = bbox.top + 'px';
+                this.measurementOverlay.width = bbox.width;
+                this.measurementOverlay.height = bbox.height;
+                this.measurementOverlay.style.width = bbox.width + 'px';
+                this.measurementOverlay.style.height = bbox.height + 'px';
+                
+                // Redraw measurement if one exists
+                if (this.measurementState && this.measurementState.startValX !== null && this._drawMeasurement) {
+                    this._drawMeasurement();
+                }
+            }
         }
     }
     
     /**
-     * Setup measurement tool (activated with Shift key)
+     * Setup measurement tool (activated with Shift key or button)
      * @private
      */
     _setupMeasurementTool() {
@@ -358,32 +376,37 @@ class PyChart {
         
         console.log('Setting up measurement tool...');
         
-        // State for measurement
-        let measuring = false;
-        let startX = null;
-        let startY = null;
-        let startVal = null;
-        let startTime = null;
+        // State for measurement - stored in DATA coordinates for persistence
+        this.measurementState = {
+            measuring: false,
+            startValX: null,  // Data value (x-axis)
+            startValY: null,  // Data value (y-axis)
+            endValX: null,
+            endValY: null,
+            enabled: false    // Button toggle state
+        };
         let shiftPressed = false;
         
         // Overlay canvas for drawing measurement line
         const overlay = document.createElement('canvas');
         overlay.style.position = 'absolute';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
         overlay.style.pointerEvents = 'none';
         overlay.style.zIndex = '10';
         over.parentElement.appendChild(overlay);
         
         const overlayCtx = overlay.getContext('2d');
         
-        // Resize overlay to match chart
+        // Resize overlay to match chart plotting area exactly
         const resizeOverlay = () => {
-            const rect = over.getBoundingClientRect();
-            overlay.width = rect.width;
-            overlay.height = rect.height;
-            overlay.style.width = rect.width + 'px';
-            overlay.style.height = rect.height + 'px';
+            // Position overlay to match the plotting area (account for axes margins)
+            overlay.style.left = u.bbox.left + 'px';
+            overlay.style.top = u.bbox.top + 'px';
+            
+            // Size to match plotting area only
+            overlay.width = u.bbox.width;
+            overlay.height = u.bbox.height;
+            overlay.style.width = u.bbox.width + 'px';
+            overlay.style.height = u.bbox.height + 'px';
         };
         resizeOverlay();
         
@@ -400,11 +423,59 @@ class PyChart {
             return `${seconds.toFixed(1)}s`;
         };
         
-        // Draw measurement
-        const drawMeasurement = (endX, endY) => {
+        // Helper to draw line directly from coordinates (bypass data conversion)
+        this._drawMeasurementLine = (startX, startY, endX, endY) => {
             overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
             
-            if (!measuring || startX === null) return;
+            // Draw line
+            overlayCtx.strokeStyle = '#2196F3';
+            overlayCtx.lineWidth = 2;
+            overlayCtx.setLineDash([5, 5]);
+            overlayCtx.beginPath();
+            overlayCtx.moveTo(startX, startY);
+            overlayCtx.lineTo(endX, endY);
+            overlayCtx.stroke();
+            overlayCtx.setLineDash([]);
+            
+            // Draw circles
+            overlayCtx.fillStyle = '#2196F3';
+            overlayCtx.beginPath();
+            overlayCtx.arc(startX, startY, 5, 0, Math.PI * 2);
+            overlayCtx.fill();
+            overlayCtx.beginPath();
+            overlayCtx.arc(endX, endY, 5, 0, Math.PI * 2);
+            overlayCtx.fill();
+            
+            // We can still show the box using data values (which we have)
+            // But line position is visual only
+        };
+        
+        // Draw measurement - uses DATA coordinates for persistence through zoom/pan
+        const drawMeasurement = () => {
+            overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+            
+            const ms = this.measurementState;
+            // Draw if we have valid start/end points (even if measuring is complete)
+            if (ms.startValX === null || ms.endValX === null) {
+                return;
+            }
+            
+            let startX, startY, endX, endY;
+            
+            // Use stored visual coords if available (prevents drift on release)
+            if (ms.visualStartX != null && ms.visualEndX != null) {
+                startX = ms.visualStartX;
+                startY = ms.visualStartY;
+                endX = ms.visualEndX;
+                endY = ms.visualEndY;
+            } else {
+                // Recalculate from data (for zoom/pan)
+                // Convert data coordinates to pixel coordinates relative to PLOTTING AREA (bbox)
+                startX = u.valToPos(ms.startValX, 'x', false);
+                startY = u.valToPos(ms.startValY, 'y', false);
+                endX = u.valToPos(ms.endValX, 'x', false);
+                endY = u.valToPos(ms.endValY, 'y', false);
+            }
             
             // Draw line
             overlayCtx.strokeStyle = '#2196F3';
@@ -425,18 +496,15 @@ class PyChart {
             overlayCtx.arc(endX, endY, 5, 0, Math.PI * 2);
             overlayCtx.fill();
             
-            // Calculate values
-            const endVal = u.posToVal(endY, 'y');
-            const endTime = u.posToVal(endX, 'x');
-            
-            const deltaVal = endVal - startVal;
-            const deltaPercent = ((deltaVal / startVal) * 100).toFixed(2);
+            // Calculate deltas
+            const deltaVal = ms.endValY - ms.startValY;
+            const deltaPercent = ((deltaVal / ms.startValY) * 100).toFixed(2);
             
             // Calculate time delta
             let timeDeltaStr = '';
             if (this.timestamps) {
-                const startIdx = Math.round(startTime);
-                const endIdx = Math.round(endTime);
+                const startIdx = Math.round(ms.startValX);
+                const endIdx = Math.round(ms.endValX);
                 const startDataIdx = Math.max(0, Math.min(this.timestamps.length - 1, startIdx - (this.chart.data[0][0] || 0)));
                 const endDataIdx = Math.max(0, Math.min(this.timestamps.length - 1, endIdx - (this.chart.data[0][0] || 0)));
                 
@@ -447,7 +515,7 @@ class PyChart {
                     timeDeltaStr = `${Math.abs(endIdx - startIdx).toFixed(0)} bars`;
                 }
             } else {
-                timeDeltaStr = `${Math.abs(endTime - startTime).toFixed(0)} bars`;
+                timeDeltaStr = `${Math.abs(ms.endValX - ms.startValX).toFixed(0)} bars`;
             }
             
             // Draw measurement box
@@ -487,6 +555,7 @@ class PyChart {
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Shift') {
                 shiftPressed = true;
+                this.measurementState.enabled = true;
                 over.style.cursor = 'crosshair';
                 console.log('Measurement tool activated (Shift pressed)');
             }
@@ -495,51 +564,143 @@ class PyChart {
         window.addEventListener('keyup', (e) => {
             if (e.key === 'Shift') {
                 shiftPressed = false;
-                over.style.cursor = 'default';
-                if (measuring) {
-                    measuring = false;
-                    overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+                // Don't disable if button is active
+                if (!this.measurementButtonActive) {
+                    this.measurementState.enabled = false;
+                    over.style.cursor = 'default';
                 }
                 console.log('Measurement tool deactivated (Shift released)');
             }
         });
         
-        // Click to start/end measurement (only when Shift is held)
+        const getPlotCoords = (event) => {
+            const rect = overlay.getBoundingClientRect();
+            const rawX = event.clientX - rect.left;
+            const rawY = event.clientY - rect.top;
+            const clamp = (value, limit) => Math.max(0, Math.min(limit, value));
+            return {
+                x: clamp(rawX, overlay.width),
+                y: clamp(rawY, overlay.height),
+            };
+        };
+
+        // Click to start/end measurement (when enabled via Shift or button)
         over.addEventListener('mousedown', (e) => {
-            if (!shiftPressed) return;
+            const ms = this.measurementState;
+            if (!ms.enabled && !shiftPressed) return;
             
             e.preventDefault();
             e.stopPropagation();
             
-            if (!measuring) {
-                const rect = over.getBoundingClientRect();
-                startX = e.clientX - rect.left;
-                startY = e.clientY - rect.top;
-                startVal = u.posToVal(startY, 'y');
-                startTime = u.posToVal(startX, 'x');
-                measuring = true;
-                console.log('Measurement started at:', startX, startY, 'Value:', startVal);
+            const { x: plotX, y: plotY } = getPlotCoords(e);
+            
+            if (!ms.measuring) {
+                // Start new measurement
+                ms.startValX = u.posToVal(plotX, 'x');
+                ms.startValY = u.posToVal(plotY, 'y');
+                ms.endValX = ms.startValX;
+                ms.endValY = ms.startValY;
+                ms.measuring = true;
+                
+                // Store visual start point
+                ms.visualStartX = plotX;
+                ms.visualStartY = plotY;
+                ms.visualEndX = plotX;
+                ms.visualEndY = plotY;
+                
+                this._drawMeasurementLine(plotX, plotY, plotX, plotY);
+                console.log('Measurement started');
             } else {
-                // End measurement
-                measuring = false;
+                ms.measuring = false;
+                drawMeasurement(); 
                 console.log('Measurement ended');
             }
         }, true);  // Use capture phase to get event first
         
-        // Mouse move to draw line
+        // Mouse move to update measurement line
         over.addEventListener('mousemove', (e) => {
-            if (!measuring || !shiftPressed) return;
+            const ms = this.measurementState;
+            if (!ms.measuring) return;
             
-            const rect = over.getBoundingClientRect();
-            const endX = e.clientX - rect.left;
-            const endY = e.clientY - rect.top;
+            const { x: plotX, y: plotY } = getPlotCoords(e);
             
-            drawMeasurement(endX, endY);
+            // Update end point in DATA coordinates
+            ms.endValX = u.posToVal(plotX, 'x');
+            ms.endValY = u.posToVal(plotY, 'y');
+            
+            // Store visual end point
+            ms.visualEndX = plotX;
+            ms.visualEndY = plotY;
+            
+            // Draw using visual coords to prevent jitter/drift
+            // Use stored visual start to ensure anchor doesn't move
+            this._drawMeasurementLine(ms.visualStartX, ms.visualStartY, plotX, plotY);
         });
         
-        // Store overlay reference for cleanup
+        // Hook into uPlot to redraw measurement on scale changes (zoom/pan)
+        u.hooks.setScale = u.hooks.setScale || [];
+        u.hooks.setScale.push(() => {
+            // Clear visual coords to force recalculation from data on zoom
+            if (this.measurementState) {
+                this.measurementState.visualStartX = null;
+                this.measurementState.visualStartY = null;
+                this.measurementState.visualEndX = null;
+                this.measurementState.visualEndY = null;
+            }
+            // Redraw measurement after scale changes
+            drawMeasurement();
+        });
+        
+        // Store references for cleanup and external access
         this.measurementOverlay = overlay;
+        this.measurementButtonActive = false;
+        this._drawMeasurement = drawMeasurement; // Store for resize/external calls
         console.log('Measurement tool ready (Hold Shift + Click to measure)');
+    }
+    
+    /**
+     * Enable measurement tool via button click
+     */
+    enableMeasurementTool() {
+        this.measurementButtonActive = true;
+        this.measurementState.enabled = true;
+        if (this.chart && this.chart.over) {
+            this.chart.over.style.cursor = 'crosshair';
+        }
+        console.log('Measurement tool enabled via button');
+    }
+    
+    /**
+     * Disable measurement tool via button click
+     */
+    disableMeasurementTool() {
+        this.measurementButtonActive = false;
+        this.measurementState.enabled = false;
+        
+        // Clear all measurement state
+        this.measurementState.measuring = false;
+        this.measurementState.startValX = null;
+        this.measurementState.startValY = null;
+        this.measurementState.endValX = null;
+        this.measurementState.endValY = null;
+        
+        // Clear the overlay canvas
+        if (this.measurementOverlay) {
+            const ctx = this.measurementOverlay.getContext('2d');
+            ctx.clearRect(0, 0, this.measurementOverlay.width, this.measurementOverlay.height);
+        }
+        
+        if (this.chart && this.chart.over) {
+            this.chart.over.style.cursor = 'default';
+        }
+        console.log('Measurement tool disabled via button');
+    }
+    
+    /**
+     * Check if measurement tool is enabled
+     */
+    get measurementEnabled() {
+        return this.measurementButtonActive;
     }
     
     /**
