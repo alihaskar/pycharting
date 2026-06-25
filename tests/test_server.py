@@ -41,11 +41,11 @@ class TestFindFreePort:
         """Test that RuntimeError is raised when no port is free."""
         import socket
 
-        # Bind on the same interface find_free_port scans ("" / all interfaces).
+        # Bind on the same interface find_free_port scans ("127.0.0.1").
         # On Windows, 127.0.0.1:port does not conflict with 0.0.0.0:port, so the
         # occupied port must be claimed on the same address to be seen as taken.
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("", 0))
+            s.bind(("127.0.0.1", 0))
             occupied_port = s.getsockname()[1]
             with pytest.raises(RuntimeError, match="No free port found"):
                 find_free_port(occupied_port, occupied_port + 1)
