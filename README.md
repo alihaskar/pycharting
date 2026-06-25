@@ -280,3 +280,4 @@ PyCharting is licensed under the MIT License.
 - **PyPI**: `https://pypi.org/project/pycharting/`
 - **Source**: `https://github.com/alihaskar/pycharting`
 - **Issues**: `https://github.com/alihaskar/pycharting/issues`
+- **Blog**: [aligrithm.com](https://aligrithm.com)

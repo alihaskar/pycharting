@@ -10,6 +10,16 @@ output/
 ### Don't expose API keys, etc.
 .env
 
+### Editor / agent tooling
+.cursor/
+.taskmaster/
+
+### Local demos / scratch notes
+demos/
+
+### Local sample data
+data/
+
 __marimo__
 
 _tests
@@ -73,6 +83,9 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Poetry lock file
+poetry.lock
 
 # Installer logs
 pip-log.txt
