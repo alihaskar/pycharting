@@ -78,7 +78,7 @@ def find_free_port(start_port: int | None = None, end_port: int | None = None) -
     if start_port is None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind(("", 0))
+            s.bind(("127.0.0.1", 0))
             return s.getsockname()[1]
 
     if end_port is None:
@@ -87,7 +87,7 @@ def find_free_port(start_port: int | None = None, end_port: int | None = None) -
     for port in range(start_port, end_port):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(("", port))
+                s.bind(("127.0.0.1", port))
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 return port
         except OSError:
