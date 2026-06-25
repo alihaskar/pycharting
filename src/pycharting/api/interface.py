@@ -32,6 +32,20 @@ logger = logging.getLogger(__name__)
 _active_server: ChartServer | None = None
 
 
+def _notify(message: str) -> None:
+    """Emit a user-facing console message.
+
+    All direct, user-facing output (chart URLs, status banners) is funneled
+    through this single helper rather than scattered ``print`` calls, so the
+    output channel is consistent and can be changed in one place. Diagnostic
+    detail continues to flow through ``logger``.
+
+    Args:
+        message (str): The message to display to the user.
+    """
+    print(message)
+
+
 def plot(
     index: np.ndarray | pd.Series | list,
     open: np.ndarray | pd.Series | list | None = None,
@@ -211,7 +225,7 @@ def plot(
                 webbrowser.open(chart_url)
             except Exception as e:
                 logger.warning(f"Could not open browser: {e}")
-                print(f"Please open this URL manually: {chart_url}")
+                _notify(f"Please open this URL manually: {chart_url}")
 
         result = {
             "status": "success",
@@ -223,31 +237,31 @@ def plot(
         }
 
         # Print user-friendly message
-        print("\n✓ Chart created successfully!")
-        print(f"  URL: {chart_url}")
-        print(f"  Data points: {data_manager.length:,}")
+        _notify("\n✓ Chart created successfully!")
+        _notify(f"  URL: {chart_url}")
+        _notify(f"  Data points: {data_manager.length:,}")
         if not open_browser:
-            print("  Open the URL above in your browser to view the chart.")
-        print()
+            _notify("  Open the URL above in your browser to view the chart.")
+        _notify("")
 
         # Block until server shutdown if requested
         if block and _active_server:  # pragma: no cover
             logger.info("Blocking until chart is closed (press Ctrl+C to force exit)...")
-            print("Keeping server alive until you close the browser page...")
+            _notify("Keeping server alive until you close the browser page...")
             try:
                 # Wait with timeout so Ctrl+C can interrupt
                 while not _active_server._shutdown_event.is_set():
                     _active_server._shutdown_event.wait(timeout=0.5)
                 logger.info("Server shutdown detected, returning control")
-                print("\n✓ Chart closed, server stopped")
+                _notify("\n✓ Chart closed, server stopped")
             except KeyboardInterrupt:
                 logger.info("Interrupted by user")
-                print("\n⚠️  Interrupted - stopping server...")
+                _notify("\n⚠️  Interrupted - stopping server...")
                 _active_server.stop_server()
 
     except Exception as e:
         logger.error(f"Error creating chart: {e}", exc_info=True)
-        print(f"\n✗ Error creating chart: {e}\n")
+        _notify(f"\n✗ Error creating chart: {e}\n")
 
         return {
             "status": "error",
@@ -258,7 +272,7 @@ def plot(
         return result
 
 
-def stop_server():
+def stop_server() -> None:
     """Manually shut down the active chart server.
 
     While the server has an auto-shutdown feature (triggered after a timeout when no clients are connected),
@@ -280,9 +294,9 @@ def stop_server():
     if _active_server and _active_server.is_running:
         logger.info("Stopping ChartServer...")
         _active_server.stop_server()
-        print("✓ Chart server stopped")
+        _notify("✓ Chart server stopped")
     else:
-        print("ⓘ No active server to stop")
+        _notify("ⓘ No active server to stop")
 
 
 def get_server_status() -> dict[str, Any]:
@@ -322,7 +336,7 @@ def get_server_status() -> dict[str, Any]:
 
 
 # Jupyter notebook support
-def _repr_html_():
+def _repr_html_() -> str:
     """Jupyter notebook representation."""
     status = get_server_status()
     if status["running"]:
