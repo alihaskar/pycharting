@@ -5,28 +5,30 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from pycharting.api.interface import _active_server, _repr_html_, get_server_status, plot, stop_server
+from pycharting.api.interface import _repr_html_, get_server_status, plot, stop_server
 from pycharting.api.routes import _data_managers
 
 
 @pytest.fixture(autouse=True)
 def cleanup_globals():
-    """Clean up global state between tests."""
-    global _active_server
+    """Clean up global state between tests.
 
-    # Stop any active server before test
-    if _active_server and _active_server.is_running:
-        _active_server.stop_server()
+    Operates on the live ``interface`` module global rather than a name
+    imported into this module — a plain ``global _active_server`` here would
+    rebind the test module's own copy and leave the running server (and the
+    real ``interface._active_server``) untouched, leaking state between tests.
+    """
+    import pycharting.api.interface as iface
 
-    # Clear data managers
-    _data_managers.clear()
+    def _reset() -> None:
+        if iface._active_server and iface._active_server.is_running:
+            iface._active_server.stop_server()
+        iface._active_server = None
+        _data_managers.clear()
 
+    _reset()
     yield
-
-    # Clean up after test
-    if _active_server and _active_server.is_running:
-        _active_server.stop_server()
-    _data_managers.clear()
+    _reset()
 
 
 class TestPlotFunction:
@@ -165,10 +167,20 @@ class TestStopServer:
         status = get_server_status()
         assert status["running"] is False
 
-    def test_stop_server_when_not_running(self):
-        """Test stopping when no server is active."""
-        # Should not raise an error
-        stop_server()  # Should print info message
+    def test_stop_server_when_not_running(self, capsys):
+        """Test stopping when no server is active reports the no-op message."""
+        import pycharting.api.interface as iface
+
+        # Force the module global to None so the "no active server" branch is
+        # exercised deterministically, regardless of test execution order /
+        # xdist worker state.
+        original = iface._active_server
+        iface._active_server = None
+        try:
+            stop_server()  # Should not raise; should emit the info message
+            assert "No active server to stop" in capsys.readouterr().out
+        finally:
+            iface._active_server = original
 
 
 class TestGetServerStatus:
