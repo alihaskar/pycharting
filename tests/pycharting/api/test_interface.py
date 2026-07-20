@@ -123,6 +123,22 @@ def test_plot_with_invalid_data():
     assert result["stage"] == "validation"
 
 
+def test_plot_server_startup_failure_reported_as_server_stage():
+    """A non-validation failure (e.g. server startup) is reported with stage='server'."""
+    n = 20
+    data = np.random.randn(n) + 100
+    index = np.arange(n)
+
+    # Valid data passes validation, so the error must come from a later stage.
+    with patch("pycharting.api.interface.ChartServer") as mock_server:
+        mock_server.side_effect = RuntimeError("boom: could not start server")
+        result = plot(index, close=data, open_browser=False, block=False)
+
+    assert result["status"] == "error"
+    assert result["stage"] == "server"
+    assert "boom" in result["error"]
+
+
 @patch("webbrowser.open")
 def test_plot_opens_browser(mock_browser):
     """Test that plot opens browser when requested."""
