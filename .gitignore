@@ -17,8 +17,8 @@ output/
 ### Local demos / scratch notes
 demos/
 
-### Local sample data
-data/
+### Local sample data (top-level only; must not swallow tests/pycharting/data/)
+/data/
 
 __marimo__
 
