@@ -119,6 +119,8 @@ def test_plot_with_invalid_data():
 
     assert result["status"] == "error"
     assert "error" in result
+    # A validation failure must be reported as such, distinct from server/runtime errors.
+    assert result["stage"] == "validation"
 
 
 @patch("webbrowser.open")
