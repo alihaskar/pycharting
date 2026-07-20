@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from src.pycharting.core.lifecycle import ChartServer
+from pycharting.core.lifecycle import ChartServer
 
 
 class TestChartServer:
@@ -145,92 +145,90 @@ class TestChartServer:
         """Test that WebSocket endpoint is added to app."""
         server = ChartServer()
 
-        # Check that the WebSocket route exists
-        routes = [route.path for route in server.app.routes]
+        # Check that the WebSocket route exists. Newer FastAPI/Starlette mix
+        # route objects that lack a ``.path`` attribute (e.g. ``_IncludedRouter``)
+        # into ``app.routes``, so read paths defensively.
+        routes = [path for route in server.app.routes if (path := getattr(route, "path", None))]
         assert "/ws/heartbeat" in routes
 
 
-class TestThreadSafety:
-    """Tests for thread safety."""
+def test_multiple_operations():
+    """Test multiple start/stop operations."""
+    server = ChartServer()
 
-    def test_multiple_operations(self):
-        """Test multiple start/stop operations."""
-        server = ChartServer()
-
-        for _i in range(3):
-            server.start_server()
-            time.sleep(0.3)
-            assert server.is_running
-
-            server.stop_server()
-            time.sleep(0.3)
-            assert not server.is_running
-
-    def test_server_cleanup(self):
-        """Test that server properly cleans up resources."""
-        server = ChartServer()
-
+    for _i in range(3):
         server.start_server()
-        time.sleep(0.5)
-
-        # Get thread references
-        server_thread = server._server_thread
-        monitor_thread = server._monitor_thread
+        time.sleep(0.3)
+        assert server.is_running
 
         server.stop_server()
+        time.sleep(0.3)
+        assert not server.is_running
+
+
+def test_server_cleanup():
+    """Test that server properly cleans up resources."""
+    server = ChartServer()
+
+    server.start_server()
+    time.sleep(0.5)
+
+    # Get thread references
+    server_thread = server._server_thread
+    monitor_thread = server._monitor_thread
+
+    server.stop_server()
+    time.sleep(1)
+
+    # Threads should be finished
+    if server_thread:
+        assert not server_thread.is_alive()
+    if monitor_thread:
+        assert not monitor_thread.is_alive()
+
+
+def test_server_responds_after_start():
+    """Test that server responds to requests after starting."""
+    import httpx
+
+    server = ChartServer()
+
+    try:
+        info = server.start_server()
+        time.sleep(1)  # Give server time to start
+
+        # Try to access health endpoint
+        response = httpx.get(f"{info['url']}/health", timeout=5)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
+
+    except Exception as e:
+        pytest.skip(f"Server integration test skipped: {e}")
+
+    finally:
+        server.stop_server()
+
+
+def test_server_accessible_in_background():
+    """Test that main thread is not blocked."""
+    import httpx
+
+    server = ChartServer()
+
+    try:
+        server.start_server()
         time.sleep(1)
 
-        # Threads should be finished
-        if server_thread:
-            assert not server_thread.is_alive()
-        if monitor_thread:
-            assert not monitor_thread.is_alive()
-
-
-class TestServerIntegration:
-    """Integration tests for server functionality."""
-
-    def test_server_responds_after_start(self):
-        """Test that server responds to requests after starting."""
-        import httpx
-
-        server = ChartServer()
-
-        try:
-            info = server.start_server()
-            time.sleep(1)  # Give server time to start
-
-            # Try to access health endpoint
-            response = httpx.get(f"{info['url']}/health", timeout=5)
+        # Main thread should not be blocked
+        # We should be able to make multiple requests
+        for _ in range(3):
+            response = httpx.get(f"http://{server.host}:{server.port}/health", timeout=5)
             assert response.status_code == 200
-            data = response.json()
-            assert data["status"] == "healthy"
+            time.sleep(0.1)
 
-        except Exception as e:
-            pytest.skip(f"Server integration test skipped: {e}")
+    except Exception as e:
+        pytest.skip(f"Integration test skipped: {e}")
 
-        finally:
-            server.stop_server()
-
-    def test_server_accessible_in_background(self):
-        """Test that main thread is not blocked."""
-        import httpx
-
-        server = ChartServer()
-
-        try:
-            server.start_server()
-            time.sleep(1)
-
-            # Main thread should not be blocked
-            # We should be able to make multiple requests
-            for _ in range(3):
-                response = httpx.get(f"http://{server.host}:{server.port}/health", timeout=5)
-                assert response.status_code == 200
-                time.sleep(0.1)
-
-        except Exception as e:
-            pytest.skip(f"Integration test skipped: {e}")
-
-        finally:
-            server.stop_server()
+    finally:
+        server.stop_server()
