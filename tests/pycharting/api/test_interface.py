@@ -10,6 +10,20 @@ from pycharting.api.routes import _data_managers
 
 
 @pytest.fixture(autouse=True)
+def portless_fast_server(fake_uvicorn):
+    """Make ``plot()`` fast and portless for interface tests.
+
+    Depends on ``fake_uvicorn`` (portless server, see conftest) and additionally
+    neutralises the ``time.sleep(server_timeout)`` readiness pause in
+    ``interface`` so tests neither bind a socket nor wait on wall-clock sleeps.
+    The blocking loop uses ``_shutdown_event.wait`` (not ``time.sleep``), so it is
+    unaffected by this patch.
+    """
+    with patch("pycharting.api.interface.time.sleep"):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def cleanup_globals():
     """Clean up global state between tests.
 
@@ -137,6 +151,63 @@ def test_plot_server_startup_failure_reported_as_server_stage():
     assert result["status"] == "error"
     assert result["stage"] == "server"
     assert "boom" in result["error"]
+
+
+def test_plot_block_returns_when_shutdown_event_set():
+    """With block=True, plot() waits on the shutdown event and returns when it fires.
+
+    Covers the previously ``# pragma: no cover`` blocking loop. A fake shutdown
+    event reports "not set" once (so the loop body runs) then "set" to release it.
+    """
+
+    class _Event:
+        def __init__(self):
+            self._checks = 0
+
+        def is_set(self):
+            self._checks += 1
+            return self._checks > 1  # False first, then True -> exactly one iteration
+
+        def wait(self, timeout=None):
+            return None
+
+    n = 10
+    data = np.random.randn(n) + 100
+    index = np.arange(n)
+
+    with patch("pycharting.api.interface.ChartServer") as mock_cls:
+        inst = mock_cls.return_value
+        inst.is_running = True
+        inst.start_server.return_value = {"host": "127.0.0.1", "port": 1234, "url": "http://127.0.0.1:1234"}
+        inst._shutdown_event = _Event()
+        result = plot(index, close=data, open_browser=False, block=True)
+
+    assert result["status"] == "success"
+
+
+def test_plot_block_handles_keyboard_interrupt():
+    """A Ctrl+C during the blocking wait stops the server and still returns success."""
+
+    class _InterruptingEvent:
+        def is_set(self):
+            return False
+
+        def wait(self, timeout=None):
+            raise KeyboardInterrupt
+
+    n = 10
+    data = np.random.randn(n) + 100
+    index = np.arange(n)
+
+    with patch("pycharting.api.interface.ChartServer") as mock_cls:
+        inst = mock_cls.return_value
+        inst.is_running = True
+        inst.start_server.return_value = {"host": "127.0.0.1", "port": 1234, "url": "http://127.0.0.1:1234"}
+        inst._shutdown_event = _InterruptingEvent()
+        result = plot(index, close=data, open_browser=False, block=True)
+
+    inst.stop_server.assert_called_once()
+    assert result["status"] == "success"
 
 
 @patch("webbrowser.open")

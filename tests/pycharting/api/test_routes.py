@@ -245,7 +245,7 @@ def test_initialize_data_internal_error_returns_500(client):
     """Verify the data init endpoint returns 500 when DataManager raises."""
     from unittest.mock import patch
 
-    with patch("pycharting.data.ingestion.DataManager", side_effect=RuntimeError("boom")):
+    with patch("pycharting.api.routes.DataManager", side_effect=RuntimeError("boom")):
         response = client.post("/api/data/init?session_id=err2")
         assert response.status_code == 500
 

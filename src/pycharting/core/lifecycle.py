@@ -74,7 +74,7 @@ class ChartServer:
         """Add WebSocket heartbeat endpoint to the app."""
 
         @self.app.websocket("/ws/heartbeat")
-        async def websocket_heartbeat(websocket: WebSocket):  # pragma: no cover
+        async def websocket_heartbeat(websocket: WebSocket):
             """WebSocket endpoint for connection monitoring."""
             await websocket.accept()
             self._websocket_connected = True
@@ -101,7 +101,7 @@ class ChartServer:
         while self._running and not self._shutdown_event.is_set():
             time.sleep(1)
 
-            if self._websocket_connected and self._last_heartbeat:  # pragma: no cover
+            if self._websocket_connected and self._last_heartbeat:
                 # Check if heartbeat is stale
                 elapsed = (datetime.now() - self._last_heartbeat).total_seconds()
                 if elapsed > self.auto_shutdown_timeout:
@@ -110,7 +110,7 @@ class ChartServer:
                     self.stop_server()
                     break
 
-            elif not self._websocket_connected and self._last_heartbeat:  # pragma: no cover
+            elif not self._websocket_connected and self._last_heartbeat:
                 # Client disconnected, wait for timeout then shutdown
                 logger.info(f"Waiting {self.auto_shutdown_timeout}s before auto-shutdown")
                 time.sleep(self.auto_shutdown_timeout)
@@ -132,7 +132,7 @@ class ChartServer:
 
         try:
             self._server.run()
-        except Exception:  # pragma: no cover
+        except Exception:
             logger.exception("Server error")
         finally:
             self._running = False

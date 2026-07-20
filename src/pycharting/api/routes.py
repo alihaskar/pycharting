@@ -11,10 +11,11 @@ by the main Python process via `src.api.interface.plot()`.
 """
 
 import logging
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
+
+from pycharting.data.ingestion import DataManager
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/api", tags=["data"])
 
 # In-memory storage for active DataManager instances
 # In production, this would use a proper session/cache management
-_data_managers: dict[str, Any] = {}
+_data_managers: dict[str, DataManager] = {}
 
 
 class DataResponse(BaseModel):
@@ -48,6 +49,47 @@ class ErrorResponse(BaseModel):
 
     error: str
     detail: str | None = None
+
+
+class InitDataResponse(BaseModel):
+    """Response model for the demo-data initialization endpoint."""
+
+    session_id: str
+    status: str
+    data_points: int
+    message: str
+
+
+class SessionInfo(BaseModel):
+    """Metadata describing a single active data session."""
+
+    session_id: str
+    data_points: int
+    has_overlays: bool
+    has_subplots: bool
+
+
+class SessionListResponse(BaseModel):
+    """Response model for the sessions listing endpoint."""
+
+    sessions: list[SessionInfo]
+    count: int
+
+
+class DeleteSessionResponse(BaseModel):
+    """Response model for the session deletion endpoint."""
+
+    session_id: str
+    status: str
+    message: str
+
+
+class StatusResponse(BaseModel):
+    """Response model for the API status endpoint."""
+
+    status: str
+    active_sessions: int
+    endpoints: dict[str, str]
 
 
 @router.get("/data", response_model=DataResponse)
@@ -96,10 +138,10 @@ async def get_data(
         raise HTTPException(status_code=500, detail=f"Error fetching data: {e!s}") from e
 
 
-@router.post("/data/init")
+@router.post("/data/init", response_model=InitDataResponse)
 async def initialize_data(
     session_id: str = Query("default", description="Session identifier"),
-):
+) -> InitDataResponse:
     """Initialize a demo data session.
 
     This endpoint is primarily used for testing or the standalone demo mode.
@@ -109,11 +151,9 @@ async def initialize_data(
         session_id (str): The ID to assign to the new session.
 
     Returns:
-        dict: Status message and session details.
+        InitDataResponse: Status message and session details.
     """
     import numpy as np
-
-    from pycharting.data.ingestion import DataManager
 
     try:
         # Generate demo OHLC data
@@ -159,38 +199,37 @@ async def initialize_data(
         logger.exception("Error initializing data")
         raise HTTPException(status_code=500, detail=f"Error initializing data: {e!s}") from e
     else:
-        return {
-            "session_id": session_id,
-            "status": "initialized",
-            "data_points": n,
-            "message": "Demo dataset created successfully",
-        }
+        return InitDataResponse(
+            session_id=session_id,
+            status="initialized",
+            data_points=n,
+            message="Demo dataset created successfully",
+        )
 
 
-@router.get("/sessions")
-async def list_sessions():
+@router.get("/sessions", response_model=SessionListResponse)
+async def list_sessions() -> SessionListResponse:
     """List all currently active data sessions.
 
     Returns:
-        dict: A dictionary containing a list of session objects, each with metadata
-        like the number of data points and active features (overlays, subplots).
+        SessionListResponse: A list of session objects, each with metadata like the
+        number of data points and active features (overlays, subplots).
     """
-    sessions = []
-    for session_id, dm in _data_managers.items():
-        sessions.append(
-            {
-                "session_id": session_id,
-                "data_points": dm.length,
-                "has_overlays": len(dm.overlays) > 0,
-                "has_subplots": len(dm.subplots) > 0,
-            }
+    sessions = [
+        SessionInfo(
+            session_id=session_id,
+            data_points=dm.length,
+            has_overlays=len(dm.overlays) > 0,
+            has_subplots=len(dm.subplots) > 0,
         )
+        for session_id, dm in _data_managers.items()
+    ]
 
-    return {"sessions": sessions, "count": len(sessions)}
+    return SessionListResponse(sessions=sessions, count=len(sessions))
 
 
-@router.delete("/sessions/{session_id}")
-async def delete_session(session_id: str):
+@router.delete("/sessions/{session_id}", response_model=DeleteSessionResponse)
+async def delete_session(session_id: str) -> DeleteSessionResponse:
     """Remove a data session from memory.
 
     This frees up resources associated with a specific dataset.
@@ -199,7 +238,7 @@ async def delete_session(session_id: str):
         session_id (str): The ID of the session to remove.
 
     Returns:
-        dict: Confirmation message.
+        DeleteSessionResponse: Confirmation message.
 
     Raises:
         HTTPException(404): If the session ID is not found.
@@ -210,23 +249,23 @@ async def delete_session(session_id: str):
     del _data_managers[session_id]
     logger.info(f"Deleted session '{session_id}'")
 
-    return {"session_id": session_id, "status": "deleted", "message": "Session deleted successfully"}
+    return DeleteSessionResponse(session_id=session_id, status="deleted", message="Session deleted successfully")
 
 
-@router.get("/status")
-async def api_status():
+@router.get("/status", response_model=StatusResponse)
+async def api_status() -> StatusResponse:
     """Get API status and statistics.
 
     Returns:
-        API status information
+        StatusResponse: API status information.
     """
-    return {
-        "status": "healthy",
-        "active_sessions": len(_data_managers),
-        "endpoints": {
+    return StatusResponse(
+        status="healthy",
+        active_sessions=len(_data_managers),
+        endpoints={
             "data": "/api/data",
             "init": "/api/data/init",
             "sessions": "/api/sessions",
             "status": "/api/status",
         },
-    }
+    )
