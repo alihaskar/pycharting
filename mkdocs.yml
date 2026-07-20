@@ -1,7 +1,7 @@
 INHERIT: docs/mkdocs-base.yml
 
 site_name: pycharting
-site_description: Add your description here.
+site_description: High-performance financial charting library for OHLC data visualization with technical indicators
 site_url: https://alihaskar.github.io/pycharting/
 repo_url: https://github.com/alihaskar/pycharting
 repo_name: alihaskar/pycharting
