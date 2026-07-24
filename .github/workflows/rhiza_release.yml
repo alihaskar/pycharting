@@ -116,7 +116,7 @@ jobs:
       tag: ${{ steps.set_tag.outputs.tag }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v6.1.0
         with:
           fetch-depth: 0
 
@@ -197,7 +197,7 @@ jobs:
     needs: tag
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v6.1.0
         with:
           fetch-depth: 0
 
@@ -271,7 +271,7 @@ jobs:
         # Attest only the JSON format as it's the canonical machine-readable format.
         # The XML format is provided for compatibility but doesn't need separate attestation.
         if: hashFiles('pyproject.toml') != '' && github.event.repository.private == false
-        uses: actions/attest@v4.1.1
+        uses: actions/attest@v4.2.0
         with:
           subject-path: sbom.cdx.json
           sbom-path: sbom.cdx.json
@@ -306,7 +306,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v6.1.0
         with:
           fetch-depth: 0
 
@@ -340,7 +340,7 @@ jobs:
     needs: [tag, draft-release]
     steps:
       - name: Checkout Default Branch
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v6.1.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
@@ -373,7 +373,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v6.1.0
         with:
           fetch-depth: 0
 
@@ -421,7 +421,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v6.1.0
         with:
           fetch-depth: 0
 
@@ -483,7 +483,7 @@ jobs:
       image_name: ${{ steps.image_name.outputs.image_name }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v6.1.0
         with:
           fetch-depth: 0
 
@@ -568,7 +568,7 @@ jobs:
     if: needs.pypi.result == 'success' || needs.conda.result == 'success' || needs.devcontainer.result == 'success'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v6.1.0
         with:
           fetch-depth: 0
 
