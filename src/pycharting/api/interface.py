@@ -24,7 +24,7 @@ import pandas as pd
 
 from pycharting.api.routes import _data_managers
 from pycharting.core.lifecycle import ChartServer
-from pycharting.data.ingestion import DataManager, SubplotSpec
+from pycharting.data.ingestion import DataManager, DataValidationError, SubplotSpec
 
 logger = logging.getLogger(__name__)
 
@@ -259,12 +259,27 @@ def plot(
                 _notify("\n⚠️  Interrupted - stopping server...")
                 _active_server.stop_server()
 
+    except DataValidationError as e:
+        # Input data failed validation — the user can fix this by correcting
+        # their arrays before calling plot() again.
+        logger.error(f"Invalid input data: {e}", exc_info=True)
+        _notify(f"\n✗ Invalid input data: {e}\n")
+
+        return {
+            "status": "error",
+            "stage": "validation",
+            "error": str(e),
+            "session_id": session_id,
+        }
     except Exception as e:
+        # Server startup, browser launch, or other runtime failure — not
+        # something the caller's data can fix.
         logger.error(f"Error creating chart: {e}", exc_info=True)
         _notify(f"\n✗ Error creating chart: {e}\n")
 
         return {
             "status": "error",
+            "stage": "server",
             "error": str(e),
             "session_id": session_id,
         }
