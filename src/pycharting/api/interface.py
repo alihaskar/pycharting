@@ -17,7 +17,7 @@ and Jupyter notebook integration.
 import logging
 import time
 import webbrowser
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 import numpy as np
 import pandas as pd
@@ -30,6 +30,32 @@ logger = logging.getLogger(__name__)
 
 # Global server instance
 _active_server: ChartServer | None = None
+
+
+class PlotResult(TypedDict, total=False):
+    """Structured result returned by :func:`plot`.
+
+    ``status`` and ``session_id`` are always present. On success the URL/server
+    fields are populated; on failure ``stage`` ("validation" or "server") and
+    ``error`` describe what went wrong.
+    """
+
+    status: str
+    session_id: str
+    url: str
+    server_url: str
+    data_points: int
+    server_running: bool
+    stage: str
+    error: str
+
+
+class ServerStatus(TypedDict):
+    """Structured result returned by :func:`get_server_status`."""
+
+    running: bool
+    server_info: dict[str, Any] | None
+    active_sessions: int
 
 
 def _notify(message: str) -> None:
@@ -60,7 +86,7 @@ def plot(
     open_browser: bool = True,
     server_timeout: float = 2.0,
     block: bool = True,
-) -> dict[str, Any]:
+) -> PlotResult:
     """Generate and display an interactive OHLC (Open-High-Low-Close) or Line chart.
 
     This function is the primary interface for PyCharting. It performs the following steps:
@@ -227,7 +253,7 @@ def plot(
                 logger.warning(f"Could not open browser: {e}")
                 _notify(f"Please open this URL manually: {chart_url}")
 
-        result = {
+        result: PlotResult = {
             "status": "success",
             "url": chart_url,
             "server_url": server_info["url"],
@@ -245,7 +271,7 @@ def plot(
         _notify("")
 
         # Block until server shutdown if requested
-        if block and _active_server:  # pragma: no cover
+        if block and _active_server:
             logger.info("Blocking until chart is closed (press Ctrl+C to force exit)...")
             _notify("Keeping server alive until you close the browser page...")
             try:
@@ -314,7 +340,7 @@ def stop_server() -> None:
         _notify("ⓘ No active server to stop")
 
 
-def get_server_status() -> dict[str, Any]:
+def get_server_status() -> ServerStatus:
     """Retrieve the current status of the background chart server.
 
     This is useful for debugging connection issues or checking if a session is still active.
@@ -354,8 +380,9 @@ def get_server_status() -> dict[str, Any]:
 def _repr_html_() -> str:
     """Jupyter notebook representation."""
     status = get_server_status()
-    if status["running"]:
-        url = f"http://{status['server_info']['host']}:{status['server_info']['port']}"
+    server_info = status["server_info"]
+    if status["running"] and server_info is not None:
+        url = f"http://{server_info['host']}:{server_info['port']}"
         return f'''
         <div style="padding: 10px; background: #f0f0f0; border-radius: 5px;">
             <strong>PyCharting Server</strong><br>
