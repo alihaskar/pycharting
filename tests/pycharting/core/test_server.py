@@ -231,7 +231,7 @@ def test_run_server_specific_port():
     from unittest.mock import MagicMock, patch
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", 0))
+        s.bind(("127.0.0.1", 0))
         free_port = s.getsockname()[1]
     with patch("pycharting.core.server.uvicorn") as mock_uvicorn:
         mock_uvicorn.run = MagicMock()
