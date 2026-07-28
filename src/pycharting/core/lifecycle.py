@@ -15,6 +15,7 @@ import logging
 import threading
 import time
 from datetime import datetime
+from types import TracebackType
 from typing import Any
 
 import uvicorn
@@ -45,7 +46,7 @@ class ChartServer:
         host: str = "127.0.0.1",
         port: int | None = None,
         auto_shutdown_timeout: float = 5.0,
-    ):
+    ) -> None:
         """Initialize the ChartServer controller.
 
         Args:
@@ -70,11 +71,11 @@ class ChartServer:
         self.app = create_app()
         self._add_websocket_endpoint()
 
-    def _add_websocket_endpoint(self):
+    def _add_websocket_endpoint(self) -> None:
         """Add WebSocket heartbeat endpoint to the app."""
 
         @self.app.websocket("/ws/heartbeat")
-        async def websocket_heartbeat(websocket: WebSocket):
+        async def websocket_heartbeat(websocket: WebSocket) -> None:
             """WebSocket endpoint for connection monitoring."""
             await websocket.accept()
             self._websocket_connected = True
@@ -96,7 +97,7 @@ class ChartServer:
                 logger.exception("WebSocket error")
                 self._websocket_connected = False
 
-    def _monitor_connection(self):
+    def _monitor_connection(self) -> None:
         """Monitor WebSocket connection and trigger auto-shutdown if needed."""
         while self._running and not self._shutdown_event.is_set():
             time.sleep(1)
@@ -119,7 +120,7 @@ class ChartServer:
                     self.stop_server()
                     break
 
-    def _run_server(self):
+    def _run_server(self) -> None:
         """Run the Uvicorn server (called in background thread)."""
         config = uvicorn.Config(
             self.app,
@@ -187,7 +188,7 @@ class ChartServer:
             "running": self._running,
         }
 
-    def stop_server(self):
+    def stop_server(self) -> None:
         """Gracefully stop the background server and monitor threads.
 
         This method signals the server to shut down, closes the Uvicorn loop,
@@ -234,12 +235,17 @@ class ChartServer:
             "last_heartbeat": self._last_heartbeat.isoformat() if self._last_heartbeat else None,
         }
 
-    def __enter__(self):
+    def __enter__(self) -> "ChartServer":
         """Context manager entry."""
         self.start_server()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         """Context manager exit."""
         self.stop_server()
         return False

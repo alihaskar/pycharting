@@ -97,7 +97,7 @@ async def get_data(
     start_index: int = Query(0, ge=0, description="Start index for data slice"),
     end_index: int | None = Query(None, ge=0, description="End index for data slice"),
     session_id: str = Query("default", description="Session identifier for data source"),
-):
+) -> DataResponse:
     """Retrieve a specific slice of OHLC data.
 
     This endpoint is optimized for high-performance frontend rendering. Instead of sending the full dataset

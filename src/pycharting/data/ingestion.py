@@ -246,7 +246,7 @@ class DataManager:
         overlays: dict[str, pd.Series | np.ndarray | list] | None = None,
         subplots: dict[str, SubplotSpec] | None = None,
         trades: pd.Series | np.ndarray | list | None = None,
-    ):
+    ) -> None:
         """Validate the supplied series and store the normalized arrays for fast slicing."""
         # Validate input and get normalized arrays
         validated = validate_input(index, open, high, low, close, overlays, subplots, trades)
@@ -362,7 +362,7 @@ class DataManager:
             index_list = index_slice.tolist()
 
         # Helper for slicing optional arrays
-        def slice_opt(arr):
+        def slice_opt(arr: np.ndarray | None) -> list[Any] | None:
             """Return the requested slice of ``arr`` as a list, or ``None`` if ``arr`` is ``None``."""
             return arr[start_index:end_index].tolist() if arr is not None else None
 
