@@ -14,9 +14,6 @@
 name: "(RHIZA) CODEQL"
 
 permissions:
-  security-events: write
-  packages: read
-  actions: read
   contents: read
 
 on:
@@ -29,5 +26,10 @@ on:
 
 jobs:
   codeql:
-    uses: jebel-quant/rhiza/.github/workflows/rhiza_codeql.yml@v0.19.9
+    uses: jebel-quant/rhiza/.github/workflows/rhiza_codeql.yml@v1.2.5
     secrets: inherit
+    permissions:
+      security-events: write   # Upload CodeQL results to code scanning
+      packages: read
+      actions: read
+      contents: read

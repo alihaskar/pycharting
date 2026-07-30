@@ -19,5 +19,6 @@ Closes #<!-- issue number -->
 ## Checklist
 
 - [ ] Commit messages follow the [Conventional Commits](https://www.conventionalcommits.org/) format
+- [ ] `CHANGELOG.md` entry added (or not needed for this change)
 - [ ] Documentation updated if behaviour changed
 - [ ] `make deptry` passes (no unused or missing dependencies)

@@ -6,7 +6,10 @@
 #          It combines API documentation, test coverage reports, test results, and
 #          interactive notebooks into a single GitHub Pages site.
 #
-# Trigger: This workflow runs on every push to the main or master branch
+# Trigger: This workflow runs on every push (any branch), so every commit
+#          validates that the book still builds. The reusable workflow deploys
+#          to GitHub Pages only from the repository's default branch and never
+#          from a fork; other branches build and upload an artifact only.
 #
 # Components:
 #   - 📓 Process Marimo notebooks
@@ -19,12 +22,14 @@ name: "(RHIZA) BOOK"
 on:
   push:
     branches:
-      - main
-      - master
+      - '**'
+
+permissions:
+  contents: read
 
 jobs:
   book:
-    uses: jebel-quant/rhiza/.github/workflows/rhiza_book.yml@v0.19.9
+    uses: jebel-quant/rhiza/.github/workflows/rhiza_book.yml@v1.2.5
     secrets: inherit
     permissions:
       contents: read
