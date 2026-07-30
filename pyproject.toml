@@ -6,13 +6,12 @@ authors = [
     {name = "ali askar", email = "26202651+alihaskar@users.noreply.github.com"},
 ]
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 keywords = ["charting", "finance", "ohlc", "technical-indicators", "trading", "visualization"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Financial and Insurance Industry",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -44,11 +43,17 @@ test = [
 lint = [
     "ruff>=0.6.0",
 ]
+# Type stubs for third-party runtime dependencies. `make typecheck` runs
+# `uv run --with mypy mypy --strict src`, so the stubs have to be resolvable from
+# the project environment rather than injected by the make target.
+typecheck = [
+    "pandas-stubs>=2.2.0",
+]
 
 [tool.uv]
-# Install the test and lint groups by default so `uv run` has them available
-# without an explicit `--group`/`--all-groups` flag.
-default-groups = ["test", "lint"]
+# Install the test, lint and typecheck groups by default so `uv run` has them
+# available without an explicit `--group`/`--all-groups` flag.
+default-groups = ["test", "lint", "typecheck"]
 
 [project.urls]
 Homepage = "https://github.com/alihaskar/pycharting"

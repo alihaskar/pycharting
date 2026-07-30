@@ -7,6 +7,7 @@ This script provides multiple scenarios to demonstrate the flexibility of PyChar
 """
 
 import time
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -42,7 +43,16 @@ def rsi_like(values: np.ndarray, period: int = 14) -> np.ndarray:
     return rsi
 
 
-def generate_ohlc(n: int = 1000):
+def generate_ohlc(
+    n: int = 1000,
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    dict[str, np.ndarray],
+    dict[str, Any],
+]:
     """Generate synthetic OHLC data with indicators."""
     base = 100.0
     noise = np.random.randn(n)
@@ -72,7 +82,7 @@ def generate_ohlc(n: int = 1000):
     return open_, high, low, close, overlays, subplots
 
 
-def run_demo(choice: str):
+def run_demo(choice: str) -> None:
     """Run the selected demo scenario identified by ``choice``."""
     n = 5000  # Default size
 
@@ -174,7 +184,7 @@ def run_demo(choice: str):
         print("Invalid choice.")
 
 
-def main():
+def main() -> None:
     """Run the interactive demo menu loop."""
     try:
         while True:

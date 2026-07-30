@@ -11,6 +11,7 @@ by the main Python process via `src.api.interface.plot()`.
 """
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -30,15 +31,15 @@ _data_managers: dict[str, DataManager] = {}
 class DataResponse(BaseModel):
     """Response model for data endpoint."""
 
-    index: list
-    open: list | None = None
-    high: list | None = None
-    low: list | None = None
-    close: list | None = None
-    overlays: dict[str, list] = Field(default_factory=dict)
-    subplots: dict[str, list] = Field(default_factory=dict)
-    subplot_meta: dict[str, list] | None = None
-    trades: list | None = None
+    index: list[Any]
+    open: list[Any] | None = None
+    high: list[Any] | None = None
+    low: list[Any] | None = None
+    close: list[Any] | None = None
+    overlays: dict[str, list[Any]] = Field(default_factory=dict)
+    subplots: dict[str, list[Any]] = Field(default_factory=dict)
+    subplot_meta: dict[str, list[Any]] | None = None
+    trades: list[Any] | None = None
     start_index: int
     end_index: int
     total_length: int
@@ -97,7 +98,7 @@ async def get_data(
     start_index: int = Query(0, ge=0, description="Start index for data slice"),
     end_index: int | None = Query(None, ge=0, description="End index for data slice"),
     session_id: str = Query("default", description="Session identifier for data source"),
-):
+) -> DataResponse:
     """Retrieve a specific slice of OHLC data.
 
     This endpoint is optimized for high-performance frontend rendering. Instead of sending the full dataset

@@ -73,14 +73,17 @@ def _notify(message: str) -> None:
 
 
 def plot(
-    index: np.ndarray | pd.Series | list,
-    open: np.ndarray | pd.Series | list | None = None,
-    high: np.ndarray | pd.Series | list | None = None,
-    low: np.ndarray | pd.Series | list | None = None,
-    close: np.ndarray | pd.Series | list | None = None,
-    overlays: dict[str, np.ndarray | pd.Series | list] | None = None,
+    index: np.ndarray | pd.Series | list[Any],
+    # `open` shadows the builtin, but Open/High/Low/Close is the domain vocabulary of
+    # OHLC data and `plot(open=...)` is this library's documented public API. Renaming
+    # it would break callers, so the shadowing is accepted here.
+    open: np.ndarray | pd.Series | list[Any] | None = None,  # noqa: A002
+    high: np.ndarray | pd.Series | list[Any] | None = None,
+    low: np.ndarray | pd.Series | list[Any] | None = None,
+    close: np.ndarray | pd.Series | list[Any] | None = None,
+    overlays: dict[str, np.ndarray | pd.Series | list[Any]] | None = None,
     subplots: dict[str, SubplotSpec] | None = None,
-    trades: np.ndarray | pd.Series | list | None = None,
+    trades: np.ndarray | pd.Series | list[Any] | None = None,
     session_id: str = "default",
     port: int | None = None,
     open_browser: bool = True,
@@ -168,7 +171,7 @@ def plot(
         if isinstance(index, list):
             index = np.array(index)
         if isinstance(open, list):
-            open = np.array(open)
+            open = np.array(open)  # noqa: A001
         if isinstance(high, list):
             high = np.array(high)
         if isinstance(low, list):
@@ -249,7 +252,7 @@ def plot(
             logger.info(f"Opening browser: {chart_url}")
             try:
                 webbrowser.open(chart_url)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.warning(f"Could not open browser: {e}")
                 _notify(f"Please open this URL manually: {chart_url}")
 

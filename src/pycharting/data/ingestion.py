@@ -17,24 +17,25 @@ import pandas as pd
 # A single subplot panel may be supplied as a plain array, as a config dict
 # ({"data": ..., "type": ..., "color": ..., "label": ...}), or as a list of such
 # dicts for a multi-series panel.
-SubplotSpec = pd.Series | np.ndarray | list | dict[str, Any]
+type SubplotSpec = pd.Series | np.ndarray | list[Any] | dict[str, Any]
 
 
 class DataValidationError(Exception):
     """Exception raised when input data fails validation checks."""
 
-    pass
-
 
 def validate_input(
     index: pd.Index | pd.Series | np.ndarray,
-    open: pd.Series | np.ndarray | None = None,
+    # `open` shadows the builtin, but Open/High/Low/Close is the domain vocabulary of
+    # OHLC data and the name is part of this library's public keyword API. Renaming it
+    # would be a breaking change for callers, so the shadowing is accepted here.
+    open: pd.Series | np.ndarray | None = None,  # noqa: A002
     high: pd.Series | np.ndarray | None = None,
     low: pd.Series | np.ndarray | None = None,
     close: pd.Series | np.ndarray | None = None,
-    overlays: dict[str, pd.Series | np.ndarray | list] | None = None,
+    overlays: dict[str, pd.Series | np.ndarray | list[Any]] | None = None,
     subplots: dict[str, SubplotSpec] | None = None,
-    trades: pd.Series | np.ndarray | list | None = None,
+    trades: pd.Series | np.ndarray | list[Any] | None = None,
 ) -> dict[str, Any]:
     """Validate and normalize input data for OHLC charting.
 
@@ -55,21 +56,25 @@ def validate_input(
     Raises:
         DataValidationError: If any validation check fails.
     """
-    # Convert index to numpy array if needed
-    if isinstance(index, (pd.Index, pd.Series)):
-        index_array = index.to_numpy()
-    elif isinstance(index, np.ndarray):
+    # Convert index to numpy array if needed. ndarray is tested first so the pandas
+    # branch narrows to a clean pd.Index | pd.Series (neither `ty` nor mypy can rule
+    # out an ndarray/Index intersection otherwise, which breaks `to_numpy`'s Self bound).
+    index_array: np.ndarray
+    if isinstance(index, np.ndarray):
         index_array = index
+    elif isinstance(index, (pd.Index, pd.Series)):
+        index_array = index.to_numpy()
     else:
         raise DataValidationError(f"Index must be a pd.Index or np.ndarray, got {type(index)}")  # noqa: TRY003
 
     n = len(index_array)
 
     # Helper function to convert to numpy array
-    def to_array(data: pd.Series | np.ndarray | list | None, name: str) -> np.ndarray | None:
+    def to_array(data: pd.Series | np.ndarray | list[Any] | None, name: str) -> np.ndarray | None:
         """Convert ``data`` to a length-validated numpy array, or ``None`` if not provided."""
         if data is None:
             return None
+        arr: np.ndarray
         if isinstance(data, pd.Series):
             arr = data.to_numpy()
         elif isinstance(data, np.ndarray):
@@ -91,7 +96,7 @@ def validate_input(
 
     # Determine Chart Mode
     # 1. Identify provided series
-    provided_series = []
+    provided_series: list[np.ndarray] = []
     if open_arr is not None:
         provided_series.append(open_arr)
     if high_arr is not None:
@@ -103,6 +108,12 @@ def validate_input(
 
     if len(provided_series) == 0:
         raise DataValidationError("At least one data series (Open, High, Low, or Close) must be provided.")  # noqa: TRY003
+
+    # Declared up front so both branches below can assign either an array or None.
+    final_open: np.ndarray | None
+    final_high: np.ndarray | None
+    final_low: np.ndarray | None
+    final_close: np.ndarray | None
 
     if len(provided_series) == 1:
         # Single Series Mode -> Line Chart
@@ -164,7 +175,7 @@ def validate_input(
                 )
             trades_arr = trades_arr.astype(np.int8)
 
-    result = {
+    result: dict[str, Any] = {
         "index": index_array,
         "open": final_open,
         "high": final_high,
@@ -186,11 +197,11 @@ def validate_input(
     #   "name": array                    → single line
     #   "name": {"data": array, "type": "bar"|"scatter", "color": "#hex"}  → single series
     #   "name": [{"data": array, "type": ..., "color": ..., "label": ...}, ...]  → multi-series panel
-    subplot_meta = {}
+    subplot_meta: dict[str, list[Any]] = {}
     if subplots:
         for name, value in subplots.items():
             if isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
-                panel_series = []
+                panel_series: list[dict[str, Any]] = []
                 for idx, raw_entry in enumerate(value):
                     entry = cast("dict[str, Any]", raw_entry)
                     key = f"{name}__{idx}"
@@ -206,14 +217,17 @@ def validate_input(
                     )
                 subplot_meta[name] = panel_series
             elif isinstance(value, dict):
-                spec = cast("dict[str, Any]", value)
-                arr = to_array(spec.get("data"), f"Subplot '{name}'")
+                # Bound through an explicit Any: mypy resolves the narrowed dict's
+                # values to Any while ty widens them to object, and a `cast` here
+                # satisfies ty only at the cost of a redundant-cast error from mypy.
+                spec_data: Any = value.get("data")
+                arr = to_array(spec_data, f"Subplot '{name}'")
                 result["subplots"][name] = arr
                 subplot_meta[name] = [
                     {
                         "key": name,
-                        "type": spec.get("type", "line"),
-                        "color": spec.get("color"),
+                        "type": value.get("type", "line"),
+                        "color": value.get("color"),
                         "label": name,
                     }
                 ]
@@ -239,28 +253,30 @@ class DataManager:
     def __init__(
         self,
         index: pd.Index | pd.Series | np.ndarray,
-        open: pd.Series | np.ndarray | None = None,
+        # See `validate_input` — `open` is the OHLC domain name and part of the public API.
+        open: pd.Series | np.ndarray | None = None,  # noqa: A002
         high: pd.Series | np.ndarray | None = None,
         low: pd.Series | np.ndarray | None = None,
         close: pd.Series | np.ndarray | None = None,
-        overlays: dict[str, pd.Series | np.ndarray | list] | None = None,
+        overlays: dict[str, pd.Series | np.ndarray | list[Any]] | None = None,
         subplots: dict[str, SubplotSpec] | None = None,
-        trades: pd.Series | np.ndarray | list | None = None,
-    ):
+        trades: pd.Series | np.ndarray | list[Any] | None = None,
+    ) -> None:
         """Validate the supplied series and store the normalized arrays for fast slicing."""
         # Validate input and get normalized arrays
         validated = validate_input(index, open, high, low, close, overlays, subplots, trades)
 
-        # Store references
-        self._index = validated["index"]
-        self._open = validated["open"]
-        self._high = validated["high"]
-        self._low = validated["low"]
-        self._close = validated["close"]
-        self._overlays = validated["overlays"]
-        self._subplots = validated["subplots"]
-        self._subplot_meta = validated["subplot_meta"]
-        self._trades = validated["trades"]
+        # Store references. `validate_input` returns dict[str, Any], so annotate each
+        # attribute to keep the public properties below precisely typed.
+        self._index: np.ndarray = validated["index"]
+        self._open: np.ndarray | None = validated["open"]
+        self._high: np.ndarray | None = validated["high"]
+        self._low: np.ndarray | None = validated["low"]
+        self._close: np.ndarray | None = validated["close"]
+        self._overlays: dict[str, np.ndarray] = validated["overlays"]
+        self._subplots: dict[str, np.ndarray] = validated["subplots"]
+        self._subplot_meta: dict[str, list[Any]] = validated["subplot_meta"]
+        self._trades: np.ndarray | None = validated["trades"]
 
         self._length = len(self._index)
 
@@ -300,7 +316,7 @@ class DataManager:
         return self._subplots
 
     @property
-    def subplot_meta(self) -> dict[str, list]:
+    def subplot_meta(self) -> dict[str, list[Any]]:
         """Per-subplot rendering metadata (type, color, label)."""
         return self._subplot_meta
 
@@ -362,11 +378,14 @@ class DataManager:
             index_list = index_slice.tolist()
 
         # Helper for slicing optional arrays
-        def slice_opt(arr):
+        def slice_opt(arr: np.ndarray | None) -> list[Any] | None:
             """Return the requested slice of ``arr`` as a list, or ``None`` if ``arr`` is ``None``."""
-            return arr[start_index:end_index].tolist() if arr is not None else None
+            if arr is None:
+                return None
+            sliced: list[Any] = arr[start_index:end_index].tolist()
+            return sliced
 
-        result = {
+        result: dict[str, Any] = {
             "index": index_list,
             "open": slice_opt(self._open),
             "high": slice_opt(self._high),

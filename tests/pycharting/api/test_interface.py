@@ -161,14 +161,18 @@ def test_plot_block_returns_when_shutdown_event_set():
     """
 
     class _Event:
+        """Shutdown-event double that reports "not set" once, then "set"."""
+
         def __init__(self):
             self._checks = 0
 
         def is_set(self):
+            """Return False on the first call and True afterwards."""
             self._checks += 1
             return self._checks > 1  # False first, then True -> exactly one iteration
 
         def wait(self, timeout=None):
+            """Return immediately -- the fake event never actually blocks."""
             return None
 
     n = 10
@@ -189,10 +193,14 @@ def test_plot_block_handles_keyboard_interrupt():
     """A Ctrl+C during the blocking wait stops the server and still returns success."""
 
     class _InterruptingEvent:
+        """Shutdown-event double that raises KeyboardInterrupt from ``wait``."""
+
         def is_set(self):
+            """Report the event as never set, so plot() enters the wait."""
             return False
 
         def wait(self, timeout=None):
+            """Simulate a Ctrl+C arriving while plot() is blocked."""
             raise KeyboardInterrupt
 
     n = 10
