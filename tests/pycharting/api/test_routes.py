@@ -280,3 +280,121 @@ class TestErrorResponse:
         from pycharting.api.routes import ErrorResponse
 
         assert ErrorResponse(error="boom").detail is None
+
+
+class TestInitDataResponse:
+    """Tests for the InitDataResponse pydantic model."""
+
+    def test_construction(self):
+        """InitDataResponse carries the session id, status, size and message."""
+        from pycharting.api.routes import InitDataResponse
+
+        resp = InitDataResponse(session_id="s1", status="success", data_points=100, message="ready")
+        assert resp.session_id == "s1"
+        assert resp.status == "success"
+        assert resp.data_points == 100
+        assert resp.message == "ready"
+
+    def test_all_fields_required(self):
+        """Every field is required — none carries a default."""
+        from pydantic import ValidationError
+
+        from pycharting.api.routes import InitDataResponse
+
+        with pytest.raises(ValidationError):
+            InitDataResponse(session_id="s1")
+
+
+class TestSessionInfo:
+    """Tests for the SessionInfo pydantic model."""
+
+    def test_construction(self):
+        """SessionInfo describes one session's size and overlay/subplot presence."""
+        from pycharting.api.routes import SessionInfo
+
+        info = SessionInfo(session_id="s1", data_points=50, has_overlays=True, has_subplots=False)
+        assert info.session_id == "s1"
+        assert info.data_points == 50
+        assert info.has_overlays is True
+        assert info.has_subplots is False
+
+    def test_matches_list_sessions_payload(self, client):
+        """The /api/sessions payload validates against SessionInfo."""
+        from pycharting.api.routes import SessionInfo
+
+        client.post("/api/data/init?session_id=s1")
+        entry = client.get("/api/sessions").json()["sessions"][0]
+
+        assert SessionInfo(**entry).session_id == "s1"
+
+
+class TestSessionListResponse:
+    """Tests for the SessionListResponse pydantic model."""
+
+    def test_construction_with_nested_sessions(self):
+        """SessionListResponse nests SessionInfo entries alongside a count."""
+        from pycharting.api.routes import SessionInfo, SessionListResponse
+
+        info = SessionInfo(session_id="s1", data_points=10, has_overlays=False, has_subplots=False)
+        resp = SessionListResponse(sessions=[info], count=1)
+        assert resp.count == 1
+        assert resp.sessions[0].session_id == "s1"
+
+    def test_coerces_nested_dicts(self):
+        """Nested session dicts are coerced into SessionInfo instances."""
+        from pycharting.api.routes import SessionInfo, SessionListResponse
+
+        resp = SessionListResponse(
+            sessions=[{"session_id": "s1", "data_points": 10, "has_overlays": False, "has_subplots": False}],
+            count=1,
+        )
+        assert isinstance(resp.sessions[0], SessionInfo)
+
+    def test_empty_session_list_allowed(self):
+        """An empty listing is representable."""
+        from pycharting.api.routes import SessionListResponse
+
+        assert SessionListResponse(sessions=[], count=0).sessions == []
+
+
+class TestDeleteSessionResponse:
+    """Tests for the DeleteSessionResponse pydantic model."""
+
+    def test_construction(self):
+        """DeleteSessionResponse reports which session was removed."""
+        from pycharting.api.routes import DeleteSessionResponse
+
+        resp = DeleteSessionResponse(session_id="s1", status="deleted", message="gone")
+        assert resp.session_id == "s1"
+        assert resp.status == "deleted"
+        assert resp.message == "gone"
+
+    def test_all_fields_required(self):
+        """Every field is required — none carries a default."""
+        from pydantic import ValidationError
+
+        from pycharting.api.routes import DeleteSessionResponse
+
+        with pytest.raises(ValidationError):
+            DeleteSessionResponse(session_id="s1")
+
+
+class TestStatusResponse:
+    """Tests for the StatusResponse pydantic model."""
+
+    def test_construction(self):
+        """StatusResponse carries the status, session count and endpoint map."""
+        from pycharting.api.routes import StatusResponse
+
+        resp = StatusResponse(status="ok", active_sessions=2, endpoints={"data": "/api/data"})
+        assert resp.status == "ok"
+        assert resp.active_sessions == 2
+        assert resp.endpoints == {"data": "/api/data"}
+
+    def test_matches_api_status_payload(self, client):
+        """The /api/status payload validates against StatusResponse."""
+        from pycharting.api.routes import StatusResponse
+
+        resp = StatusResponse(**client.get("/api/status").json())
+        assert resp.active_sessions == 0
+        assert resp.endpoints

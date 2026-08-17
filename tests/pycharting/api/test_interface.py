@@ -538,3 +538,74 @@ def test_dependencies_available():
     assert np is not None
     assert fastapi is not None
     assert uvicorn is not None
+
+
+class TestPlotResult:
+    """Tests for the PlotResult TypedDict returned by ``plot``."""
+
+    def test_declares_the_documented_keys(self):
+        """The declared keys are the full documented result contract."""
+        from pycharting.api.interface import PlotResult
+
+        assert set(PlotResult.__annotations__) == {
+            "status",
+            "session_id",
+            "url",
+            "server_url",
+            "data_points",
+            "server_running",
+            "stage",
+            "error",
+        }
+
+    def test_every_key_is_optional(self):
+        """``total=False`` means success and failure shapes share one type."""
+        from pycharting.api.interface import PlotResult
+
+        assert PlotResult.__total__ is False
+        assert PlotResult.__required_keys__ == frozenset()
+
+    def test_success_result_only_uses_declared_keys(self):
+        """A real successful plot() result introduces no undeclared key."""
+        from pycharting.api.interface import PlotResult
+
+        n = 10
+        result = plot(np.arange(n), close=np.random.randn(n) + 100, open_browser=False, block=False)
+
+        assert result["status"] == "success"
+        assert set(result) <= set(PlotResult.__annotations__)
+
+    def test_validation_error_result_only_uses_declared_keys(self):
+        """A validation failure also stays within the declared keys."""
+        from pycharting.api.interface import PlotResult
+
+        result = plot(np.arange(10), close=np.random.randn(5), open_browser=False, block=False)
+
+        assert result["stage"] == "validation"
+        assert set(result) <= set(PlotResult.__annotations__)
+
+
+class TestServerStatus:
+    """Tests for the ServerStatus TypedDict returned by ``get_server_status``."""
+
+    def test_declares_the_documented_keys(self):
+        """The declared keys are the full documented status contract."""
+        from pycharting.api.interface import ServerStatus
+
+        assert set(ServerStatus.__annotations__) == {"running", "server_info", "active_sessions"}
+
+    def test_every_key_is_required(self):
+        """Unlike PlotResult, the status shape is total."""
+        from pycharting.api.interface import ServerStatus
+
+        assert ServerStatus.__total__ is True
+
+    def test_payload_matches_declaration_when_stopped(self):
+        """get_server_status() returns exactly the declared keys with no server."""
+        from pycharting.api.interface import ServerStatus
+
+        status = get_server_status()
+
+        assert set(status) == set(ServerStatus.__annotations__)
+        assert status["running"] is False
+        assert status["server_info"] is None
