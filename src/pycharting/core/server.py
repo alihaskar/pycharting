@@ -15,19 +15,21 @@ Key Responsibilities:
 
 import logging
 import socket
+from collections.abc import MutableMapping
 from pathlib import Path
+from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 
 class NoCacheStaticFiles(StaticFiles):
     """Custom StaticFiles that adds no-cache headers for development."""
 
-    async def get_response(self, path: str, scope) -> Response:
+    async def get_response(self, path: str, scope: MutableMapping[str, Any]) -> Response:
         """Return the static file response with caching disabled."""
         response = await super().get_response(path, scope)
         # Add no-cache headers to prevent browser caching during development
@@ -143,7 +145,7 @@ def create_app() -> FastAPI:
 
     # Root endpoint
     @app.get("/", response_class=HTMLResponse)
-    async def root():
+    async def root() -> str:
         """Serve the main chart page."""
         return """
         <!DOCTYPE html>
@@ -204,23 +206,19 @@ def create_app() -> FastAPI:
 
     # Health check endpoint
     @app.get("/health")
-    async def health_check():
+    async def health_check() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "healthy", "service": "pycharting"}
 
     # Error handlers
     @app.exception_handler(404)
-    async def not_found_handler(request, exc):
+    async def not_found_handler(request: Request, exc: Exception) -> JSONResponse:
         """Handle 404 errors."""
-        from fastapi.responses import JSONResponse
-
         return JSONResponse(status_code=404, content={"error": "Not found", "path": str(request.url.path)})
 
     @app.exception_handler(500)
-    async def server_error_handler(request, exc):  # pragma: no cover
+    async def server_error_handler(request: Request, exc: Exception) -> JSONResponse:  # pragma: no cover
         """Handle 500 errors."""
-        from fastapi.responses import JSONResponse
-
         logger.error(f"Server error: {exc}")
         return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
