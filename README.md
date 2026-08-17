@@ -226,6 +226,12 @@ from pycharting import stop_server
 stop_server()
 ```
 
+With no server running, it says so and does nothing:
+
+```result
+ⓘ No active server to stop
+```
+
 Stops the active chart server if it is running. This is useful in long‑running processes and demos to clean up after you are done exploring charts.
 
 ### `get_server_status`
@@ -235,6 +241,12 @@ from pycharting import get_server_status
 
 status = get_server_status()
 print(status)
+```
+
+Before any chart has been plotted:
+
+```result
+{'running': False, 'server_info': None, 'active_sessions': 0}
 ```
 
 Returns a small dict with:
