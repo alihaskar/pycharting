@@ -282,6 +282,7 @@ def test_server_responds_after_start(wait_until):
     server = ChartServer()
 
     def _healthy():
+        """Return the health response once it comes back 200, else None to retry."""
         try:
             response = httpx.get(f"http://{server.host}:{server.port}/health", timeout=1)
         except httpx.HTTPError:
@@ -303,6 +304,7 @@ def test_server_accessible_in_background(wait_until):
     server = ChartServer()
 
     def _healthy():
+        """Return the health response once it comes back 200, else None to retry."""
         try:
             response = httpx.get(f"http://{server.host}:{server.port}/health", timeout=1)
         except httpx.HTTPError:
