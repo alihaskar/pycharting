@@ -11,26 +11,24 @@ Key Features:
 - **Easy to Use:** Simple Python API similar to matplotlib or plotly.
 
 Usage:
-    The main entry point is the `plot` function.
+    The public surface is three functions, re-exported at the top level:
 
-    ```python
-    from pycharting import plot, stop_server
-    import numpy as np
+    >>> import pycharting
+    >>> sorted(pycharting.__all__)
+    ['__version__', 'get_server_status', 'plot', 'stop_server']
 
-    # Prepare your data (numpy arrays or pandas Series)
-    index = np.arange(100)
-    open_data = np.random.rand(100) + 100
-    high_data = open_data + 1
-    low_data = open_data - 1
-    close_data = open_data + 0.5
+    The main entry point is `plot`. It starts a local server and opens a
+    browser, so the example below is illustrative rather than executed here:
 
-    # Create and open the chart
-    plot(index, open_data, high_data, low_data, close_data)
-
-    # ... keep the script running if needed ...
-    # input("Press Enter to stop...")
-    # stop_server()
-    ```
+    >>> import numpy as np
+    >>> from pycharting import plot, stop_server
+    >>> index = np.arange(100)
+    >>> open_data = np.random.rand(100) + 100
+    >>> high_data = open_data + 1
+    >>> low_data = open_data - 1
+    >>> close_data = open_data + 0.5
+    >>> plot(index, open_data, high_data, low_data, close_data)  # doctest: +SKIP
+    >>> stop_server()  # doctest: +SKIP
 
 Exports:
     - `plot`: Main function to create and display charts.

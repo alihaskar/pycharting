@@ -75,6 +75,7 @@ When you run this script, PyCharting will:
 
 Once you have your OHLC series, you pass additional series to `plot` in two different ways:
 
+<!-- Not executed: a fragment referencing the indicator functions and series you supply. -->
 ```python +RHIZA_SKIP
 overlays = {
     "SMA_50": sma(close, 50),      # rendered on top of price
@@ -104,6 +105,7 @@ plot(
 
 Each subplot value can be a plain array (line), a dict with options, or a list of dicts for multi-series panels:
 
+<!-- Not executed: a fragment referencing the indicator arrays you supply. -->
 ```python +RHIZA_SKIP
 subplots = {
     # Simple line (default)
@@ -136,6 +138,7 @@ Supported series types: `"line"` (default), `"bar"`, `"scatter"`. Each entry acc
 
 You can overlay buy/sell arrows on the price chart by passing a `trades` array aligned with your index. Values: `1` (buy), `-1` (sell), `0` (no trade).
 
+<!-- Not executed: references your own index/OHLC series, and plot() starts a server and opens a browser. -->
 ```python +RHIZA_SKIP
 import numpy as np
 
@@ -171,6 +174,7 @@ The public API is intentionally small and focused. All functions are available f
 
 ### `plot`
 
+<!-- Not executed: an annotated signature for reference, not valid Python at a call site. -->
 ```python +RHIZA_SKIP
 from typing import Dict, Any, Optional, Union
 
@@ -216,7 +220,7 @@ The returned dict includes:
 
 ### `stop_server`
 
-```python +RHIZA_SKIP
+```python
 from pycharting import stop_server
 
 stop_server()
@@ -226,7 +230,7 @@ Stops the active chart server if it is running. This is useful in long‑running
 
 ### `get_server_status`
 
-```python +RHIZA_SKIP
+```python
 from pycharting import get_server_status
 
 status = get_server_status()
