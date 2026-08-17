@@ -6,6 +6,9 @@ import time
 import numpy as np
 import pandas as pd
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+from hypothesis.extra.numpy import arrays
 
 from pycharting.data.ingestion import DataManager, DataValidationError, validate_input
 
@@ -779,3 +782,80 @@ class TestDataManager:
 
         # Individual values should be Python numbers
         assert isinstance(chunk["open"][0], (int, float))
+
+
+# ---------------------------------------------------------------------------
+# Property-based tests — run by `make hypothesis-test` (-m "hypothesis or property")
+# and, being under tests/pycharting/, also by the regular `make test` run.
+#
+# validate_input's contract is stated as invariants rather than examples: every
+# output is a length-n ndarray, length disagreement always raises, and the
+# single-vs-multi series mode is decided purely by how many of OHLC are present.
+# Those are properties, so they are tested as properties.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.property
+@given(
+    values=arrays(
+        dtype=np.float64,
+        shape=st.integers(min_value=1, max_value=200),
+        elements=st.floats(min_value=-1e6, max_value=1e6, allow_nan=False),
+    ),
+)
+@settings(max_examples=50, deadline=None)
+def test_close_only_input_always_normalizes_to_line_mode(values):
+    """Any single series is mapped to `close`, leaving open/high/low unset."""
+    result = validate_input(np.arange(len(values)), close=values)
+
+    assert isinstance(result["close"], np.ndarray)
+    assert len(result["close"]) == len(values)
+    assert result["open"] is None
+    assert result["high"] is None
+    assert result["low"] is None
+
+
+@pytest.mark.property
+@given(
+    n=st.integers(min_value=1, max_value=200),
+    delta=st.integers(min_value=1, max_value=20),
+)
+@settings(max_examples=50, deadline=None)
+def test_length_mismatch_always_raises(n, delta):
+    """A series whose length differs from the index is always rejected."""
+    index = np.arange(n)
+    close = np.zeros(n + delta)
+
+    with pytest.raises(DataValidationError, match="does not match index length"):
+        validate_input(index, close=close)
+
+
+@pytest.mark.property
+@given(
+    values=arrays(
+        dtype=np.float64,
+        shape=st.integers(min_value=1, max_value=100),
+        elements=st.floats(min_value=1.0, max_value=1e5, allow_nan=False),
+    ),
+)
+@settings(max_examples=50, deadline=None)
+def test_ohlc_high_is_never_below_low(values):
+    """With open and close supplied, the auto-filled high never falls below low."""
+    result = validate_input(np.arange(len(values)), open=values, close=values + 1.0)
+
+    assert np.all(result["high"] >= result["low"])
+
+
+@pytest.mark.property
+@given(
+    values=st.lists(st.floats(min_value=-1e6, max_value=1e6, allow_nan=False), min_size=1, max_size=100),
+)
+@settings(max_examples=50, deadline=None)
+def test_list_series_and_ndarray_series_agree(values):
+    """Passing a list and the equivalent ndarray produce the same normalized output."""
+    index = np.arange(len(values))
+
+    from_list = validate_input(index, close=values)
+    from_array = validate_input(index, close=np.array(values, dtype=np.float64))
+
+    assert np.array_equal(from_list["close"], from_array["close"])
