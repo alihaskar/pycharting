@@ -247,16 +247,17 @@ For a detailed technical deep dive into the architecture, data flow, rendering p
 
 The library follows a modern `src/` layout:
 
-```
+```text
 pycharting/
 ├── src/
-│   ├── core/         # Chart server lifecycle and internals
-│   ├── data/         # Data ingestion, validation, and slicing
-│   ├── api/          # FastAPI routes and Python API surface
-│   └── web/          # Static frontend (HTML + JS for charts)
-├── tests/            # Test suite
-├── data/             # Sample CSVs and fixtures
-└── pyproject.toml    # Project configuration
+│   └── pycharting/
+│       ├── core/         # Chart server lifecycle and internals
+│       ├── data/         # Data ingestion, validation, and slicing
+│       ├── api/          # FastAPI routes and Python API surface
+│       └── web/          # Static frontend (HTML + JS for charts)
+├── tests/                # Test suite, mirroring src/pycharting/
+├── docs/                 # MkDocs sources, incl. how-it-works.md
+└── pyproject.toml        # Project configuration
 ```
 
 ## Contributing
