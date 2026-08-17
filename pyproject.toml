@@ -12,7 +12,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Financial and Insurance Industry",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -60,3 +59,20 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pycharting"]
+
+[tool.bumpversion]
+# bump-my-version searches .bumpversion.toml, .bumpversion.cfg, setup.cfg and
+# pyproject.toml, in that order, and stops at the first hit. Without a table in
+# one of them it does not fail — it falls back to `git describe` and treats the
+# newest reachable tag as the current version, which is how a release gets cut
+# at a number that already exists.
+#
+# No current_version here: bump-my-version reads and rewrites PEP 621
+# [project].version natively, so repeating it only creates a second copy to
+# drift. Add [[tool.bumpversion.files]] entries for *additional* locations only.
+allow_dirty = false
+# The release flow commits and tags itself, so the changelog lands in the bump
+# commit; letting bump-my-version do either would add a second commit and a
+# duplicate tag.
+commit = false
+tag = false
