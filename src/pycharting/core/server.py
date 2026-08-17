@@ -68,13 +68,17 @@ def find_free_port(start_port: int | None = None, end_port: int | None = None) -
         RuntimeError: If no free port can be found in the requested range.
 
     Example:
-        ```python
-        # Let the OS pick a guaranteed-free ephemeral port.
-        port = find_free_port()
+        Let the OS pick a guaranteed-free ephemeral port:
 
-        # Scan a preferred range instead.
-        port = find_free_port(8000, 8010)
-        ```
+        >>> port = find_free_port()
+        >>> port > 0
+        True
+
+        Scan a preferred range instead:
+
+        >>> port = find_free_port(8000, 8010)
+        >>> 8000 <= port < 8010
+        True
     """
     # No range requested: let the OS hand out a guaranteed-unique ephemeral port.
     if start_port is None:
@@ -253,13 +257,10 @@ def run_server(
         None: This function blocks until the server stops.
 
     Example:
-        ```python
-        # Run server on localhost, finding a free port automatically
-        run_server()
+        These block until the server stops, so they are not executed here.
 
-        # Run on a specific port
-        run_server(port=8080)
-        ```
+        >>> run_server()  # doctest: +SKIP
+        >>> run_server(port=8080)  # doctest: +SKIP
     """
     # Determine port
     if port is None:
