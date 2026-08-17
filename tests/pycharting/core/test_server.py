@@ -1,8 +1,11 @@
 """Tests for FastAPI server."""
 
+from importlib.metadata import version as distribution_version
+
 import pytest
 from fastapi.testclient import TestClient
 
+import pycharting
 from pycharting.core.server import NoCacheStaticFiles, create_app, find_free_port, run_server
 
 
@@ -136,10 +139,10 @@ def test_openapi_has_title(client):
 
 
 def test_openapi_has_version(client):
-    """Test that OpenAPI spec has version."""
+    """The OpenAPI spec advertises the installed distribution version."""
     response = client.get("/openapi.json")
     data = response.json()
-    assert data["info"]["version"] == "0.1.0"
+    assert data["info"]["version"] == distribution_version("pycharting")
 
 
 def test_docs_endpoint_available(client):
@@ -190,7 +193,19 @@ def test_app_has_correct_metadata(client):
 
     assert data["info"]["title"] == "PyCharting"
     assert data["info"]["description"] == "Interactive charting and data visualization API"
-    assert data["info"]["version"] == "0.1.0"
+    assert data["info"]["version"] == distribution_version("pycharting")
+
+
+def test_advertised_version_matches_the_package_attribute(client):
+    """The version served over HTTP is the same one ``pycharting.__version__`` reports.
+
+    These used to be independent literals — ``0.1.0`` here and ``0.2.14`` in
+    ``__init__.py``, against ``0.2.16`` in the manifest — and the suite pinned the
+    stale values rather than catching the drift.
+    """
+    served = client.get("/openapi.json").json()["info"]["version"]
+
+    assert served == pycharting.__version__ == distribution_version("pycharting")
 
 
 class TestNoCacheStaticFiles:
