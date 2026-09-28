@@ -139,3 +139,6 @@ local.mk
 # per-layer file. These entries are inert in a Python repo.
 target/
 **/*.rs.bk
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+graft/
