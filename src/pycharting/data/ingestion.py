@@ -54,6 +54,36 @@ def validate_input(
 
     Raises:
         DataValidationError: If any validation check fails.
+
+    Example:
+        A single series is mapped to ``close`` and rendered as a line chart,
+        leaving the other price fields unset:
+
+        >>> import numpy as np
+        >>> result = validate_input(np.arange(3), close=np.array([10.0, 11.0, 12.0]))
+        >>> result["close"].tolist()
+        [10.0, 11.0, 12.0]
+        >>> result["open"] is None
+        True
+
+        With open and close supplied, high and low are filled in from them:
+
+        >>> result = validate_input(
+        ...     np.arange(3),
+        ...     open=np.array([10.0, 11.0, 12.0]),
+        ...     close=np.array([11.0, 10.0, 13.0]),
+        ... )
+        >>> result["high"].tolist()
+        [11.0, 11.0, 13.0]
+        >>> result["low"].tolist()
+        [10.0, 10.0, 12.0]
+
+        A series whose length disagrees with the index is rejected:
+
+        >>> validate_input(np.arange(3), close=np.array([1.0, 2.0]))
+        Traceback (most recent call last):
+            ...
+        pycharting.data.ingestion.DataValidationError: Close length (2) does not match index length (3)
     """
     # Convert index to numpy array if needed
     if isinstance(index, (pd.Index, pd.Series)):
@@ -234,7 +264,19 @@ def validate_input(
 
 
 class DataManager:
-    """High-performance data container and manager."""
+    """High-performance data container and manager.
+
+    Validates and normalizes the supplied series once on construction, then
+    serves arbitrary slices of them cheaply — one slice per viewport move.
+
+    Example:
+        >>> import numpy as np
+        >>> dm = DataManager(np.arange(5), close=np.arange(5, dtype=float) * 10)
+        >>> dm.length
+        5
+        >>> dm.close.tolist()
+        [0.0, 10.0, 20.0, 30.0, 40.0]
+    """
 
     def __init__(
         self,
@@ -332,7 +374,30 @@ class DataManager:
         start_index: int | None = None,
         end_index: int | None = None,
     ) -> dict[str, Any]:
-        """Return a JSON-serializable slice of the data between ``start_index`` and ``end_index``."""
+        """Return a JSON-serializable slice of the data between ``start_index`` and ``end_index``.
+
+        Indices are clamped to the available range, so an over-wide request
+        returns what exists rather than raising.
+
+        Example:
+            >>> import numpy as np
+            >>> dm = DataManager(np.arange(5), close=np.arange(5, dtype=float))
+            >>> chunk = dm.get_chunk(1, 3)
+            >>> chunk["index"]
+            [1, 2]
+            >>> chunk["close"]
+            [1.0, 2.0]
+
+            Omitting both bounds returns the whole series:
+
+            >>> len(dm.get_chunk()["index"])
+            5
+
+            An end index past the last bar is clamped:
+
+            >>> dm.get_chunk(3, 99)["close"]
+            [3.0, 4.0]
+        """
         # Handle default values
         if start_index is None:
             start_index = 0

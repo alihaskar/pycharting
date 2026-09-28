@@ -137,29 +137,33 @@ def plot(
             - `server_running`: Boolean indicating if the server is active.
 
     Example:
-        ```python
-        import numpy as np
-        from pycharting import plot
+        Every call below starts a local server and opens a browser, so they are
+        shown rather than executed. The data preparation is real, though:
 
-        # 1. Prepare Data
-        n = 1000
-        index = np.arange(n)
-        close = np.cumsum(np.random.randn(n)) + 100
+        >>> import numpy as np
+        >>> from pycharting import plot
+        >>> n = 1000
+        >>> index = np.arange(n)
+        >>> close = np.cumsum(np.random.randn(n)) + 100
+        >>> len(close)
+        1000
 
-        # 2. Simple Line Chart
-        plot(index, close=close)
+        A single series renders as a line chart:
 
-        # 3. Candlestick Chart
-        open_p = close + np.random.randn(n) * 0.5
-        high = np.maximum(open_p, close) + np.abs(np.random.randn(n))
-        low = np.minimum(open_p, close) - np.abs(np.random.randn(n))
+        >>> plot(index, close=close)  # doctest: +SKIP
 
-        plot(
-            index, open_p, high, low, close,
-            overlays={"SMA 20": sma},
-            session_id="my-analysis"
-        )
-        ```
+        Supplying open/high/low as well renders candlesticks:
+
+        >>> open_p = close + np.random.randn(n) * 0.5
+        >>> high = np.maximum(open_p, close) + np.abs(np.random.randn(n))
+        >>> low = np.minimum(open_p, close) - np.abs(np.random.randn(n))
+        >>> bool(np.all(high >= np.maximum(open_p, close)))
+        True
+        >>> plot(
+        ...     index, open_p, high, low, close,
+        ...     overlays={"SMA 20": close},
+        ...     session_id="my-analysis",
+        ... )  # doctest: +SKIP
     """
     global _active_server
 
@@ -323,12 +327,11 @@ def stop_server() -> None:
     If no server is running, this function does nothing and prints a message.
 
     Example:
-        ```python
-        from pycharting import stop_server
+        Calling it when nothing is running is safe and simply reports so:
 
-        # ... after done with analysis ...
-        stop_server()
-        ```
+        >>> from pycharting import stop_server
+        >>> stop_server()
+        ⓘ No active server to stop
     """
     global _active_server
 
@@ -352,13 +355,21 @@ def get_server_status() -> ServerStatus:
             - `active_sessions`: Count of currently loaded datasets/sessions.
 
     Example:
-        ```python
-        from pycharting import get_server_status
+        With no server started, the reported status is inert:
 
-        status = get_server_status()
-        if status['running']:
-            print(f"Server running at {status['server_info']['url']}")
-        ```
+        >>> from pycharting import get_server_status
+        >>> status = get_server_status()
+        >>> sorted(status)
+        ['active_sessions', 'running', 'server_info']
+        >>> status["running"]
+        False
+        >>> status["server_info"] is None
+        True
+
+        Once a server is up, ``server_info`` carries its host and port:
+
+        >>> if status["running"]:  # doctest: +SKIP
+        ...     print(f"Server running at {status['server_info']['url']}")
     """
     global _active_server
 
