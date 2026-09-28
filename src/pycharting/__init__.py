@@ -38,9 +38,13 @@ Exports:
     - `get_server_status`: Function to check the status of the background server.
 """
 
+from importlib.metadata import version as _distribution_version
+
 from .api.interface import get_server_status, plot, stop_server
 
 __all__ = ["__version__", "get_server_status", "plot", "stop_server"]
 
-# Keep this in sync with pyproject.toml
-__version__ = "0.2.14"
+# Resolved from the installed distribution metadata, which is generated from the
+# version in pyproject.toml. That is the single place to bump; nothing here needs
+# to be kept in sync by hand.
+__version__ = _distribution_version("pycharting")

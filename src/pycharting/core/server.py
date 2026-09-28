@@ -16,6 +16,7 @@ Key Responsibilities:
 import logging
 import socket
 from collections.abc import MutableMapping
+from importlib.metadata import version as _distribution_version
 from pathlib import Path
 from typing import Any
 
@@ -118,7 +119,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="PyCharting",
         description="Interactive charting and data visualization API",
-        version="0.1.0",
+        version=_distribution_version("pycharting"),
         docs_url="/api/docs",
         redoc_url="/api/redoc",
     )
