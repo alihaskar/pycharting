@@ -61,3 +61,20 @@ optional depending on which release features you use:
 | `UV_EXTRA_INDEX_URL` | Extra package index URL (with credentials) for private dependencies. |
 
 `GITHUB_TOKEN` is provided automatically by GitHub Actions and needs no configuration.
+
+`GH_PAT` and `UV_EXTRA_INDEX_URL` are read by the CI, benchmark, CodeQL, marimo, book,
+weekly and docker workflows too. The stubs that call those reusable workflows forward each secret by
+name rather than with `secrets: inherit`, because GitHub only honours `inherit` when the
+caller sits in the same organisation or enterprise as `jebel-quant/rhiza` — from any other
+organisation the secrets simply never arrived, and private dependencies failed to install
+with `could not read Password for 'https://***@github.com'` (#1689). A secret that is not
+defined is forwarded empty and the workflow falls back to `github.token`, so nothing is
+required for a project with no private dependencies. Pull requests from forks never receive
+secrets at all, so a fork PR that needs a private dependency fails at install; that is
+GitHub's rule rather than a rhiza setting.
+
+The docker workflow is the one place the runner's git configuration cannot reach, because
+`uv sync` runs inside the image build. It passes both secrets to `docker buildx build` as
+BuildKit secrets instead, which exist only for that one instruction and are written into no
+layer; a build argument would be readable with `docker history` (#1691). See
+`docs/development/DOCKER.md` for building such an image locally.

@@ -6,7 +6,10 @@
 #          It combines API documentation, test coverage reports, test results, and
 #          interactive notebooks into a single GitHub Pages site.
 #
-# Trigger: This workflow runs on every push to the main or master branch
+# Trigger: This workflow runs on every push (any branch), so every commit
+#          validates that the book still builds. The reusable workflow deploys
+#          to GitHub Pages only from the repository's default branch and never
+#          from a fork; other branches build and upload an artifact only.
 #
 # Components:
 #   - 📓 Process Marimo notebooks
@@ -19,14 +22,28 @@ name: "(RHIZA) BOOK"
 on:
   push:
     branches:
-      - main
-      - master
+      - '**'
+
+permissions:
+  contents: read
 
 jobs:
   book:
-    uses: jebel-quant/rhiza/.github/workflows/rhiza_book.yml@v0.19.9
-    secrets: inherit
+    uses: jebel-quant/rhiza/.github/workflows/rhiza_book.yml@v1.9.0
+    # Forwarded explicitly: `secrets: inherit` only reaches a reusable workflow in the
+    # caller's own organisation or enterprise (#1689). A secret this repository has not
+    # defined arrives empty and the workflow falls back to `github.token`.
+    secrets:
+      GH_PAT: ${{ secrets.GH_PAT }}
+      UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
     permissions:
       contents: read
       pages: write
       id-token: write
+    # Set `deploy-pages: false` for artifact-only mode -- the reusable workflow
+    # still uploads the generic `book` artifact, and a consumer-owned job below
+    # can download it and deploy to Cloudflare Pages, Azure Static Web Apps,
+    # S3/CloudFront, an internal web server, etc. See docs/guides/BOOK.md for a
+    # full Cloudflare Pages example.
+    # with:
+    #   deploy-pages: false
