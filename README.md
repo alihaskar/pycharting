@@ -78,12 +78,12 @@ Once you have your OHLC series, you pass additional series to `plot` in two diff
 <!-- Not executed: a fragment referencing the indicator functions and series you supply. -->
 ```python +RHIZA_SKIP
 overlays = {
-    "SMA_50": sma(close, 50),      # rendered on top of price
+    "SMA_50": sma(close, 50),  # rendered on top of price
     "EMA_200": ema(close, 200),
 }
 
 subplots = {
-    "RSI_like": rsi_like_series,   # rendered in its own panel below price
+    "RSI_like": rsi_like_series,  # rendered in its own panel below price
     "Stoch_like": stoch_series,
 }
 
@@ -110,23 +110,19 @@ Each subplot value can be a plain array (line), a dict with options, or a list o
 subplots = {
     # Simple line (default)
     "RSI": rsi_array,
-
     # Bar chart — green if value ≥ 0, red if < 0, centered at y=0
     "Volume": {"data": volume_array, "type": "bar"},
-
     # Scatter plot
     "Events": {"data": events_array, "type": "scatter", "color": "#9C27B0"},
-
     # Multi-series panel: two lines + histogram bars in one subplot
     "MACD": [
-        {"data": macd_line,   "type": "line", "color": "#2196F3", "label": "MACD"},
+        {"data": macd_line, "type": "line", "color": "#2196F3", "label": "MACD"},
         {"data": signal_line, "type": "line", "color": "#FF9800", "label": "Signal"},
-        {"data": histogram,   "type": "bar",                      "label": "Histogram"},
+        {"data": histogram, "type": "bar", "label": "Histogram"},
     ],
-
     # RSI with its own moving average overlay
     "RSI+SMA": [
-        {"data": rsi,     "type": "line", "color": "#FF9800", "label": "RSI"},
+        {"data": rsi, "type": "line", "color": "#FF9800", "label": "RSI"},
         {"data": rsi_sma, "type": "line", "color": "#2196F3", "label": "RSI SMA(20)"},
     ],
 }
@@ -143,8 +139,8 @@ You can overlay buy/sell arrows on the price chart by passing a `trades` array a
 import numpy as np
 
 trades = np.zeros(len(index), dtype=int)
-trades[42] = 1    # buy at bar 42
-trades[100] = -1   # sell at bar 100
+trades[42] = 1  # buy at bar 42
+trades[100] = -1  # sell at bar 100
 
 plot(
     index,
