@@ -55,6 +55,7 @@ def test_many_concurrent_sessions_stay_isolated(client: TestClient) -> None:
     payload = _series(1_000)
 
     def register(i: int) -> str:
+        """Register session ``i`` with every bar offset by ``i``."""
         # Shift the whole bar, not just close — validate_input enforces
         # high >= max(open, close), so offsetting one series in isolation
         # is rejected.
@@ -79,6 +80,7 @@ def test_concurrent_chunk_reads_are_consistent(client: TestClient) -> None:
     expected = manager.get_chunk(0, 500)["close"]
 
     def read(_: int) -> list[float]:
+        """Read the first 500 closes from the shared session."""
         return manager.get_chunk(0, 500)["close"]
 
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:

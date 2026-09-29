@@ -23,12 +23,10 @@ SubplotSpec = pd.Series | np.ndarray | list | dict[str, Any]
 class DataValidationError(Exception):
     """Exception raised when input data fails validation checks."""
 
-    pass
-
 
 def validate_input(
     index: pd.Index | pd.Series | np.ndarray,
-    open: pd.Series | np.ndarray | None = None,
+    open: pd.Series | np.ndarray | None = None,  # noqa: A002  # public OHLC keyword; renaming would break the API
     high: pd.Series | np.ndarray | None = None,
     low: pd.Series | np.ndarray | None = None,
     close: pd.Series | np.ndarray | None = None,
@@ -281,7 +279,7 @@ class DataManager:
     def __init__(
         self,
         index: pd.Index | pd.Series | np.ndarray,
-        open: pd.Series | np.ndarray | None = None,
+        open: pd.Series | np.ndarray | None = None,  # noqa: A002  # public OHLC keyword; renaming would break the API
         high: pd.Series | np.ndarray | None = None,
         low: pd.Series | np.ndarray | None = None,
         close: pd.Series | np.ndarray | None = None,

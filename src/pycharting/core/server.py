@@ -145,7 +145,7 @@ def create_app() -> FastAPI:
     try:
         app.mount("/static", NoCacheStaticFiles(directory=str(static_dir)), name="static")
         logger.info(f"Static files mounted from: {static_dir}")
-    except Exception as e:  # pragma: no cover
+    except RuntimeError as e:  # pragma: no cover
         logger.warning(f"Could not mount static files: {e}")
 
     # Root endpoint
@@ -217,12 +217,12 @@ def create_app() -> FastAPI:
 
     # Error handlers
     @app.exception_handler(404)
-    async def not_found_handler(request: Request, exc: Exception) -> JSONResponse:
+    async def not_found_handler(request: Request, _exc: Exception) -> JSONResponse:
         """Handle 404 errors."""
         return JSONResponse(status_code=404, content={"error": "Not found", "path": str(request.url.path)})
 
     @app.exception_handler(500)
-    async def server_error_handler(request: Request, exc: Exception) -> JSONResponse:  # pragma: no cover
+    async def server_error_handler(_request: Request, exc: Exception) -> JSONResponse:  # pragma: no cover
         """Handle 500 errors."""
         logger.error(f"Server error: {exc}")
         return JSONResponse(status_code=500, content={"error": "Internal server error"})
