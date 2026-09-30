@@ -61,8 +61,9 @@ poetry install
 The primary API is a single `plot` function that takes OHLC arrays (plus optional overlays and subplots), starts a local server, and opens your default browser on the interactive chart.
 You normally import everything you need like this:
 
-```python
-from pycharting import plot, stop_server, get_server_status
+```pycon
+>>> from pycharting import plot, stop_server, get_server_status
+
 ```
 
 When you run this script, PyCharting will:
@@ -73,76 +74,70 @@ When you run this script, PyCharting will:
 
 Nothing runs until the first `plot` call:
 
-```python
-status = get_server_status()
-print(status)
-```
-
-```result
+```pycon
+>>> get_server_status()
 {'running': False, 'server_info': None, 'active_sessions': 0}
+
 ```
 
 and stopping a server that was never started is a harmless no-op:
 
-```python
-stop_server()
+```pycon
+>>> stop_server()
+ⓘ No active server to stop
+
 ```
 
-```result
-ⓘ No active server to stop
-```
+The examples in this README are [doctest](https://docs.python.org/3/library/doctest.html) sessions, run by the test suite. To run them yourself: `python -m doctest README.md`.
 
 ## Overlays vs subplots
 
 Once you have your OHLC series, you pass additional series to `plot` in two different ways:
 
-```python
-import contextlib
-import io
+```pycon
+>>> import numpy as np
+>>> import pandas as pd
 
-import numpy as np
-import pandas as pd
+>>> # Synthetic OHLC data — substitute your own series.
+>>> n = 300
+>>> rng = np.random.default_rng(0)
+>>> index = pd.date_range("2024-01-01", periods=n, freq="h")
+>>> close = 100 + np.cumsum(rng.normal(size=n))
+>>> open_ = np.r_[close[0], close[:-1]]
+>>> high = np.maximum(open_, close) + rng.uniform(0, 1, n)
+>>> low = np.minimum(open_, close) - rng.uniform(0, 1, n)
+>>> price = pd.Series(close)
 
-# Synthetic OHLC data — substitute your own series.
-n = 300
-rng = np.random.default_rng(0)
-index = pd.date_range("2024-01-01", periods=n, freq="h")
-close = 100 + np.cumsum(rng.normal(size=n))
-open_ = np.r_[close[0], close[:-1]]
-high = np.maximum(open_, close) + rng.uniform(0, 1, n)
-low = np.minimum(open_, close) - rng.uniform(0, 1, n)
-price = pd.Series(close)
+>>> overlays = {
+...     "SMA_50": price.rolling(50).mean().to_numpy(),  # rendered on top of price
+...     "EMA_200": price.ewm(span=200).mean().to_numpy(),
+... }
+>>> subplots = {
+...     "Momentum": price.diff(14).to_numpy(),  # rendered in its own panel below price
+...     "Range": high - low,
+... }
 
-overlays = {
-    "SMA_50": price.rolling(50).mean().to_numpy(),  # rendered on top of price
-    "EMA_200": price.ewm(span=200).mean().to_numpy(),
-}
+>>> result = plot(  # doctest: +ELLIPSIS
+...     index,
+...     open_,
+...     high,
+...     low,
+...     close,
+...     overlays=overlays,
+...     subplots=subplots,
+...     open_browser=False,  # just print the URL and return it in result["url"]
+...     block=False,  # return straight away instead of waiting for the page to close
+... )
+<BLANKLINE>
+✓ Chart created successfully!
+  URL: http://127.0.0.1:.../static/viewport-demo.html?session=default&v=...
+  Data points: 300
+  Open the URL above in your browser to view the chart.
+<BLANKLINE>
 
-subplots = {
-    "Momentum": price.diff(14).to_numpy(),  # rendered in its own panel below price
-    "Range": high - low,
-}
-
-with contextlib.redirect_stdout(io.StringIO()):  # plot() prints a per-run URL
-    result = plot(
-        index,
-        open_,
-        high,
-        low,
-        close,
-        overlays=overlays,
-        subplots=subplots,
-        open_browser=False,  # just return the URL in result["url"]
-        block=False,  # return straight away instead of waiting for the page to close
-    )
-print(result["status"], result["data_points"])
 ```
 
-```result
-success 300
-```
-
-In a script you would normally drop the `redirect_stdout` and the last two arguments: `plot` then opens your browser, prints the chart URL and waits until you close the page. They are here so the README's examples can run unattended.
+In a script you would normally drop the last two arguments: `plot` then opens your browser and waits until you close the page. They are here so the README's examples can run unattended.
 
 - **Overlays** share the same y‑axis as price and are drawn directly on the candlestick chart (moving averages, bands, signals on price).
 - **Subplots** are stacked independent charts below the main panel with their own y‑scales (oscillators, volume, breadth measures).
@@ -151,46 +146,47 @@ In a script you would normally drop the `redirect_stdout` and the last two argum
 
 Each subplot value can be a plain array (line), a dict with options, or a list of dicts for multi-series panels:
 
-```python
-# A few indicators derived from the data above.
-delta = price.diff()
-gain = delta.clip(lower=0).rolling(14).mean()
-loss = (-delta.clip(upper=0)).rolling(14).mean()
-rsi = (100 - 100 / (1 + gain / loss)).to_numpy()
-rsi_sma = pd.Series(rsi).rolling(20).mean().to_numpy()
-macd_line = (price.ewm(span=12).mean() - price.ewm(span=26).mean()).to_numpy()
-signal_line = pd.Series(macd_line).ewm(span=9).mean().to_numpy()
-histogram = macd_line - signal_line
-volume_array = rng.normal(0, 1000, n)
-events_array = np.where(rng.random(n) < 0.05, close, np.nan)
+```pycon
+>>> # A few indicators derived from the data above.
+>>> delta = price.diff()
+>>> gain = delta.clip(lower=0).rolling(14).mean()
+>>> loss = (-delta.clip(upper=0)).rolling(14).mean()
+>>> rsi = (100 - 100 / (1 + gain / loss)).to_numpy()
+>>> rsi_sma = pd.Series(rsi).rolling(20).mean().to_numpy()
+>>> macd_line = (price.ewm(span=12).mean() - price.ewm(span=26).mean()).to_numpy()
+>>> signal_line = pd.Series(macd_line).ewm(span=9).mean().to_numpy()
+>>> histogram = macd_line - signal_line
+>>> volume_array = rng.normal(0, 1000, n)
+>>> events_array = np.where(rng.random(n) < 0.05, close, np.nan)
 
-subplots = {
-    # Simple line (default)
-    "RSI": rsi,
-    # Bar chart — green if value ≥ 0, red if < 0, centered at y=0
-    "Volume": {"data": volume_array, "type": "bar"},
-    # Scatter plot
-    "Events": {"data": events_array, "type": "scatter", "color": "#9C27B0"},
-    # Multi-series panel: two lines + histogram bars in one subplot
-    "MACD": [
-        {"data": macd_line, "type": "line", "color": "#2196F3", "label": "MACD"},
-        {"data": signal_line, "type": "line", "color": "#FF9800", "label": "Signal"},
-        {"data": histogram, "type": "bar", "label": "Histogram"},
-    ],
-    # RSI with its own moving average overlay
-    "RSI+SMA": [
-        {"data": rsi, "type": "line", "color": "#FF9800", "label": "RSI"},
-        {"data": rsi_sma, "type": "line", "color": "#2196F3", "label": "RSI SMA(20)"},
-    ],
-}
+>>> subplots = {
+...     # Simple line (default)
+...     "RSI": rsi,
+...     # Bar chart — green if value ≥ 0, red if < 0, centered at y=0
+...     "Volume": {"data": volume_array, "type": "bar"},
+...     # Scatter plot
+...     "Events": {"data": events_array, "type": "scatter", "color": "#9C27B0"},
+...     # Multi-series panel: two lines + histogram bars in one subplot
+...     "MACD": [
+...         {"data": macd_line, "type": "line", "color": "#2196F3", "label": "MACD"},
+...         {"data": signal_line, "type": "line", "color": "#FF9800", "label": "Signal"},
+...         {"data": histogram, "type": "bar", "label": "Histogram"},
+...     ],
+...     # RSI with its own moving average overlay
+...     "RSI+SMA": [
+...         {"data": rsi, "type": "line", "color": "#FF9800", "label": "RSI"},
+...         {"data": rsi_sma, "type": "line", "color": "#2196F3", "label": "RSI SMA(20)"},
+...     ],
+... }
 
-with contextlib.redirect_stdout(io.StringIO()):
-    result = plot(index, open_, high, low, close, subplots=subplots, open_browser=False, block=False)
-print(result["status"])
-```
+>>> result = plot(index, open_, high, low, close, subplots=subplots, open_browser=False, block=False)  # doctest: +ELLIPSIS
+<BLANKLINE>
+✓ Chart created successfully!
+  URL: http://127.0.0.1:.../static/viewport-demo.html?session=default&v=...
+  Data points: 300
+  Open the URL above in your browser to view the chart.
+<BLANKLINE>
 
-```result
-success
 ```
 
 Supported series types: `"line"` (default), `"bar"`, `"scatter"`. Each entry accepts optional `"color"` (hex string) and `"label"` (legend text).
@@ -199,27 +195,28 @@ Supported series types: `"line"` (default), `"bar"`, `"scatter"`. Each entry acc
 
 You can overlay buy/sell arrows on the price chart by passing a `trades` array aligned with your index. Values: `1` (buy), `-1` (sell), `0` (no trade).
 
-```python
-trades = np.zeros(len(index), dtype=int)
-trades[42] = 1  # buy at bar 42
-trades[100] = -1  # sell at bar 100
+```pycon
+>>> trades = np.zeros(len(index), dtype=int)
+>>> trades[42] = 1  # buy at bar 42
+>>> trades[100] = -1  # sell at bar 100
 
-with contextlib.redirect_stdout(io.StringIO()):
-    result = plot(
-        index,
-        open=open_,
-        high=high,
-        low=low,
-        close=close,
-        trades=trades,
-        open_browser=False,
-        block=False,
-    )
-print(result["status"])
-```
+>>> result = plot(  # doctest: +ELLIPSIS
+...     index,
+...     open=open_,
+...     high=high,
+...     low=low,
+...     close=close,
+...     trades=trades,
+...     open_browser=False,
+...     block=False,
+... )
+<BLANKLINE>
+✓ Chart created successfully!
+  URL: http://127.0.0.1:.../static/viewport-demo.html?session=default&v=...
+  Data points: 300
+  Open the URL above in your browser to view the chart.
+<BLANKLINE>
 
-```result
-success
 ```
 
 Buy signals render as green upward arrows below the low; sell signals render as red downward arrows above the high.
@@ -242,29 +239,30 @@ The public API is intentionally small and focused. All functions are available f
 
 Every parameter, spelled out (array arguments accept a `np.ndarray`, `pd.Series` or `list`):
 
-```python
-with contextlib.redirect_stdout(io.StringIO()):
-    result = plot(
-        index,
-        open=open_,
-        high=high,
-        low=low,
-        close=close,
-        overlays=None,
-        subplots=None,
-        trades=None,
-        session_id="default",
-        port=None,
-        open_browser=False,  # default: True
-        server_timeout=2.0,
-        block=False,  # default: True
-    )
-    stop_server()
-print(sorted(result))
-```
-
-```result
+```pycon
+>>> result = plot(  # doctest: +ELLIPSIS
+...     index,
+...     open=open_,
+...     high=high,
+...     low=low,
+...     close=close,
+...     overlays=None,
+...     subplots=None,
+...     trades=None,
+...     session_id="default",
+...     port=None,
+...     open_browser=False,  # default: True
+...     server_timeout=2.0,
+...     block=False,  # default: True
+... )
+<BLANKLINE>
+✓ Chart created successfully!
+...
+>>> sorted(result)
 ['data_points', 'server_running', 'server_url', 'session_id', 'status', 'url']
+>>> stop_server()
+✓ Chart server stopped
+
 ```
 
 - **index**: datetime x-axis values — `pd.DatetimeIndex`, Unix timestamps in milliseconds (`np.int64`), or a numeric array.
