@@ -71,32 +71,78 @@ When you run this script, PyCharting will:
 - register your OHLC series and overlays in a session,
 - open your default browser to a minimal full‑page chart UI showing price and overlays.
 
+Nothing runs until the first `plot` call:
+
+```python
+status = get_server_status()
+print(status)
+```
+
+```result
+{'running': False, 'server_info': None, 'active_sessions': 0}
+```
+
+and stopping a server that was never started is a harmless no-op:
+
+```python
+stop_server()
+```
+
+```result
+ⓘ No active server to stop
+```
+
 ## Overlays vs subplots
 
 Once you have your OHLC series, you pass additional series to `plot` in two different ways:
 
-<!-- Not executed: a fragment referencing the indicator functions and series you supply. -->
-```python +RHIZA_SKIP
+```python
+import contextlib
+import io
+
+import numpy as np
+import pandas as pd
+
+# Synthetic OHLC data — substitute your own series.
+n = 300
+rng = np.random.default_rng(0)
+index = pd.date_range("2024-01-01", periods=n, freq="h")
+close = 100 + np.cumsum(rng.normal(size=n))
+open_ = np.r_[close[0], close[:-1]]
+high = np.maximum(open_, close) + rng.uniform(0, 1, n)
+low = np.minimum(open_, close) - rng.uniform(0, 1, n)
+price = pd.Series(close)
+
 overlays = {
-    "SMA_50": sma(close, 50),  # rendered on top of price
-    "EMA_200": ema(close, 200),
+    "SMA_50": price.rolling(50).mean().to_numpy(),  # rendered on top of price
+    "EMA_200": price.ewm(span=200).mean().to_numpy(),
 }
 
 subplots = {
-    "RSI_like": rsi_like_series,  # rendered in its own panel below price
-    "Stoch_like": stoch_series,
+    "Momentum": price.diff(14).to_numpy(),  # rendered in its own panel below price
+    "Range": high - low,
 }
 
-plot(
-    index,
-    open_,
-    high,
-    low,
-    close,
-    overlays=overlays,
-    subplots=subplots,
-)
+with contextlib.redirect_stdout(io.StringIO()):  # plot() prints a per-run URL
+    result = plot(
+        index,
+        open_,
+        high,
+        low,
+        close,
+        overlays=overlays,
+        subplots=subplots,
+        open_browser=False,  # just return the URL in result["url"]
+        block=False,  # return straight away instead of waiting for the page to close
+    )
+print(result["status"], result["data_points"])
 ```
+
+```result
+success 300
+```
+
+In a script you would normally drop the `redirect_stdout` and the last two arguments: `plot` then opens your browser, prints the chart URL and waits until you close the page. They are here so the README's examples can run unattended.
 
 - **Overlays** share the same y‑axis as price and are drawn directly on the candlestick chart (moving averages, bands, signals on price).
 - **Subplots** are stacked independent charts below the main panel with their own y‑scales (oscillators, volume, breadth measures).
@@ -105,11 +151,22 @@ plot(
 
 Each subplot value can be a plain array (line), a dict with options, or a list of dicts for multi-series panels:
 
-<!-- Not executed: a fragment referencing the indicator arrays you supply. -->
-```python +RHIZA_SKIP
+```python
+# A few indicators derived from the data above.
+delta = price.diff()
+gain = delta.clip(lower=0).rolling(14).mean()
+loss = (-delta.clip(upper=0)).rolling(14).mean()
+rsi = (100 - 100 / (1 + gain / loss)).to_numpy()
+rsi_sma = pd.Series(rsi).rolling(20).mean().to_numpy()
+macd_line = (price.ewm(span=12).mean() - price.ewm(span=26).mean()).to_numpy()
+signal_line = pd.Series(macd_line).ewm(span=9).mean().to_numpy()
+histogram = macd_line - signal_line
+volume_array = rng.normal(0, 1000, n)
+events_array = np.where(rng.random(n) < 0.05, close, np.nan)
+
 subplots = {
     # Simple line (default)
-    "RSI": rsi_array,
+    "RSI": rsi,
     # Bar chart — green if value ≥ 0, red if < 0, centered at y=0
     "Volume": {"data": volume_array, "type": "bar"},
     # Scatter plot
@@ -126,6 +183,14 @@ subplots = {
         {"data": rsi_sma, "type": "line", "color": "#2196F3", "label": "RSI SMA(20)"},
     ],
 }
+
+with contextlib.redirect_stdout(io.StringIO()):
+    result = plot(index, open_, high, low, close, subplots=subplots, open_browser=False, block=False)
+print(result["status"])
+```
+
+```result
+success
 ```
 
 Supported series types: `"line"` (default), `"bar"`, `"scatter"`. Each entry accepts optional `"color"` (hex string) and `"label"` (legend text).
@@ -134,22 +199,27 @@ Supported series types: `"line"` (default), `"bar"`, `"scatter"`. Each entry acc
 
 You can overlay buy/sell arrows on the price chart by passing a `trades` array aligned with your index. Values: `1` (buy), `-1` (sell), `0` (no trade).
 
-<!-- Not executed: references your own index/OHLC series, and plot() starts a server and opens a browser. -->
-```python +RHIZA_SKIP
-import numpy as np
-
+```python
 trades = np.zeros(len(index), dtype=int)
 trades[42] = 1  # buy at bar 42
 trades[100] = -1  # sell at bar 100
 
-plot(
-    index,
-    open=open_,
-    high=high,
-    low=low,
-    close=close,
-    trades=trades,
-)
+with contextlib.redirect_stdout(io.StringIO()):
+    result = plot(
+        index,
+        open=open_,
+        high=high,
+        low=low,
+        close=close,
+        trades=trades,
+        open_browser=False,
+        block=False,
+    )
+print(result["status"])
+```
+
+```result
+success
 ```
 
 Buy signals render as green upward arrows below the low; sell signals render as red downward arrows above the high.
@@ -170,30 +240,31 @@ The public API is intentionally small and focused. All functions are available f
 
 ### `plot`
 
-<!-- Not executed: an annotated signature for reference, not valid Python at a call site. -->
-```python +RHIZA_SKIP
-from typing import Dict, Any, Optional, Union
+Every parameter, spelled out (array arguments accept a `np.ndarray`, `pd.Series` or `list`):
 
-import numpy as np
-import pandas as pd
-from pycharting import plot
+```python
+with contextlib.redirect_stdout(io.StringIO()):
+    result = plot(
+        index,
+        open=open_,
+        high=high,
+        low=low,
+        close=close,
+        overlays=None,
+        subplots=None,
+        trades=None,
+        session_id="default",
+        port=None,
+        open_browser=False,  # default: True
+        server_timeout=2.0,
+        block=False,  # default: True
+    )
+    stop_server()
+print(sorted(result))
+```
 
-ArrayLike = Union[np.ndarray, pd.Series, list]
-
-result: Dict[str, Any] = plot(
-    index: ArrayLike,
-    open: ArrayLike,
-    high: ArrayLike,
-    low: ArrayLike,
-    close: ArrayLike,
-    overlays: Optional[Dict[str, ArrayLike]] = None,
-    subplots: Optional[Dict[str, ArrayLike]] = None,
-    trades: Optional[ArrayLike] = None,
-    session_id: str = "default",
-    port: Optional[int] = None,
-    open_browser: bool = True,
-    server_timeout: float = 2.0,
-)
+```result
+['data_points', 'server_running', 'server_url', 'session_id', 'status', 'url']
 ```
 
 - **index**: datetime x-axis values — `pd.DatetimeIndex`, Unix timestamps in milliseconds (`np.int64`), or a numeric array.
@@ -204,6 +275,8 @@ result: Dict[str, Any] = plot(
 - **session_id**: identifier for the data session; can be used to host multiple concurrent charts.
 - **port**: optional port override; if `None`, PyCharting picks an available port.
 - **open_browser**: if `False`, you get the URL back in `result["url"]` but the browser is not opened automatically.
+- **server_timeout**: seconds to wait for a newly started server to come up before returning.
+- **block**: if `True` (the default), `plot` waits until the chart page is closed and the server shuts down; pass `False` to return immediately.
 
 The returned dict includes:
 
@@ -216,36 +289,11 @@ The returned dict includes:
 
 ### `stop_server`
 
-```python
-from pycharting import stop_server
-
-stop_server()
-```
-
-With no server running, it says so and does nothing:
-
-```result
-ⓘ No active server to stop
-```
-
-Stops the active chart server if it is running. This is useful in long‑running processes and demos to clean up after you are done exploring charts.
+Stops the active chart server if it is running, and says so when there is none (see [Quick start](#quick-start)). This is useful in long‑running processes and demos to clean up after you are done exploring charts.
 
 ### `get_server_status`
 
-```python
-from pycharting import get_server_status
-
-status = get_server_status()
-print(status)
-```
-
-Before any chart has been plotted:
-
-```result
-{'running': False, 'server_info': None, 'active_sessions': 0}
-```
-
-Returns a small dict with:
+Returns a small dict (see [Quick start](#quick-start) for its value before any chart is plotted) with:
 
 - `running`: whether the server is alive,
 - `server_info`: host/port and other metadata if running,
