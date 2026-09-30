@@ -271,3 +271,21 @@ def test_run_server_auto_port_fallback():
             run_server(host="127.0.0.1", port=occupied, auto_port=True)
             mock_ffp.assert_called_once_with(occupied + 1)
             assert mock_uvicorn.run.call_args.kwargs["port"] == fallback
+
+
+def test_import_leaves_root_logging_unconfigured():
+    """Importing pycharting must not install handlers on the root logger (#100).
+
+    Run in a fresh interpreter: pytest attaches its own capture handlers to the
+    root logger, so an in-process check would never see an empty list.
+    """
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import logging, pycharting; print(logging.getLogger().handlers)"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == "[]"
